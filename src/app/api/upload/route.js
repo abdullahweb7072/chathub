@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
 import jwt from "jsonwebtoken";
+import path from "path";
+import { randomUUID } from "crypto";
+import {
+    S3Client,
+    PutObjectCommand,
+} from "@aws-sdk/client-s3";
 
 // ============================================================
 // CONFIGURATION
@@ -9,6 +13,23 @@ import jwt from "jsonwebtoken";
 
 // Maximum upload size: 50 MB
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
+
+// ============================================================
+// S3 / CLOUD STORAGE CLIENT
+// ============================================================
+
+const s3 = new S3Client({
+    region: process.env.TOKEN_AI_REGION,
+
+    endpoint: process.env.TOKEN_AI_ENDPOINT,
+
+    credentials: {
+        accessKeyId: process.env.TOKEN_AI_ACCESS_KEY,
+        secretAccessKey: process.env.TOKEN_AI_SECRET_KEY,
+    },
+
+    forcePathStyle: true,
+});
 
 // ============================================================
 // ALLOWED FILE TYPES
@@ -113,6 +134,33 @@ export async function POST(request) {
         console.log("================================");
         console.log("📎 CHAT FILE UPLOAD");
         console.log("================================");
+
+        // ==================================================
+        // CHECK STORAGE CONFIGURATION
+        // ==================================================
+
+        if (
+            !process.env.TOKEN_AI_ACCESS_KEY ||
+            !process.env.TOKEN_AI_SECRET_KEY ||
+            !process.env.TOKEN_AI_ENDPOINT ||
+            !process.env.TOKEN_AI_BUCKET ||
+            !process.env.TOKEN_AI_REGION
+        ) {
+            console.error(
+                "❌ Cloud storage environment variables are missing"
+            );
+
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "Cloud storage is not configured correctly",
+                },
+                {
+                    status: 500,
+                }
+            );
+        }
 
         // ==================================================
         // AUTHENTICATION
@@ -318,25 +366,6 @@ export async function POST(request) {
         );
 
         // ==================================================
-        // CREATE UPLOAD DIRECTORY
-        // ==================================================
-
-        const uploadDirectory =
-            path.join(
-                process.cwd(),
-                "public",
-                "uploads",
-                "chat"
-            );
-
-        await fs.mkdir(
-            uploadDirectory,
-            {
-                recursive: true,
-            }
-        );
-
-        // ==================================================
         // SAFE FILE NAME
         // ==================================================
 
@@ -364,17 +393,33 @@ export async function POST(request) {
         const safeBaseName =
             baseName || "file";
 
-        const uniqueName =
-            `${Date.now()}-${crypto.randomUUID()}-${safeBaseName}${extension}`;
+        // ==================================================
+        // UNIQUE OBJECT NAME
+        // ==================================================
 
-        const filePath =
-            path.join(
-                uploadDirectory,
-                uniqueName
-            );
+        const uniqueName =
+            `${Date.now()}-${randomUUID()}-${safeBaseName}${extension}`;
+
+        // Keep files organized by type
+        const objectKey =
+            `chat/${messageType.toLowerCase()}/${uniqueName}`;
+
+        console.log(
+            "☁️ Uploading to bucket..."
+        );
+
+        console.log(
+            "🪣 Bucket:",
+            process.env.TOKEN_AI_BUCKET
+        );
+
+        console.log(
+            "🔑 Object:",
+            objectKey
+        );
 
         // ==================================================
-        // SAVE FILE
+        // CONVERT FILE TO BUFFER
         // ==================================================
 
         const bytes =
@@ -383,22 +428,58 @@ export async function POST(request) {
         const buffer =
             Buffer.from(bytes);
 
-        await fs.writeFile(
-            filePath,
-            buffer
+        // ==================================================
+        // UPLOAD TO CLOUD STORAGE
+        // ==================================================
+
+        const uploadCommand =
+            new PutObjectCommand({
+                Bucket:
+                    process.env.TOKEN_AI_BUCKET,
+
+                Key:
+                    objectKey,
+
+                Body:
+                    buffer,
+
+                ContentType:
+                    file.type,
+
+                ContentLength:
+                    file.size,
+
+                // Useful if your bucket supports
+                // public object access.
+                ContentDisposition:
+                    `inline; filename="${encodeURIComponent(
+                        file.name
+                    )}"`,
+            });
+
+        await s3.send(
+            uploadCommand
+        );
+
+        console.log(
+            "✅ File uploaded to cloud storage"
         );
 
         // ==================================================
         // PUBLIC URL
         // ==================================================
 
-        const url =
-            `/uploads/chat/${uniqueName}`;
+        const endpoint =
+            process.env.TOKEN_AI_ENDPOINT.replace(
+                /\/$/,
+                ""
+            );
 
-        console.log(
-            "✅ File saved:",
-            filePath
-        );
+        const bucket =
+            process.env.TOKEN_AI_BUCKET;
+
+        const url =
+            `${endpoint}/${bucket}/${objectKey}`;
 
         console.log(
             "🌐 Public URL:",
@@ -415,26 +496,39 @@ export async function POST(request) {
 
                 url,
 
-                name: file.name,
+                name:
+                    file.name,
 
-                size: file.size,
+                size:
+                    file.size,
 
-                mimeType: file.type,
+                mimeType:
+                    file.type,
 
-                type: messageType,
+                type:
+                    messageType,
 
                 data: {
                     url,
-                    name: file.name,
-                    size: file.size,
-                    mimeType: file.type,
-                    type: messageType,
+
+                    name:
+                        file.name,
+
+                    size:
+                        file.size,
+
+                    mimeType:
+                        file.type,
+
+                    type:
+                        messageType,
                 },
             },
             {
                 status: 200,
             }
         );
+
     } catch (error) {
         console.error(
             "❌ FILE UPLOAD ERROR:",
@@ -444,6 +538,7 @@ export async function POST(request) {
         return NextResponse.json(
             {
                 success: false,
+
                 message:
                     error?.message ||
                     "Failed to upload file",
