@@ -15,12 +15,14 @@ import {
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 // ============================================================
-// S3 / CLOUD STORAGE CLIENT
+// S3 / CLOUDFLARE R2 CLIENT
 // ============================================================
 
 const s3 = new S3Client({
-    region: process.env.TOKEN_AI_REGION,
+    // Cloudflare R2 uses "auto"
+    region: process.env.TOKEN_AI_REGION || "auto",
 
+    // This MUST be the R2 S3 API endpoint
     endpoint: process.env.TOKEN_AI_ENDPOINT,
 
     credentials: {
@@ -136,7 +138,7 @@ export async function POST(request) {
         console.log("================================");
 
         // ==================================================
-        // CHECK STORAGE CONFIGURATION
+        // CHECK CLOUD STORAGE CONFIGURATION
         // ==================================================
 
         if (
@@ -144,7 +146,7 @@ export async function POST(request) {
             !process.env.TOKEN_AI_SECRET_KEY ||
             !process.env.TOKEN_AI_ENDPOINT ||
             !process.env.TOKEN_AI_BUCKET ||
-            !process.env.TOKEN_AI_REGION
+            !process.env.TOKEN_AI_PUBLIC_URL
         ) {
             console.error(
                 "❌ Cloud storage environment variables are missing"
@@ -400,12 +402,15 @@ export async function POST(request) {
         const uniqueName =
             `${Date.now()}-${randomUUID()}-${safeBaseName}${extension}`;
 
-        // Keep files organized by type
+        // ==================================================
+        // OBJECT PATH IN R2
+        // ==================================================
+
         const objectKey =
             `chat/${messageType.toLowerCase()}/${uniqueName}`;
 
         console.log(
-            "☁️ Uploading to bucket..."
+            "☁️ Uploading to Cloudflare R2..."
         );
 
         console.log(
@@ -429,7 +434,7 @@ export async function POST(request) {
             Buffer.from(bytes);
 
         // ==================================================
-        // UPLOAD TO CLOUD STORAGE
+        // UPLOAD TO R2
         // ==================================================
 
         const uploadCommand =
@@ -449,8 +454,6 @@ export async function POST(request) {
                 ContentLength:
                     file.size,
 
-                // Useful if your bucket supports
-                // public object access.
                 ContentDisposition:
                     `inline; filename="${encodeURIComponent(
                         file.name
@@ -462,24 +465,21 @@ export async function POST(request) {
         );
 
         console.log(
-            "✅ File uploaded to cloud storage"
+            "✅ File uploaded to Cloudflare R2"
         );
 
         // ==================================================
-        // PUBLIC URL
+        // GENERATE PUBLIC R2 URL
         // ==================================================
 
-        const endpoint =
-            process.env.TOKEN_AI_ENDPOINT.replace(
+        const publicUrl =
+            process.env.TOKEN_AI_PUBLIC_URL.replace(
                 /\/$/,
                 ""
             );
 
-        const bucket =
-            process.env.TOKEN_AI_BUCKET;
-
         const url =
-            `${endpoint}/${bucket}/${objectKey}`;
+            `${publicUrl}/${objectKey}`;
 
         console.log(
             "🌐 Public URL:",
