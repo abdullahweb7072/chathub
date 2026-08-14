@@ -787,633 +787,647 @@ app.prepare()
                 // START CALL
                 // ====================================================
 
-                socket.on(
-                    "call_user",
-                    async (data, callback) => {
-                        try {
-                            const callerId =
-                                Number(
-                                    socket.user.id
-                                );
+              socket.on(
+    "call_user",
+    async (data, callback) => {
+        try {
+            const callerId =
+                Number(
+                    socket.user?.id
+                );
 
-                            const receiverId =
-                                Number(
-                                    data?.receiverId
-                                );
+            const receiverId =
+                Number(
+                    data?.receiverId
+                );
 
-                            const conversationId =
-                                Number(
-                                    data?.conversationId
-                                );
+            const conversationId =
+                Number(
+                    data?.conversationId
+                );
 
-                            const callType =
-                                data?.type === "video"
-                                    ? "video"
-                                    : "audio";
+            const callType =
+                data?.callType ===
+                "video"
+                    ? "video"
+                    : "audio";
 
-                            if (
-                                !Number.isInteger(
-                                    receiverId
-                                ) ||
-                                receiverId <= 0
-                            ) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "Invalid receiver ID",
-                                });
-                            }
+            // ====================================================
+            // VALIDATION
+            // ====================================================
 
-                            if (
-                                !Number.isInteger(
-                                    conversationId
-                                ) ||
-                                conversationId <= 0
-                            ) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "Invalid conversation ID",
-                                });
-                            }
+            if (
+                !Number.isInteger(
+                    callerId
+                ) ||
+                callerId <= 0
+            ) {
+                throw new Error(
+                    "Invalid caller."
+                );
+            }
 
-                            if (
-                                receiverId ===
-                                callerId
-                            ) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "You cannot call yourself",
-                                });
-                            }
+            if (
+                !Number.isInteger(
+                    receiverId
+                ) ||
+                receiverId <= 0
+            ) {
+                throw new Error(
+                    "Invalid receiver."
+                );
+            }
 
-                            // ==================================================
-                            // VERIFY CALLER MEMBERSHIP
-                            // ==================================================
+            if (
+                !Number.isInteger(
+                    conversationId
+                ) ||
+                conversationId <= 0
+            ) {
+                throw new Error(
+                    "Invalid conversation."
+                );
+            }
 
-                            const callerIsMember =
-                                await isConversationMember(
-                                    callerId,
-                                    conversationId
-                                );
+            if (
+                callerId ===
+                receiverId
+            ) {
+                throw new Error(
+                    "Cannot call yourself."
+                );
+            }
 
-                            if (!callerIsMember) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "You are not a member of this conversation",
-                                });
-                            }
+            // ====================================================
+            // CHECK IF CALLER ALREADY HAS A CALL
+            // ====================================================
 
-                            // ==================================================
-                            // VERIFY RECEIVER MEMBERSHIP
-                            // ==================================================
+            if (
+                userActiveCalls.has(
+                    callerId
+                )
+            ) {
+                const response = {
+                    success: false,
 
-                            const receiverIsMember =
-                                await isConversationMember(
-                                    receiverId,
-                                    conversationId
-                                );
+                    message:
+                        "You are already in another call.",
 
-                            if (!receiverIsMember) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "The selected user is not a member of this conversation",
-                                });
-                            }
+                    reason: "busy",
+                };
 
-                            // ==================================================
-                            // CHECK CALLER ALREADY IN CALL
-                            // ==================================================
+                if (
+                    typeof callback ===
+                    "function"
+                ) {
+                    callback(
+                        response
+                    );
+                }
 
-                            if (
-                                userActiveCalls.has(
-                                    callerId
-                                )
-                            ) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "You are already in a call",
-                                });
-                            }
+                return;
+            }
 
-                            // ==================================================
-                            // CHECK RECEIVER ALREADY IN CALL
-                            // ==================================================
+            // ====================================================
+            // CHECK IF RECEIVER IS ALREADY IN A CALL
+            // ====================================================
 
-                            if (
-                                userActiveCalls.has(
-                                    receiverId
-                                )
-                            ) {
-                                socket.emit(
-                                    "call_busy",
-                                    {
-                                        receiverId,
-                                        conversationId,
-                                        type:
-                                            callType,
-                                    }
-                                );
+            if (
+                userActiveCalls.has(
+                    receiverId
+                )
+            ) {
+                const response = {
+                    success: false,
 
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "User is already in another call",
-                                    code:
-                                        "USER_BUSY",
-                                });
-                            }
+                    message:
+                        "User is busy.",
 
-                            // ==================================================
-                            // CHECK RECEIVER ONLINE
-                            // ==================================================
+                    reason: "busy",
+                };
 
-                            const receiverConnections =
-                                onlineUsers.get(
-                                    receiverId
-                                ) || 0;
+                if (
+                    typeof callback ===
+                    "function"
+                ) {
+                    callback(
+                        response
+                    );
+                }
 
-                            if (
-                                receiverConnections <=
-                                0
-                            ) {
-                                socket.emit(
-                                    "call_unavailable",
-                                    {
-                                        receiverId,
-                                        conversationId,
-                                        type:
-                                            callType,
-                                        reason:
-                                            "USER_OFFLINE",
-                                    }
-                                );
+                // Notify caller UI too.
+                socket.emit(
+                    "call_rejected",
+                    {
+                        callId: null,
 
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "User is offline",
-                                    code:
-                                        "USER_OFFLINE",
-                                });
-                            }
+                        conversationId,
 
-                            // ==================================================
-                            // CREATE CALL
-                            // ==================================================
+                        callerId,
 
-                            const callId =
-                                generateCallId();
+                        receiverId,
 
-                            const call = {
-                                callId,
-
-                                conversationId,
-
-                                callerId,
-
-                                receiverId,
-
-                                type:
-                                    callType,
-
-                                status:
-                                    "ringing",
-
-                                startedAt:
-                                    new Date(),
-                            };
-
-                            activeCalls.set(
-                                callId,
-                                call
-                            );
-
-                            userActiveCalls.set(
-                                callerId,
-                                callId
-                            );
-
-                            userActiveCalls.set(
-                                receiverId,
-                                callId
-                            );
-
-                            // ==================================================
-                            // GET CALLER INFORMATION
-                            // ==================================================
-
-                            const caller =
-                                await prisma.user.findUnique({
-                                    where: {
-                                        id:
-                                            callerId,
-                                    },
-
-                                    select: {
-                                        id: true,
-                                        username: true,
-                                        displayName: true,
-                                        avatar: true,
-                                    },
-                                });
-
-                            // ==================================================
-                            // SEND INCOMING CALL
-                            // ==================================================
-
-                            io.to(
-                                getUserRoom(
-                                    receiverId
-                                )
-                            ).emit(
-                                "incoming_call",
-                                {
-                                    callId,
-
-                                    conversationId,
-
-                                    type:
-                                        callType,
-
-                                    caller: {
-                                        id:
-                                            caller?.id ??
-                                            callerId,
-
-                                        username:
-                                            caller?.username ??
-                                            null,
-
-                                        displayName:
-                                            caller?.displayName ??
-                                            null,
-
-                                        avatar:
-                                            caller?.avatar ??
-                                            null,
-                                    },
-                                }
-                            );
-
-                            console.log(
-                                `📞 ${callType.toUpperCase()} CALL STARTED: ${callerId} -> ${receiverId}`
-                            );
-
-                            callback?.({
-                                success: true,
-
-                                callId,
-
-                                type:
-                                    callType,
-
-                                message:
-                                    "Call started",
-                            });
-                        } catch (error) {
-                            console.error(
-                                "❌ CALL USER ERROR:",
-                                error
-                            );
-
-                            callback?.({
-                                success: false,
-
-                                message:
-                                    "Failed to start call",
-                            });
-                        }
+                        reason: "busy",
                     }
                 );
+
+                return;
+            }
+
+            // ====================================================
+            // GENERATE ONE OFFICIAL CALL ID
+            // ====================================================
+
+            const callId =
+                `${callerId}-${receiverId}-${Date.now()}-${Math.random()
+                    .toString(36)
+                    .slice(2, 10)}`;
+
+            // ====================================================
+            // STORE CALL
+            // ====================================================
+
+            const call = {
+                callId,
+
+                conversationId,
+
+                callerId,
+
+                receiverId,
+
+                callType,
+
+                status: "ringing",
+
+                createdAt:
+                    Date.now(),
+            };
+
+            activeCalls.set(
+                callId,
+                call
+            );
+
+            userActiveCalls.set(
+                callerId,
+                callId
+            );
+
+            userActiveCalls.set(
+                receiverId,
+                callId
+            );
+
+            console.log(
+                "📞 CALL CREATED:",
+                call
+            );
+
+            // ====================================================
+            // GET CALLER INFORMATION
+            // ====================================================
+
+            const caller =
+                await prisma.user.findUnique(
+                    {
+                        where: {
+                            id:
+                                callerId,
+                        },
+
+                        select: {
+                            id: true,
+                            username: true,
+                            displayName: true,
+                            avatar: true,
+                        },
+                    }
+                );
+
+            // ====================================================
+            // SEND INCOMING CALL
+            // ====================================================
+
+            io.to(
+                getUserRoom(
+                    receiverId
+                )
+            ).emit(
+                "incoming_call",
+                {
+                    callId,
+
+                    conversationId,
+
+                    callerId,
+
+                    receiverId,
+
+                    callType,
+
+                    // Compatibility
+                    type:
+                        callType,
+
+                    caller:
+                        caller || {
+                            id:
+                                callerId,
+                        },
+                }
+            );
+
+            // ====================================================
+            // SEND SUCCESS TO CALLER
+            // ====================================================
+
+            const response = {
+                success: true,
+
+                callId,
+
+                type:
+                    callType,
+
+                callType,
+
+                message:
+                    "Call started",
+            };
+
+            if (
+                typeof callback ===
+                "function"
+            ) {
+                callback(
+                    response
+                );
+            }
+        } catch (error) {
+            console.error(
+                "❌ CALL_USER ERROR:",
+                error
+            );
+
+            if (
+                typeof callback ===
+                "function"
+            ) {
+                callback({
+                    success: false,
+
+                    message:
+                        error?.message ||
+                        "Unable to start call.",
+                });
+            }
+        }
+    }
+);
 
                 // ====================================================
                 // ACCEPT CALL
                 // ====================================================
 
-                socket.on(
-                    "call_accept",
-                    async (data, callback) => {
-                        try {
-                            const currentUserId =
-                                Number(
-                                    socket.user.id
-                                );
+               socket.on(
+    "call_accept",
+    async (data) => {
+        try {
+            const userId =
+                Number(
+                    socket.user?.id
+                );
 
-                            const callId =
-                                data?.callId;
+            const callId =
+                data?.callId;
 
-                            if (!callId) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "Call ID is required",
-                                });
-                            }
+            if (
+                !callId
+            ) {
+                console.error(
+                    "❌ call_accept: missing callId"
+                );
 
-                            const call =
-                                activeCalls.get(
-                                    callId
-                                );
+                return;
+            }
 
-                            if (!call) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "Call no longer exists",
-                                });
-                            }
+            const call =
+                activeCalls.get(
+                    callId
+                );
 
-                            // Only receiver can accept.
-                            if (
-                                call.receiverId !==
-                                currentUserId
-                            ) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "You cannot accept this call",
-                                });
-                            }
+            if (!call) {
+                console.error(
+                    "❌ call_accept: call not found:",
+                    callId
+                );
 
-                            if (
-                                call.status !==
-                                "ringing"
-                            ) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "Call is no longer ringing",
-                                });
-                            }
+                return;
+            }
 
-                            call.status =
-                                "accepted";
-
-                            activeCalls.set(
-                                callId,
-                                call
-                            );
-
-                            // ==================================================
-                            // INFORM CALLER
-                            // ==================================================
-
-                            io.to(
-                                getUserRoom(
-                                    call.callerId
-                                )
-                            ).emit(
-                                "call_accepted",
-                                {
-                                    callId,
-
-                                    conversationId:
-                                        call.conversationId,
-
-                                    type:
-                                        call.type,
-
-                                    acceptedBy:
-                                        currentUserId,
-                                }
-                            );
-
-                            console.log(
-                                `📞 CALL ACCEPTED: ${callId}`
-                            );
-
-                            callback?.({
-                                success: true,
-
-                                callId,
-
-                                message:
-                                    "Call accepted",
-                            });
-                        } catch (error) {
-                            console.error(
-                                "❌ CALL ACCEPT ERROR:",
-                                error
-                            );
-
-                            callback?.({
-                                success: false,
-
-                                message:
-                                    "Failed to accept call",
-                            });
-                        }
+            // Only receiver can accept.
+            if (
+                Number(
+                    call.receiverId
+                ) !== userId
+            ) {
+                console.error(
+                    "❌ Unauthorized call acceptance:",
+                    {
+                        callId,
+                        userId,
                     }
                 );
+
+                return;
+            }
+
+            call.status =
+                "active";
+
+            activeCalls.set(
+                callId,
+                call
+            );
+
+            console.log(
+                "✅ CALL ACCEPTED:",
+                call
+            );
+
+            // Notify caller
+            io.to(
+                getUserRoom(
+                    call.callerId
+                )
+            ).emit(
+                "call_accepted",
+                {
+                    callId,
+
+                    conversationId:
+                        call.conversationId,
+
+                    callerId:
+                        call.callerId,
+
+                    receiverId:
+                        call.receiverId,
+
+                    callType:
+                        call.callType,
+
+                    type:
+                        call.callType,
+                }
+            );
+        } catch (error) {
+            console.error(
+                "❌ CALL_ACCEPT ERROR:",
+                error
+            );
+        }
+    }
+);
 
                 // ====================================================
                 // REJECT CALL
                 // ====================================================
 
-                socket.on(
-                    "call_reject",
-                    async (data, callback) => {
-                        try {
-                            const currentUserId =
-                                Number(
-                                    socket.user.id
-                                );
+               socket.on(
+    "call_reject",
+    async (data) => {
+        try {
+            const userId =
+                Number(
+                    socket.user?.id
+                );
 
-                            const callId =
-                                data?.callId;
+            const callId =
+                data?.callId;
 
-                            if (!callId) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "Call ID is required",
-                                });
-                            }
+            const reason =
+                data?.reason ||
+                "rejected";
 
-                            const call =
-                                activeCalls.get(
-                                    callId
-                                );
+            if (!callId) {
+                console.error(
+                    "❌ call_reject: missing callId"
+                );
 
-                            if (!call) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "Call no longer exists",
-                                });
-                            }
+                return;
+            }
 
-                            if (
-                                call.receiverId !==
-                                currentUserId
-                            ) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "You cannot reject this call",
-                                });
-                            }
+            const call =
+                activeCalls.get(
+                    callId
+                );
 
-                            io.to(
-                                getUserRoom(
-                                    call.callerId
-                                )
-                            ).emit(
-                                "call_rejected",
-                                {
-                                    callId,
+            if (!call) {
+                console.warn(
+                    "⚠️ call_reject: call not found:",
+                    callId
+                );
 
-                                    conversationId:
-                                        call.conversationId,
+                return;
+            }
 
-                                    type:
-                                        call.type,
-
-                                    rejectedBy:
-                                        currentUserId,
-                                }
-                            );
-
-                            cleanupCall(
-                                callId
-                            );
-
-                            console.log(
-                                `📞 CALL REJECTED: ${callId}`
-                            );
-
-                            callback?.({
-                                success: true,
-
-                                callId,
-
-                                message:
-                                    "Call rejected",
-                            });
-                        } catch (error) {
-                            console.error(
-                                "❌ CALL REJECT ERROR:",
-                                error
-                            );
-
-                            callback?.({
-                                success: false,
-
-                                message:
-                                    "Failed to reject call",
-                            });
-                        }
+            if (
+                userId !==
+                    call.callerId &&
+                userId !==
+                    call.receiverId
+            ) {
+                console.error(
+                    "❌ Unauthorized call rejection:",
+                    {
+                        callId,
+                        userId,
                     }
                 );
+
+                return;
+            }
+
+            console.log(
+                "❌ CALL REJECTED:",
+                {
+                    callId,
+                    reason,
+                }
+            );
+
+            cleanupCall(
+                callId
+            );
+
+            // Notify both sides
+            io.to(
+                getUserRoom(
+                    call.callerId
+                )
+            ).emit(
+                "call_rejected",
+                {
+                    callId,
+
+                    conversationId:
+                        call.conversationId,
+
+                    callerId:
+                        call.callerId,
+
+                    receiverId:
+                        call.receiverId,
+
+                    reason,
+                }
+            );
+
+            io.to(
+                getUserRoom(
+                    call.receiverId
+                )
+            ).emit(
+                "call_rejected",
+                {
+                    callId,
+
+                    conversationId:
+                        call.conversationId,
+
+                    callerId:
+                        call.callerId,
+
+                    receiverId:
+                        call.receiverId,
+
+                    reason,
+                }
+            );
+        } catch (error) {
+            console.error(
+                "❌ CALL_REJECT ERROR:",
+                error
+            );
+        }
+    }
+);
 
                 // ====================================================
                 // END CALL
                 // ====================================================
 
-                socket.on(
-                    "call_end",
-                    async (data, callback) => {
-                        try {
-                            const currentUserId =
-                                Number(
-                                    socket.user.id
-                                );
+             socket.on(
+    "call_end",
+    async (data) => {
+        try {
+            const userId =
+                Number(
+                    socket.user?.id
+                );
 
-                            const callId =
-                                data?.callId;
+            const callId =
+                data?.callId;
 
-                            if (!callId) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "Call ID is required",
-                                });
-                            }
+            const reason =
+                data?.reason ||
+                "ended";
 
-                            const call =
-                                activeCalls.get(
-                                    callId
-                                );
+            if (!callId) {
+                console.warn(
+                    "⚠️ call_end: missing callId"
+                );
 
-                            if (!call) {
-                                return callback?.({
-                                    success: true,
+                return;
+            }
 
-                                    message:
-                                        "Call already ended",
-                                });
-                            }
+            const call =
+                activeCalls.get(
+                    callId
+                );
 
-                            const participant =
-                                getOtherCallParticipant(
-                                    call,
-                                    currentUserId
-                                );
+            if (!call) {
+                console.warn(
+                    "⚠️ call_end: call already cleaned:",
+                    callId
+                );
 
-                            if (!participant) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "You are not part of this call",
-                                });
-                            }
+                return;
+            }
 
-                            io.to(
-                                getUserRoom(
-                                    participant
-                                )
-                            ).emit(
-                                "call_ended",
-                                {
-                                    callId,
-
-                                    conversationId:
-                                        call.conversationId,
-
-                                    type:
-                                        call.type,
-
-                                    endedBy:
-                                        currentUserId,
-                                }
-                            );
-
-                            cleanupCall(
-                                callId
-                            );
-
-                            console.log(
-                                `📞 CALL ENDED: ${callId}`
-                            );
-
-                            callback?.({
-                                success: true,
-
-                                callId,
-
-                                message:
-                                    "Call ended",
-                            });
-                        } catch (error) {
-                            console.error(
-                                "❌ CALL END ERROR:",
-                                error
-                            );
-
-                            callback?.({
-                                success: false,
-
-                                message:
-                                    "Failed to end call",
-                            });
-                        }
+            if (
+                userId !==
+                    call.callerId &&
+                userId !==
+                    call.receiverId
+            ) {
+                console.error(
+                    "❌ Unauthorized call end:",
+                    {
+                        callId,
+                        userId,
                     }
                 );
+
+                return;
+            }
+
+            console.log(
+                "📞 CALL ENDED:",
+                {
+                    callId,
+                    reason,
+                }
+            );
+
+            cleanupCall(
+                callId
+            );
+
+            const payload = {
+                callId,
+
+                conversationId:
+                    call.conversationId,
+
+                callerId:
+                    call.callerId,
+
+                receiverId:
+                    call.receiverId,
+
+                reason,
+            };
+
+            // Notify caller
+            io.to(
+                getUserRoom(
+                    call.callerId
+                )
+            ).emit(
+                "call_ended",
+                payload
+            );
+
+            // Notify receiver
+            io.to(
+                getUserRoom(
+                    call.receiverId
+                )
+            ).emit(
+                "call_ended",
+                payload
+            );
+        } catch (error) {
+            console.error(
+                "❌ CALL_END ERROR:",
+                error
+            );
+        }
+    }
+);
 
                 // ====================================================
                 // WEBRTC OFFER
@@ -1601,92 +1615,78 @@ app.prepare()
                 // WEBRTC ICE CANDIDATE
                 // ====================================================
 
-                socket.on(
-                    "webrtc_ice_candidate",
-                    async (data, callback) => {
-                        try {
-                            const currentUserId =
-                                Number(
-                                    socket.user.id
-                                );
-
-                            const {
-                                callId,
-                                candidate,
-                            } = data || {};
-
-                            if (
-                                !callId ||
-                                !candidate
-                            ) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "Call ID and ICE candidate are required",
-                                });
-                            }
-
-                            const call =
-                                activeCalls.get(
-                                    callId
-                                );
-
-                            if (!call) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "Call not found",
-                                });
-                            }
-
-                            const receiverId =
-                                getOtherCallParticipant(
-                                    call,
-                                    currentUserId
-                                );
-
-                            if (!receiverId) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "You are not part of this call",
-                                });
-                            }
-
-                            io.to(
-                                getUserRoom(
-                                    receiverId
-                                )
-                            ).emit(
-                                "webrtc_ice_candidate",
-                                {
-                                    callId,
-
-                                    candidate,
-
-                                    fromUserId:
-                                        currentUserId,
-                                }
-                            );
-
-                            callback?.({
-                                success: true,
-                            });
-                        } catch (error) {
-                            console.error(
-                                "❌ WEBRTC ICE ERROR:",
-                                error
-                            );
-
-                            callback?.({
-                                success: false,
-
-                                message:
-                                    "Failed to send ICE candidate",
-                            });
-                        }
-                    }
+               socket.on(
+    "ice_candidate",
+    (data) => {
+        try {
+            const userId =
+                Number(
+                    socket.user?.id
                 );
+
+            const callId =
+                data?.callId;
+
+            const candidate =
+                data?.candidate;
+
+            if (!callId) {
+                return;
+            }
+
+            const call =
+                activeCalls.get(
+                    callId
+                );
+
+            if (!call) {
+                return;
+            }
+
+            if (
+                userId !==
+                    call.callerId &&
+                userId !==
+                    call.receiverId
+            ) {
+                return;
+            }
+
+            const targetUserId =
+                userId ===
+                call.callerId
+                    ? call.receiverId
+                    : call.callerId;
+
+            io.to(
+                getUserRoom(
+                    targetUserId
+                )
+            ).emit(
+                "ice_candidate",
+                {
+                    callId,
+
+                    conversationId:
+                        call.conversationId,
+
+                    callerId:
+                        call.callerId,
+
+                    receiverId:
+                        call.receiverId,
+
+                    candidate,
+                }
+            );
+        } catch (error) {
+            console.error(
+                "❌ ICE CANDIDATE ERROR:",
+                error
+            );
+        }
+    }
+);
 
                 // ====================================================
                 // CALL STATUS

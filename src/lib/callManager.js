@@ -300,175 +300,234 @@ class CallManager {
     // START CALL
     // ============================================================
 
-    async startCall({
-        conversationId,
-        receiverId,
-        callType = "audio",
-    }) {
-        try {
-            if (
-                this.isCallActive ||
-                this.callId
-            ) {
-                throw new Error(
-                    "A call is already in progress."
-                );
-            }
+async startCall({
+    conversationId,
+    receiverId,
+    callType = "audio",
+}) {
+    try {
+        // ========================================================
+        // VALIDATE
+        // ========================================================
 
-            const parsedConversationId =
-                Number(conversationId);
+        const parsedConversationId =
+            Number(conversationId);
 
-            const parsedReceiverId =
-                Number(receiverId);
+        const parsedReceiverId =
+            Number(receiverId);
 
-            if (
-                !Number.isInteger(
-                    parsedConversationId
-                ) ||
-                parsedConversationId <= 0
-            ) {
-                throw new Error(
-                    "Invalid conversation ID."
-                );
-            }
-
-            if (
-                !Number.isInteger(
-                    parsedReceiverId
-                ) ||
-                parsedReceiverId <= 0
-            ) {
-                throw new Error(
-                    "Invalid receiver ID."
-                );
-            }
-
-            if (
-                callType !== "audio" &&
-                callType !== "video"
-            ) {
-                throw new Error(
-                    "Invalid call type."
-                );
-            }
-
-            console.log(
-                "📞 Starting call:",
-                {
-                    conversationId:
-                        parsedConversationId,
-
-                    receiverId:
-                        parsedReceiverId,
-
-                    callType,
-                }
+        if (
+            !Number.isInteger(
+                parsedConversationId
+            ) ||
+            parsedConversationId <= 0
+        ) {
+            throw new Error(
+                "Invalid conversation ID."
             );
+        }
 
-            // ====================================================
-            // RESET STATE
-            // ====================================================
-
-            this.resetCallState();
-
-            this.conversationId =
-                parsedConversationId;
-
-            this.remoteUserId =
-                parsedReceiverId;
-
-            this.callType =
-                callType;
-
-            this.isIncomingCall =
-                false;
-
-            // ====================================================
-            // GET LOCAL MEDIA
-            // ====================================================
-
-            await this.getLocalMedia(
-                callType
+        if (
+            !Number.isInteger(
+                parsedReceiverId
+            ) ||
+            parsedReceiverId <= 0
+        ) {
+            throw new Error(
+                "Invalid receiver ID."
             );
+        }
 
-            // ====================================================
-            // TELL SERVER TO START CALL
-            // ====================================================
+        if (
+            callType !== "audio" &&
+            callType !== "video"
+        ) {
+            throw new Error(
+                "Invalid call type."
+            );
+        }
 
-            socket.emit(
-                "call_user",
-                {
-                    conversationId:
-                        parsedConversationId,
+        // ========================================================
+        // PREVENT DUPLICATE CALL
+        // ========================================================
 
-                    receiverId:
-                        parsedReceiverId,
+        if (
+            this.isCallActive ||
+            this.callId
+        ) {
+            throw new Error(
+                "A call is already in progress."
+            );
+        }
 
-                    callType,
-                },
-                (response) => {
-                    console.log(
-                        "📞 call_user response:",
-                        response
+        console.log(
+            "📞 Starting call:",
+            {
+                conversationId:
+                    parsedConversationId,
+
+                receiverId:
+                    parsedReceiverId,
+
+                callType,
+            }
+        );
+
+        // ========================================================
+        // RESET OLD STATE
+        // ========================================================
+
+        this.resetCallState();
+
+        this.conversationId =
+            parsedConversationId;
+
+        this.remoteUserId =
+            parsedReceiverId;
+
+        this.callType =
+            callType;
+
+        this.isIncomingCall = false;
+
+        // ========================================================
+        // GET LOCAL MEDIA
+        // ========================================================
+
+        await this.getLocalMedia(
+            callType
+        );
+
+        console.log(
+            "✅ Local media acquired"
+        );
+
+        // ========================================================
+        // ASK SERVER TO CREATE CALL
+        // ========================================================
+
+        const response =
+            await new Promise(
+                (resolve) => {
+                    socket.emit(
+                        "call_user",
+                        {
+                            conversationId:
+                                parsedConversationId,
+
+                            receiverId:
+                                parsedReceiverId,
+
+                            callType,
+                        },
+                        resolve
                     );
-
-                    if (
-                        !response?.success
-                    ) {
-                        this.handleCallError(
-                            response?.message ||
-                                "Unable to start call."
-                        );
-
-                        this.cleanup();
-                    }
                 }
             );
 
-            if (
-                this.callbacks
-                    .onCallStarted
-            ) {
-                this.callbacks
-                    .onCallStarted({
-                        direction:
-                            "outgoing",
+        console.log(
+            "📞 call_user response:",
+            response
+        );
 
-                        conversationId:
-                            parsedConversationId,
+        // ========================================================
+        // SERVER REJECTED CALL
+        // ========================================================
 
-                        receiverId:
-                            parsedReceiverId,
-
-                        callType,
-                    });
-            }
-
-            return {
-                success: true,
-            };
-        } catch (error) {
-            console.error(
-                "❌ START CALL ERROR:",
-                error
-            );
-
-            this.handleCallError(
-                error?.message ||
+        if (
+            !response ||
+            !response.success
+        ) {
+            throw new Error(
+                response?.message ||
                     "Unable to start call."
             );
-
-            this.cleanup();
-
-            return {
-                success: false,
-
-                message:
-                    error?.message ||
-                    "Unable to start call.",
-            };
         }
+
+        // ========================================================
+        // VERY IMPORTANT
+        // USE SERVER-GENERATED CALL ID
+        // ========================================================
+
+        if (
+            !response.callId
+        ) {
+            throw new Error(
+                "Server did not return a call ID."
+            );
+        }
+
+        this.callId =
+            response.callId;
+
+        console.log(
+            "✅ Official call ID stored:",
+            this.callId
+        );
+
+        // ========================================================
+        // CALL IS NOW ACTIVE
+        // ========================================================
+
+        this.isCallActive = true;
+
+        // ========================================================
+        // NOTIFY UI
+        // ========================================================
+
+        if (
+            typeof this.callbacks
+                ?.onCallStarted ===
+            "function"
+        ) {
+            this.callbacks.onCallStarted({
+                direction:
+                    "outgoing",
+
+                callId:
+                    this.callId,
+
+                conversationId:
+                    parsedConversationId,
+
+                receiverId:
+                    parsedReceiverId,
+
+                callType,
+            });
+        }
+
+        return {
+            success: true,
+
+            callId:
+                this.callId,
+
+            type:
+                callType,
+        };
+    } catch (error) {
+        console.error(
+            "❌ START CALL ERROR:",
+            error
+        );
+
+        this.handleCallError(
+            error?.message ||
+                "Unable to start call."
+        );
+
+        this.cleanup();
+
+        return {
+            success: false,
+
+            message:
+                error?.message ||
+                "Unable to start call.",
+        };
     }
+}
 
     // ============================================================
     // GET LOCAL MEDIA
@@ -776,69 +835,107 @@ class CallManager {
     }
 
     // ============================================================
-    // HANDLE INCOMING CALL
-    // ============================================================
-// ============================================================
-// HANDLE INCOMING CALL
-// ============================================================
+
 
 handleIncomingCall(data) {
-    if (!data?.callId) {
+    console.log(
+        "📞 Incoming call:",
+        data
+    );
+
+    if (!data) {
         console.error(
-            "❌ Incoming call rejected: missing callId",
+            "❌ Incoming call data missing"
+        );
+
+        return;
+    }
+
+    const callId =
+        data.callId;
+
+    const conversationId =
+        Number(
+            data.conversationId
+        );
+
+    const callerId =
+        Number(
+            data.callerId ??
+                data.caller?.id
+        );
+
+    const receiverId =
+        Number(
+            data.receiverId
+        );
+
+    const callType =
+        data.callType === "video"
+            ? "video"
+            : "audio";
+
+    // ========================================================
+    // VALIDATE
+    // ========================================================
+
+    if (!callId) {
+        console.error(
+            "❌ Incoming call has no callId"
+        );
+
+        return;
+    }
+
+    if (
+        !Number.isInteger(
+            conversationId
+        ) ||
+        conversationId <= 0
+    ) {
+        console.error(
+            "❌ Invalid conversationId:",
             data
         );
 
         return;
     }
 
-    const incomingCallId = data.callId;
+    if (
+        !Number.isInteger(
+            callerId
+        ) ||
+        callerId <= 0
+    ) {
+        console.error(
+            "❌ Invalid callerId:",
+            data
+        );
 
-    const incomingConversationId =
-        Number(data.conversationId);
-
-    const incomingCallerId =
-        Number(data.callerId);
+        return;
+    }
 
     // ========================================================
-    // IMPORTANT
-    // ========================================================
-    // Do NOT consider callId alone as proof that we are
-    // currently in an active call.
-    //
-    // A stale callId can remain temporarily during cleanup.
-    //
-    // A call is considered busy only when:
-    //
-    // 1. We actually have a local stream
-    // 2. OR we have a peer connection
-    // 3. OR the call is actually marked active
-    //
-    // This prevents false "busy" rejections.
+    // IF WE ARE ALREADY IN A CALL
     // ========================================================
 
-    const actuallyInCall =
+    if (
         this.isCallActive ||
-        Boolean(this.peerConnection) ||
-        Boolean(this.localStream);
-
-    if (actuallyInCall) {
-        console.log(
-            "⚠️ Already in an active call. Rejecting incoming call:",
-            incomingCallId
+        this.callId
+    ) {
+        console.warn(
+            "⚠️ Already in a call. Ignoring incoming call:",
+            callId
         );
 
         socket.emit(
             "call_reject",
             {
-                callId: incomingCallId,
+                callId,
+
+                conversationId,
+
                 reason: "busy",
-            },
-            (response) => {
-                console.log(
-                    "📞 Busy rejection response:",
-                    response
-                );
             }
         );
 
@@ -846,68 +943,40 @@ handleIncomingCall(data) {
     }
 
     // ========================================================
-    // CLEAR ANY STALE CALL STATE
+    // STORE THE EXACT SERVER CALL ID
     // ========================================================
 
-    this.callId = null;
-    this.conversationId = null;
-    this.remoteUserId = null;
-
-    this.callType = "audio";
-
-    this.isIncomingCall = false;
-    this.isCallActive = false;
-
-    this.pendingIceCandidates = [];
-
-    // ========================================================
-    // STORE INCOMING CALL
-    // ========================================================
-
-    this.callId = incomingCallId;
+    this.callId =
+        callId;
 
     this.conversationId =
-        incomingConversationId;
-
-    this.currentUserId =
-        Number(this.currentUserId);
+        conversationId;
 
     this.remoteUserId =
-        incomingCallerId;
+        callerId;
 
     this.callType =
-        data.callType === "video" ||
-        data.type === "video"
-            ? "video"
-            : "audio";
+        callType;
 
-    this.isIncomingCall = true;
+    this.isIncomingCall =
+        true;
+
+    this.isCallActive =
+        false;
+
+    // ========================================================
+    // STORE CALLER
+    // ========================================================
+
+    this.caller =
+        data.caller || {
+            id:
+                callerId,
+        };
 
     console.log(
         "📞 Incoming call stored:",
         {
-            callId: this.callId,
-            conversationId:
-                this.conversationId,
-            callerId:
-                this.remoteUserId,
-            callType:
-                this.callType,
-        }
-    );
-
-    // ========================================================
-    // NOTIFY UI
-    // ========================================================
-
-    if (
-        typeof this.callbacks
-            .onIncomingCall ===
-        "function"
-    ) {
-        this.callbacks.onIncomingCall({
-            ...data,
-
             callId:
                 this.callId,
 
@@ -919,6 +988,35 @@ handleIncomingCall(data) {
 
             callType:
                 this.callType,
+        }
+    );
+
+    // ========================================================
+    // NOTIFY UI
+    // ========================================================
+
+    if (
+        typeof this.callbacks
+            ?.onIncomingCall ===
+        "function"
+    ) {
+        this.callbacks.onIncomingCall({
+            callId:
+                this.callId,
+
+            conversationId:
+                this.conversationId,
+
+            callerId:
+                this.remoteUserId,
+
+            receiverId,
+
+            callType:
+                this.callType,
+
+            caller:
+                this.caller,
         });
     }
 }
@@ -927,145 +1025,144 @@ handleIncomingCall(data) {
     // ACCEPT INCOMING CALL
     // ============================================================
 
-    async acceptCall() {
-        try {
-            if (
-                !this.callId ||
-                !this.remoteUserId ||
-                !this.conversationId
-            ) {
-                throw new Error(
-                    "No incoming call is available."
-                );
-            }
-
-            console.log(
-                "✅ Accepting incoming call"
+ async acceptCall() {
+    try {
+        if (!this.callId) {
+            throw new Error(
+                "No incoming call to accept."
             );
-
-            // ====================================================
-            // GET LOCAL MEDIA
-            // ====================================================
-
-            await this.getLocalMedia(
-                this.callType
-            );
-
-            // ====================================================
-            // CREATE PEER CONNECTION
-            // ====================================================
-
-            this.createPeerConnection();
-
-            // ====================================================
-            // ACCEPT CALL THROUGH SOCKET
-            // ====================================================
-
-            socket.emit(
-                "call_accepted",
-                {
-                    callId:
-                        this.callId,
-
-                    callerId:
-                        this.remoteUserId,
-
-                    conversationId:
-                        this.conversationId,
-                },
-                (response) => {
-                    console.log(
-                        "✅ call_accepted response:",
-                        response
-                    );
-
-                    if (
-                        !response?.success
-                    ) {
-                        this.handleCallError(
-                            response?.message ||
-                                "Unable to accept call."
-                        );
-
-                        this.cleanup();
-                    }
-                }
-            );
-
-            this.isIncomingCall =
-                false;
-
-            if (
-                this.callbacks
-                    .onCallAccepted
-            ) {
-                this.callbacks
-                    .onCallAccepted({
-                        callId:
-                            this.callId,
-
-                        callType:
-                            this.callType,
-                    });
-            }
-
-            return {
-                success: true,
-            };
-        } catch (error) {
-            console.error(
-                "❌ ACCEPT CALL ERROR:",
-                error
-            );
-
-            this.handleCallError(
-                error?.message ||
-                    "Unable to accept call."
-            );
-
-            this.cleanup();
-
-            return {
-                success: false,
-
-                message:
-                    error?.message ||
-                    "Unable to accept call.",
-            };
         }
+
+        if (
+            !this.conversationId
+        ) {
+            throw new Error(
+                "Missing conversation ID."
+            );
+        }
+
+        const callId =
+            this.callId;
+
+        const conversationId =
+            this.conversationId;
+
+        const callType =
+            this.callType === "video"
+                ? "video"
+                : "audio";
+
+        console.log(
+            "📞 Accepting call:",
+            {
+                callId,
+                conversationId,
+                callType,
+            }
+        );
+
+        // ========================================================
+        // GET LOCAL MEDIA
+        // ========================================================
+
+        await this.getLocalMedia(
+            callType
+        );
+
+        // ========================================================
+        // TELL SERVER
+        // ========================================================
+
+        socket.emit(
+            "call_accept",
+            {
+                callId,
+
+                conversationId,
+
+                callType,
+            }
+        );
+
+        // ========================================================
+        // CALL ACTIVE
+        // ========================================================
+
+        this.isCallActive =
+            true;
+
+        this.isIncomingCall =
+            false;
+
+        // ========================================================
+        // UI CALLBACK
+        // ========================================================
+
+        if (
+            typeof this.callbacks
+                ?.onCallAccepted ===
+            "function"
+        ) {
+            this.callbacks.onCallAccepted({
+                callId,
+
+                conversationId,
+
+                callType,
+            });
+        }
+
+        console.log(
+            "✅ Call accepted:",
+            callId
+        );
+
+        return {
+            success: true,
+
+            callId,
+        };
+    } catch (error) {
+        console.error(
+            "❌ ACCEPT CALL ERROR:",
+            error
+        );
+
+        this.handleCallError(
+            error?.message ||
+                "Unable to accept call."
+        );
+
+        return {
+            success: false,
+
+            message:
+                error?.message ||
+                "Unable to accept call.",
+        };
     }
-
-    // ============================================================
-    // REJECT INCOMING CALL
-    // ============================================================
-
-// ============================================================
-// REJECT INCOMING CALL
-// ============================================================
+}
 
 rejectCall(reason = "rejected") {
     if (!this.callId) {
-        console.log(
-            "⚠️ No incoming call to reject"
+        console.warn(
+            "⚠️ No call to reject."
         );
 
         return;
     }
 
-    const rejectedCallId =
+    const callId =
         this.callId;
 
-    const rejectedConversationId =
+    const conversationId =
         this.conversationId;
 
-    const rejectedRemoteUserId =
-        this.remoteUserId;
-
     console.log(
-        "❌ Rejecting call:",
+        "📞 Rejecting call:",
         {
-            callId:
-                rejectedCallId,
+            callId,
+            conversationId,
             reason,
         }
     );
@@ -1073,39 +1170,33 @@ rejectCall(reason = "rejected") {
     socket.emit(
         "call_reject",
         {
-            callId:
-                rejectedCallId,
+            callId,
+
+            conversationId,
 
             reason,
-        },
-        (response) => {
-            console.log(
-                "❌ call_reject response:",
-                response
-            );
         }
     );
 
+    // ========================================================
+    // CLEAN LOCAL STATE
+    // ========================================================
+
+    this.cleanup();
+
     if (
         typeof this.callbacks
-            .onCallRejected ===
+            ?.onCallRejected ===
         "function"
     ) {
         this.callbacks.onCallRejected({
-            callId:
-                rejectedCallId,
+            callId,
 
-            conversationId:
-                rejectedConversationId,
-
-            callerId:
-                rejectedRemoteUserId,
+            conversationId,
 
             reason,
         });
     }
-
-    this.cleanup();
 }
 
     // ============================================================
@@ -1482,47 +1573,78 @@ rejectCall(reason = "rejected") {
     // ============================================================
     // END CALL
     // ============================================================
+async endCall(reason = "ended") {
+    try {
+        if (!this.callId) {
+            console.warn(
+                "⚠️ No active call to end."
+            );
 
-    endCall(
-        reason = "ended"
-    ) {
-        if (
-            !this.callId
-        ) {
             this.cleanup();
 
-            return;
+            return {
+                success: true,
+            };
         }
 
+        const callId =
+            this.callId;
+
+        const conversationId =
+            this.conversationId;
+
         console.log(
-            "📴 Ending call:",
-            reason
-        );
-
-        socket.emit(
-            "call_ended",
+            "📞 Ending call:",
             {
-                callId:
-                    this.callId,
-
-                receiverId:
-                    this.remoteUserId,
-
-                conversationId:
-                    this.conversationId,
-
+                callId,
+                conversationId,
                 reason,
-            },
-            (response) => {
-                console.log(
-                    "📴 call_ended response:",
-                    response
-                );
             }
         );
 
+        // ========================================================
+        // TELL SERVER
+        // ========================================================
+
+        socket.emit(
+            "call_end",
+            {
+                callId,
+
+                conversationId,
+
+                reason,
+            }
+        );
+
+        // ========================================================
+        // CLEANUP
+        // ========================================================
+
         this.cleanup();
+
+        return {
+            success: true,
+
+            callId,
+        };
+    } catch (error) {
+        console.error(
+            "❌ END CALL ERROR:",
+            error
+        );
+
+        this.cleanup();
+
+        return {
+            success: false,
+
+            message:
+                error?.message ||
+                "Unable to end call.",
+        };
     }
+}
 
     // ============================================================
     // HANDLE REMOTE CALL ENDED
