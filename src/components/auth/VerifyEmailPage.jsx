@@ -1,593 +1,546 @@
-"use client";
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcrypt";
+import crypto from "crypto";
 
-import {
-    useEffect,
-    useRef,
-    useState,
-} from "react";
+// ============================================================
+// POST /api/auth/verify-email
+// ============================================================
 
-import {
-    useRouter,
-    useSearchParams,
-} from "next/navigation";
-
-// ================================================================
-// CONFIGURATION
-// ================================================================
-
-const CODE_LENGTH = 6;
-
-// ================================================================
-// PAGE
-// ================================================================
-
-export default function VerifyEmailPage() {
-    const router = useRouter();
-
-    const searchParams =
-        useSearchParams();
-
-    const email =
-        searchParams.get("email") || "";
-
-    // ============================================================
-    // STATE
-    // ============================================================
-
-    const [code, setCode] =
-        useState("");
-
-    const [loading, setLoading] =
-        useState(false);
-
-    const [error, setError] =
-        useState("");
-
-    const [success, setSuccess] =
-        useState("");
-
-    // ============================================================
-    // INPUT REF
-    // ============================================================
-
-    const inputRef =
-        useRef(null);
-
-    // ============================================================
-    // AUTO FOCUS
-    // ============================================================
-
-    useEffect(() => {
-        inputRef.current?.focus();
-    }, []);
-
-    // ============================================================
-    // VERIFY EMAIL
-    // ============================================================
-
-    async function handleSubmit(event) {
-        event.preventDefault();
-
-        setError("");
-        setSuccess("");
+export async function POST(request) {
+    try {
+        console.log("");
+        console.log("========================================");
+        console.log("📧 VERIFY EMAIL REQUEST");
+        console.log("========================================");
 
         // ========================================================
-        // EMAIL CHECK
+        // READ REQUEST
         // ========================================================
 
-        if (!email) {
-            setError(
-                "Email address is missing. Please register again."
+        const body = await request.json();
+
+        const {
+            email,
+            code,
+        } = body;
+
+        console.log("📥 Raw request received:", {
+            hasEmail: Boolean(email),
+            hasCode: Boolean(code),
+        });
+
+        // ========================================================
+        // CLEAN INPUT
+        // ========================================================
+
+        const cleanEmail =
+            email?.trim().toLowerCase();
+
+        const cleanCode =
+            code?.toString().trim();
+
+        console.log("📧 Clean email:", cleanEmail);
+        console.log(
+            "🔢 Code received:",
+            cleanCode ? "YES" : "NO"
+        );
+
+        // ========================================================
+        // REQUIRED FIELDS
+        // ========================================================
+
+        if (!cleanEmail || !cleanCode) {
+            console.log(
+                "❌ Missing email or verification code"
             );
 
-            return;
+            return Response.json(
+                {
+                    success: false,
+                    message:
+                        "Email and verification code are required.",
+                },
+                {
+                    status: 400,
+                }
+            );
         }
 
         // ========================================================
-        // CODE CHECK
+        // CODE FORMAT
         // ========================================================
 
-        if (code.length !== CODE_LENGTH) {
-            setError(
-                "Please enter the 6-digit verification code."
+        if (!/^\d{6}$/.test(cleanCode)) {
+            console.log(
+                "❌ Invalid verification code format"
             );
 
-            return;
+            return Response.json(
+                {
+                    success: false,
+                    message:
+                        "Verification code must contain exactly 6 digits.",
+                },
+                {
+                    status: 400,
+                }
+            );
         }
 
         // ========================================================
-        // API REQUEST
+        // FIND PENDING REGISTRATION
         // ========================================================
 
-        try {
-            setLoading(true);
+        console.log(
+            "🔎 Searching pending registration..."
+        );
 
-            const response =
-                await fetch(
-                    "/api/auth/verify-email",
-                    {
-                        method: "POST",
+        console.log(
+            "🔎 Lookup email:",
+            cleanEmail
+        );
 
-                        headers: {
-                            "Content-Type":
-                                "application/json",
+        const pendingRegistration =
+            await prisma.pendingRegistration.findUnique({
+                where: {
+                    email: cleanEmail,
+                },
+            });
 
-                            Accept:
-                                "application/json",
-                        },
+        // ========================================================
+        // DEBUG DATABASE RESULT
+        // ========================================================
 
-                        credentials:
-                            "include",
+        console.log(
+            "📦 Pending registration result:",
+            pendingRegistration
+                ? {
+                      id:
+                          pendingRegistration.id,
+                      email:
+                          pendingRegistration.email,
+                      username:
+                          pendingRegistration.username,
+                      attempts:
+                          pendingRegistration.attempts,
+                      hasVerificationHash:
+                          Boolean(
+                              pendingRegistration.verificationCodeHash
+                          ),
+                      verificationExpires:
+                          pendingRegistration.verificationExpires,
+                  }
+                : null
+        );
 
-                        body:
-                            JSON.stringify({
-                                email,
-                                code,
-                            }),
-                    }
-                );
+        // ========================================================
+        // NOT FOUND
+        // ========================================================
 
-            const data =
-                await response.json();
-
-            // ====================================================
-            // API ERROR
-            // ====================================================
-
-            if (
-                !response.ok ||
-                !data?.success
-            ) {
-                throw new Error(
-                    data?.message ||
-                        "Verification failed."
-                );
-            }
-
-            // ====================================================
-            // SUCCESS
-            // ====================================================
-
-            setSuccess(
-                "Email verified successfully! Redirecting to login..."
+        if (!pendingRegistration) {
+            console.log(
+                "❌ PENDING REGISTRATION NOT FOUND"
             );
 
-            // ====================================================
-            // REDIRECT
-            // ====================================================
+            console.log(
+                "❌ Email searched:",
+                cleanEmail
+            );
 
-            setTimeout(() => {
-                router.push(
-                    "/login"
-                );
-            }, 1200);
+            console.log(
+                "========================================"
+            );
 
-        } catch (error) {
+            return Response.json(
+                {
+                    success: false,
+                    message:
+                        "Verification request not found. Please register again.",
+                },
+                {
+                    status: 404,
+                }
+            );
+        }
+
+        // ========================================================
+        // CHECK EXPIRATION
+        // ========================================================
+
+        const now = new Date();
+
+        if (
+            pendingRegistration.verificationExpires &&
+            new Date(
+                pendingRegistration.verificationExpires
+            ) <= now
+        ) {
+            console.log(
+                "❌ VERIFICATION CODE EXPIRED"
+            );
+
+            console.log(
+                "Expires:",
+                pendingRegistration.verificationExpires
+            );
+
+            console.log(
+                "Current:",
+                now
+            );
+
+            return Response.json(
+                {
+                    success: false,
+                    message:
+                        "Verification code has expired. Please register again.",
+                },
+                {
+                    status: 400,
+                }
+            );
+        }
+
+        // ========================================================
+        // MAX ATTEMPTS
+        // ========================================================
+
+        const MAX_ATTEMPTS = 5;
+
+        if (
+            pendingRegistration.attempts >=
+            MAX_ATTEMPTS
+        ) {
+            console.log(
+                "❌ MAX VERIFICATION ATTEMPTS REACHED"
+            );
+
+            return Response.json(
+                {
+                    success: false,
+                    message:
+                        "Too many incorrect attempts. Please register again.",
+                },
+                {
+                    status: 429,
+                }
+            );
+        }
+
+        // ========================================================
+        // HASH SUBMITTED CODE
+        // ========================================================
+
+        const submittedCodeHash =
+            crypto
+                .createHash("sha256")
+                .update(cleanCode)
+                .digest("hex");
+
+        console.log(
+            "🔐 Submitted code hashed successfully"
+        );
+
+        // ========================================================
+        // COMPARE HASHES
+        // ========================================================
+
+        const codeMatches =
+            submittedCodeHash ===
+            pendingRegistration.verificationCodeHash;
+
+        console.log(
+            "🔍 Verification code matches:",
+            codeMatches
+        );
+
+        // ========================================================
+        // INVALID CODE
+        // ========================================================
+
+        if (!codeMatches) {
+            console.log(
+                "❌ INVALID VERIFICATION CODE"
+            );
+
+            const updatedAttempts =
+                pendingRegistration.attempts + 1;
+
+            await prisma.pendingRegistration.update({
+                where: {
+                    email: cleanEmail,
+                },
+                data: {
+                    attempts:
+                        updatedAttempts,
+                },
+            });
+
+            console.log(
+                "🔢 Attempts:",
+                updatedAttempts,
+                "/",
+                MAX_ATTEMPTS
+            );
+
+            return Response.json(
+                {
+                    success: false,
+                    message:
+                        "Invalid verification code.",
+                    attemptsRemaining:
+                        Math.max(
+                            0,
+                            MAX_ATTEMPTS -
+                                updatedAttempts
+                        ),
+                },
+                {
+                    status: 400,
+                }
+            );
+        }
+
+        // ========================================================
+        // CHECK USER AGAIN
+        // ========================================================
+
+        const existingUser =
+            await prisma.user.findUnique({
+                where: {
+                    email: cleanEmail,
+                },
+            });
+
+        if (existingUser) {
+            console.log(
+                "⚠️ USER ALREADY EXISTS:",
+                existingUser.id
+            );
+
+            // Remove pending registration
+            await prisma.pendingRegistration.deleteMany({
+                where: {
+                    email: cleanEmail,
+                },
+            });
+
+            return Response.json(
+                {
+                    success: false,
+                    message:
+                        "Email is already registered.",
+                },
+                {
+                    status: 409,
+                }
+            );
+        }
+
+        // ========================================================
+        // HASH PASSWORD
+        // ========================================================
+
+        const passwordHash =
+            pendingRegistration.passwordHash;
+
+        if (!passwordHash) {
             console.error(
-                "VERIFY EMAIL ERROR:",
-                error
+                "❌ Pending registration has no password hash"
             );
 
-            setError(
-                error?.message ||
-                    "Something went wrong. Please try again."
+            return Response.json(
+                {
+                    success: false,
+                    message:
+                        "Registration data is incomplete. Please register again.",
+                },
+                {
+                    status: 400,
+                }
             );
-
-        } finally {
-            setLoading(false);
         }
+
+        // ========================================================
+        // CREATE USER
+        // ========================================================
+
+        console.log(
+            "👤 Creating verified user..."
+        );
+
+        const user =
+            await prisma.user.create({
+                data: {
+                    username:
+                        pendingRegistration.username,
+
+                    email:
+                        pendingRegistration.email,
+
+                    password:
+                        passwordHash,
+
+                    emailVerified:
+                        new Date(),
+                },
+
+                select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    emailVerified: true,
+                },
+            });
+
+        console.log(
+            "✅ USER CREATED:",
+            user
+        );
+
+        // ========================================================
+        // DELETE PENDING REGISTRATION
+        // ========================================================
+
+        await prisma.pendingRegistration.delete({
+            where: {
+                email: cleanEmail,
+            },
+        });
+
+        console.log(
+            "🗑️ Pending registration deleted"
+        );
+
+        // ========================================================
+        // SUCCESS
+        // ========================================================
+
+        console.log(
+            "========================================"
+        );
+
+        console.log(
+            "✅ EMAIL VERIFICATION SUCCESSFUL"
+        );
+
+        console.log(
+            "User ID:",
+            user.id
+        );
+
+        console.log(
+            "Username:",
+            user.username
+        );
+
+        console.log(
+            "Email:",
+            user.email
+        );
+
+        console.log(
+            "========================================"
+        );
+
+        return Response.json(
+            {
+                success: true,
+
+                message:
+                    "Email verified successfully. Your account has been created.",
+
+                user: {
+                    id: user.id,
+                    username:
+                        user.username,
+                    email:
+                        user.email,
+                    emailVerified:
+                        user.emailVerified,
+                },
+            },
+            {
+                status: 200,
+            }
+        );
+    } catch (error) {
+        console.error("");
+        console.error(
+            "========================================"
+        );
+
+        console.error(
+            "❌ VERIFY EMAIL ERROR"
+        );
+
+        console.error(
+            "Error:",
+            error
+        );
+
+        console.error(
+            "Error code:",
+            error?.code
+        );
+
+        console.error(
+            "Error message:",
+            error?.message
+        );
+
+        console.error(
+            "========================================"
+        );
+
+        // ========================================================
+        // PRISMA UNIQUE ERROR
+        // ========================================================
+
+        if (error?.code === "P2002") {
+            return Response.json(
+                {
+                    success: false,
+                    message:
+                        "An account with this email or username already exists.",
+                },
+                {
+                    status: 409,
+                }
+            );
+        }
+
+        // ========================================================
+        // PRISMA RECORD NOT FOUND
+        // ========================================================
+
+        if (error?.code === "P2025") {
+            return Response.json(
+                {
+                    success: false,
+                    message:
+                        "Verification request could not be found. Please register again.",
+                },
+                {
+                    status: 404,
+                }
+            );
+        }
+
+        // ========================================================
+        // SERVER ERROR
+        // ========================================================
+
+        return Response.json(
+            {
+                success: false,
+                message:
+                    error?.message ||
+                    "Unable to verify email.",
+            },
+            {
+                status: 500,
+            }
+        );
     }
-
-    // ============================================================
-    // CODE CHANGE
-    // ============================================================
-
-    function handleCodeChange(event) {
-        const value =
-            event.target.value
-                .replace(/\D/g, "")
-                .slice(
-                    0,
-                    CODE_LENGTH
-                );
-
-        setCode(value);
-
-        setError("");
-        setSuccess("");
-    }
-
-    // ============================================================
-    // RENDER
-    // ============================================================
-
-    return (
-        <main
-            className="
-                flex
-                min-h-screen
-                items-center
-                justify-center
-                bg-background
-                px-4
-                py-8
-                text-foreground
-            "
-        >
-            {/* ====================================================
-                BACKGROUND DECORATION
-            ==================================================== */}
-
-            <div
-                className="
-                    pointer-events-none
-                    fixed
-                    inset-0
-                    overflow-hidden
-                "
-            >
-                <div
-                    className="
-                        absolute
-                        left-1/2
-                        top-[-180px]
-                        h-[400px]
-                        w-[400px]
-                        -translate-x-1/2
-                        rounded-full
-                        bg-blue-500/10
-                        blur-3xl
-                    "
-                />
-
-                <div
-                    className="
-                        absolute
-                        bottom-[-200px]
-                        right-[-100px]
-                        h-[400px]
-                        w-[400px]
-                        rounded-full
-                        bg-purple-500/10
-                        blur-3xl
-                    "
-                />
-            </div>
-
-            {/* ====================================================
-                CARD
-            ==================================================== */}
-
-            <div
-                className="
-                    relative
-                    z-10
-                    w-full
-                    max-w-md
-                "
-            >
-                <div
-                    className="
-                        overflow-hidden
-                        rounded-3xl
-                        border
-                        border-border
-                        bg-surface
-                        shadow-2xl
-                    "
-                >
-                    {/* =================================================
-                        HEADER
-                    ================================================= */}
-
-                    <div
-                        className="
-                            px-6
-                            pb-5
-                            pt-8
-                            text-center
-                            sm:px-8
-                        "
-                    >
-                        {/* LOGO */}
-
-                        <div
-                            className="
-                                mx-auto
-                                mb-5
-                                flex
-                                h-14
-                                w-14
-                                items-center
-                                justify-center
-                                rounded-2xl
-                                bg-blue-600
-                                text-xl
-                                font-bold
-                                text-white
-                                shadow-lg
-                                shadow-blue-600/20
-                            "
-                        >
-                            C
-                        </div>
-
-                        <h1
-                            className="
-                                text-2xl
-                                font-bold
-                                tracking-tight
-                            "
-                        >
-                            Verify your email
-                        </h1>
-
-                        <p
-                            className="
-                                mt-2
-                                text-sm
-                                text-muted
-                            "
-                        >
-                            We sent a 6-digit verification
-                            code to
-                        </p>
-
-                        {/* EMAIL */}
-
-                        <p
-                            className="
-                                mt-1
-                                break-all
-                                text-sm
-                                font-semibold
-                                text-foreground
-                            "
-                        >
-                            {email ||
-                                "your email address"}
-                        </p>
-                    </div>
-
-                    {/* =================================================
-                        FORM
-                    ================================================= */}
-
-                    <form
-                        onSubmit={handleSubmit}
-                        className="
-                            space-y-5
-                            px-6
-                            pb-7
-                            sm:px-8
-                        "
-                    >
-                        {/* =================================================
-                            ERROR
-                        ================================================= */}
-
-                        {error && (
-                            <div
-                                className="
-                                    rounded-xl
-                                    border
-                                    border-red-500/30
-                                    bg-red-500/10
-                                    px-4
-                                    py-3
-                                    text-sm
-                                    text-red-500
-                                "
-                            >
-                                {error}
-                            </div>
-                        )}
-
-                        {/* =================================================
-                            SUCCESS
-                        ================================================= */}
-
-                        {success && (
-                            <div
-                                className="
-                                    rounded-xl
-                                    border
-                                    border-green-500/30
-                                    bg-green-500/10
-                                    px-4
-                                    py-3
-                                    text-sm
-                                    text-green-500
-                                "
-                            >
-                                {success}
-                            </div>
-                        )}
-
-                        {/* =================================================
-                            CODE INPUT
-                        ================================================= */}
-
-                        <div>
-                            <label
-                                htmlFor="verification-code"
-                                className="
-                                    mb-2
-                                    block
-                                    text-sm
-                                    font-medium
-                                "
-                            >
-                                Verification code
-                            </label>
-
-                            <input
-                                ref={inputRef}
-                                id="verification-code"
-                                type="text"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                autoComplete="one-time-code"
-                                value={code}
-                                onChange={handleCodeChange}
-                                disabled={loading}
-                                maxLength={CODE_LENGTH}
-                                placeholder="000000"
-                                className="
-                                    h-14
-                                    w-full
-                                    rounded-xl
-                                    border
-                                    border-border
-                                    bg-background
-                                    px-4
-                                    text-center
-                                    text-2xl
-                                    font-semibold
-                                    tracking-[0.5em]
-                                    text-foreground
-                                    outline-none
-                                    transition
-                                    placeholder:text-muted
-                                    placeholder:tracking-[0.5em]
-                                    focus:border-blue-500
-                                    focus:ring-2
-                                    focus:ring-blue-500/20
-                                    disabled:cursor-not-allowed
-                                    disabled:opacity-50
-                                "
-                            />
-                        </div>
-
-                        {/* =================================================
-                            CODE INFO
-                        ================================================= */}
-
-                        <p
-                            className="
-                                text-center
-                                text-xs
-                                text-muted
-                            "
-                        >
-                            The verification code expires
-                            in 10 minutes.
-                        </p>
-
-                        {/* =================================================
-                            VERIFY BUTTON
-                        ================================================= */}
-
-                        <button
-                            type="submit"
-                            disabled={
-                                loading ||
-                                code.length !== CODE_LENGTH
-                            }
-                            className="
-                                flex
-                                h-12
-                                w-full
-                                items-center
-                                justify-center
-                                rounded-xl
-                                border
-                                border-blue-500
-                                bg-blue-600
-                                px-5
-                                text-sm
-                                font-semibold
-                                text-white
-                                shadow-lg
-                                shadow-blue-600/20
-                                transition
-                                hover:bg-blue-700
-                                hover:shadow-blue-600/30
-                                active:scale-[0.99]
-                                disabled:cursor-not-allowed
-                                disabled:opacity-60
-                            "
-                        >
-                            {loading ? (
-                                <>
-                                    <span
-                                        className="
-                                            mr-2
-                                            h-4
-                                            w-4
-                                            animate-spin
-                                            rounded-full
-                                            border-2
-                                            border-white/30
-                                            border-t-white
-                                        "
-                                    />
-
-                                    Verifying...
-                                </>
-                            ) : (
-                                "Verify Email"
-                            )}
-                        </button>
-
-                        {/* =================================================
-                            BACK TO REGISTER
-                        ================================================= */}
-
-                        <div
-                            className="
-                                pt-1
-                                text-center
-                            "
-                        >
-                            <p
-                                className="
-                                    text-sm
-                                    text-muted
-                                "
-                            >
-                                Entered the wrong email?{" "}
-
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        router.push(
-                                            "/register"
-                                        )
-                                    }
-                                    disabled={loading}
-                                    className="
-                                        font-semibold
-                                        text-blue-500
-                                        transition
-                                        hover:text-blue-400
-                                        hover:underline
-                                        disabled:opacity-50
-                                    "
-                                >
-                                    Register again
-                                </button>
-                            </p>
-                        </div>
-                    </form>
-                </div>
-
-                {/* ====================================================
-                    FOOTER
-                ==================================================== */}
-
-                <p
-                    className="
-                        mt-5
-                        text-center
-                        text-xs
-                        text-muted
-                    "
-                >
-                    ChatHub keeps your account secure
-                    with email verification.
-                </p>
-            </div>
-        </main>
-    );
 }
