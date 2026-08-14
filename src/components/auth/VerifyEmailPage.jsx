@@ -1,546 +1,277 @@
-import { prisma } from "@/lib/prisma";
-import bcrypt from "bcrypt";
-import crypto from "crypto";
+"use client";
 
-// ============================================================
-// POST /api/auth/verify-email
-// ============================================================
+import { useSearchParams, useRouter } from "next/navigation";
+import { useState } from "react";
 
-export async function POST(request) {
-    try {
-        console.log("");
-        console.log("========================================");
-        console.log("📧 VERIFY EMAIL REQUEST");
-        console.log("========================================");
+export default function VerifyEmailPage() {
+    const searchParams = useSearchParams();
+    const router = useRouter();
 
-        // ========================================================
-        // READ REQUEST
-        // ========================================================
+    const email = searchParams.get("email") || "";
 
-        const body = await request.json();
+    const [code, setCode] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [success, setSuccess] = useState("");
 
-        const {
-            email,
-            code,
-        } = body;
+    const handleVerify = async (event) => {
+        event.preventDefault();
 
-        console.log("📥 Raw request received:", {
-            hasEmail: Boolean(email),
-            hasCode: Boolean(code),
-        });
+        setError("");
+        setSuccess("");
 
-        // ========================================================
-        // CLEAN INPUT
-        // ========================================================
+        const cleanCode = code.trim();
 
-        const cleanEmail =
-            email?.trim().toLowerCase();
-
-        const cleanCode =
-            code?.toString().trim();
-
-        console.log("📧 Clean email:", cleanEmail);
-        console.log(
-            "🔢 Code received:",
-            cleanCode ? "YES" : "NO"
-        );
-
-        // ========================================================
-        // REQUIRED FIELDS
-        // ========================================================
-
-        if (!cleanEmail || !cleanCode) {
-            console.log(
-                "❌ Missing email or verification code"
-            );
-
-            return Response.json(
-                {
-                    success: false,
-                    message:
-                        "Email and verification code are required.",
-                },
-                {
-                    status: 400,
-                }
-            );
+        if (!email) {
+            setError("Verification email is missing.");
+            return;
         }
-
-        // ========================================================
-        // CODE FORMAT
-        // ========================================================
 
         if (!/^\d{6}$/.test(cleanCode)) {
-            console.log(
-                "❌ Invalid verification code format"
+            setError(
+                "Verification code must contain exactly 6 digits."
             );
-
-            return Response.json(
-                {
-                    success: false,
-                    message:
-                        "Verification code must contain exactly 6 digits.",
-                },
-                {
-                    status: 400,
-                }
-            );
+            return;
         }
 
-        // ========================================================
-        // FIND PENDING REGISTRATION
-        // ========================================================
+        try {
+            setLoading(true);
 
-        console.log(
-            "🔎 Searching pending registration..."
-        );
-
-        console.log(
-            "🔎 Lookup email:",
-            cleanEmail
-        );
-
-        const pendingRegistration =
-            await prisma.pendingRegistration.findUnique({
-                where: {
-                    email: cleanEmail,
-                },
-            });
-
-        // ========================================================
-        // DEBUG DATABASE RESULT
-        // ========================================================
-
-        console.log(
-            "📦 Pending registration result:",
-            pendingRegistration
-                ? {
-                      id:
-                          pendingRegistration.id,
-                      email:
-                          pendingRegistration.email,
-                      username:
-                          pendingRegistration.username,
-                      attempts:
-                          pendingRegistration.attempts,
-                      hasVerificationHash:
-                          Boolean(
-                              pendingRegistration.verificationCodeHash
-                          ),
-                      verificationExpires:
-                          pendingRegistration.verificationExpires,
-                  }
-                : null
-        );
-
-        // ========================================================
-        // NOT FOUND
-        // ========================================================
-
-        if (!pendingRegistration) {
-            console.log(
-                "❌ PENDING REGISTRATION NOT FOUND"
-            );
-
-            console.log(
-                "❌ Email searched:",
-                cleanEmail
-            );
-
-            console.log(
-                "========================================"
-            );
-
-            return Response.json(
+            const response = await fetch(
+                "/api/auth/verify-email",
                 {
-                    success: false,
-                    message:
-                        "Verification request not found. Please register again.",
-                },
-                {
-                    status: 404,
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                    },
+
+                    credentials: "include",
+
+                    body: JSON.stringify({
+                        email,
+                        code: cleanCode,
+                    }),
                 }
             );
-        }
 
-        // ========================================================
-        // CHECK EXPIRATION
-        // ========================================================
+            const data = await response.json();
 
-        const now = new Date();
+            if (!response.ok || !data?.success) {
+                throw new Error(
+                    data?.message ||
+                        "Email verification failed."
+                );
+            }
 
-        if (
-            pendingRegistration.verificationExpires &&
-            new Date(
-                pendingRegistration.verificationExpires
-            ) <= now
-        ) {
-            console.log(
-                "❌ VERIFICATION CODE EXPIRED"
+            setSuccess(
+                "Email verified successfully! Redirecting..."
             );
 
-            console.log(
-                "Expires:",
-                pendingRegistration.verificationExpires
-            );
-
-            console.log(
-                "Current:",
-                now
-            );
-
-            return Response.json(
-                {
-                    success: false,
-                    message:
-                        "Verification code has expired. Please register again.",
-                },
-                {
-                    status: 400,
-                }
-            );
-        }
-
-        // ========================================================
-        // MAX ATTEMPTS
-        // ========================================================
-
-        const MAX_ATTEMPTS = 5;
-
-        if (
-            pendingRegistration.attempts >=
-            MAX_ATTEMPTS
-        ) {
-            console.log(
-                "❌ MAX VERIFICATION ATTEMPTS REACHED"
-            );
-
-            return Response.json(
-                {
-                    success: false,
-                    message:
-                        "Too many incorrect attempts. Please register again.",
-                },
-                {
-                    status: 429,
-                }
-            );
-        }
-
-        // ========================================================
-        // HASH SUBMITTED CODE
-        // ========================================================
-
-        const submittedCodeHash =
-            crypto
-                .createHash("sha256")
-                .update(cleanCode)
-                .digest("hex");
-
-        console.log(
-            "🔐 Submitted code hashed successfully"
-        );
-
-        // ========================================================
-        // COMPARE HASHES
-        // ========================================================
-
-        const codeMatches =
-            submittedCodeHash ===
-            pendingRegistration.verificationCodeHash;
-
-        console.log(
-            "🔍 Verification code matches:",
-            codeMatches
-        );
-
-        // ========================================================
-        // INVALID CODE
-        // ========================================================
-
-        if (!codeMatches) {
-            console.log(
-                "❌ INVALID VERIFICATION CODE"
-            );
-
-            const updatedAttempts =
-                pendingRegistration.attempts + 1;
-
-            await prisma.pendingRegistration.update({
-                where: {
-                    email: cleanEmail,
-                },
-                data: {
-                    attempts:
-                        updatedAttempts,
-                },
-            });
-
-            console.log(
-                "🔢 Attempts:",
-                updatedAttempts,
-                "/",
-                MAX_ATTEMPTS
-            );
-
-            return Response.json(
-                {
-                    success: false,
-                    message:
-                        "Invalid verification code.",
-                    attemptsRemaining:
-                        Math.max(
-                            0,
-                            MAX_ATTEMPTS -
-                                updatedAttempts
-                        ),
-                },
-                {
-                    status: 400,
-                }
-            );
-        }
-
-        // ========================================================
-        // CHECK USER AGAIN
-        // ========================================================
-
-        const existingUser =
-            await prisma.user.findUnique({
-                where: {
-                    email: cleanEmail,
-                },
-            });
-
-        if (existingUser) {
-            console.log(
-                "⚠️ USER ALREADY EXISTS:",
-                existingUser.id
-            );
-
-            // Remove pending registration
-            await prisma.pendingRegistration.deleteMany({
-                where: {
-                    email: cleanEmail,
-                },
-            });
-
-            return Response.json(
-                {
-                    success: false,
-                    message:
-                        "Email is already registered.",
-                },
-                {
-                    status: 409,
-                }
-            );
-        }
-
-        // ========================================================
-        // HASH PASSWORD
-        // ========================================================
-
-        const passwordHash =
-            pendingRegistration.passwordHash;
-
-        if (!passwordHash) {
+            setTimeout(() => {
+                router.push("/login");
+            }, 1000);
+        } catch (error) {
             console.error(
-                "❌ Pending registration has no password hash"
+                "VERIFY EMAIL ERROR:",
+                error
             );
 
-            return Response.json(
-                {
-                    success: false,
-                    message:
-                        "Registration data is incomplete. Please register again.",
-                },
-                {
-                    status: 400,
-                }
+            setError(
+                error?.message ||
+                    "Unable to verify email."
             );
+        } finally {
+            setLoading(false);
         }
+    };
 
-        // ========================================================
-        // CREATE USER
-        // ========================================================
+    return (
+        <main
+            className="
+                flex
+                min-h-screen
+                items-center
+                justify-center
+                bg-background
+                px-4
+                py-8
+                text-foreground
+            "
+        >
+            <div
+                className="
+                    w-full
+                    max-w-md
+                    rounded-3xl
+                    border
+                    border-border
+                    bg-surface
+                    p-6
+                    shadow-xl
+                    sm:p-8
+                "
+            >
+                <div className="mb-6 text-center">
+                    <h1 className="text-2xl font-bold">
+                        Verify your email
+                    </h1>
 
-        console.log(
-            "👤 Creating verified user..."
-        );
+                    <p className="mt-2 text-sm text-muted">
+                        Enter the 6-digit verification
+                        code sent to:
+                    </p>
 
-        const user =
-            await prisma.user.create({
-                data: {
-                    username:
-                        pendingRegistration.username,
+                    <p className="mt-1 text-sm font-semibold">
+                        {email}
+                    </p>
+                </div>
 
-                    email:
-                        pendingRegistration.email,
+                {error && (
+                    <div
+                        className="
+                            mb-4
+                            rounded-xl
+                            border
+                            border-red-500/20
+                            bg-red-500/10
+                            px-4
+                            py-3
+                            text-sm
+                            text-red-500
+                        "
+                    >
+                        {error}
+                    </div>
+                )}
 
-                    password:
-                        passwordHash,
+                {success && (
+                    <div
+                        className="
+                            mb-4
+                            rounded-xl
+                            border
+                            border-green-500/20
+                            bg-green-500/10
+                            px-4
+                            py-3
+                            text-sm
+                            text-green-500
+                        "
+                    >
+                        {success}
+                    </div>
+                )}
 
-                    emailVerified:
-                        new Date(),
-                },
+                <form
+                    onSubmit={handleVerify}
+                    className="space-y-5"
+                >
+                    <div>
+                        <label
+                            htmlFor="code"
+                            className="
+                                mb-2
+                                block
+                                text-sm
+                                font-medium
+                            "
+                        >
+                            Verification Code
+                        </label>
 
-                select: {
-                    id: true,
-                    username: true,
-                    email: true,
-                    emailVerified: true,
-                },
-            });
+                        <input
+                            id="code"
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={6}
+                            value={code}
+                            onChange={(event) =>
+                                setCode(
+                                    event.target.value.replace(
+                                        /\D/g,
+                                        ""
+                                    )
+                                )
+                            }
+                            disabled={loading}
+                            placeholder="123456"
+                            autoComplete="one-time-code"
+                            className="
+                                h-12
+                                w-full
+                                rounded-xl
+                                border
+                                border-border
+                                bg-background
+                                px-4
+                                text-center
+                                text-lg
+                                font-semibold
+                                tracking-[0.4em]
+                                text-foreground
+                                outline-none
+                                transition
+                                placeholder:text-muted
+                                focus:border-blue-500
+                                focus:ring-2
+                                focus:ring-blue-500/20
+                                disabled:cursor-not-allowed
+                                disabled:opacity-50
+                            "
+                        />
+                    </div>
 
-        console.log(
-            "✅ USER CREATED:",
-            user
-        );
+                    <button
+                        type="submit"
+                        disabled={
+                            loading ||
+                            code.length !== 6
+                        }
+                        className="
+                            flex
+                            h-12
+                            w-full
+                            items-center
+                            justify-center
+                            rounded-xl
+                            border
+                            border-blue-500
+                            bg-blue-600
+                            px-4
+                            text-sm
+                            font-semibold
+                            text-white
+                            transition
+                            hover:bg-blue-700
+                            disabled:cursor-not-allowed
+                            disabled:opacity-60
+                        "
+                    >
+                        {loading ? (
+                            <>
+                                <span
+                                    className="
+                                        mr-2
+                                        h-4
+                                        w-4
+                                        animate-spin
+                                        rounded-full
+                                        border-2
+                                        border-white/30
+                                        border-t-white
+                                    "
+                                />
 
-        // ========================================================
-        // DELETE PENDING REGISTRATION
-        // ========================================================
-
-        await prisma.pendingRegistration.delete({
-            where: {
-                email: cleanEmail,
-            },
-        });
-
-        console.log(
-            "🗑️ Pending registration deleted"
-        );
-
-        // ========================================================
-        // SUCCESS
-        // ========================================================
-
-        console.log(
-            "========================================"
-        );
-
-        console.log(
-            "✅ EMAIL VERIFICATION SUCCESSFUL"
-        );
-
-        console.log(
-            "User ID:",
-            user.id
-        );
-
-        console.log(
-            "Username:",
-            user.username
-        );
-
-        console.log(
-            "Email:",
-            user.email
-        );
-
-        console.log(
-            "========================================"
-        );
-
-        return Response.json(
-            {
-                success: true,
-
-                message:
-                    "Email verified successfully. Your account has been created.",
-
-                user: {
-                    id: user.id,
-                    username:
-                        user.username,
-                    email:
-                        user.email,
-                    emailVerified:
-                        user.emailVerified,
-                },
-            },
-            {
-                status: 200,
-            }
-        );
-    } catch (error) {
-        console.error("");
-        console.error(
-            "========================================"
-        );
-
-        console.error(
-            "❌ VERIFY EMAIL ERROR"
-        );
-
-        console.error(
-            "Error:",
-            error
-        );
-
-        console.error(
-            "Error code:",
-            error?.code
-        );
-
-        console.error(
-            "Error message:",
-            error?.message
-        );
-
-        console.error(
-            "========================================"
-        );
-
-        // ========================================================
-        // PRISMA UNIQUE ERROR
-        // ========================================================
-
-        if (error?.code === "P2002") {
-            return Response.json(
-                {
-                    success: false,
-                    message:
-                        "An account with this email or username already exists.",
-                },
-                {
-                    status: 409,
-                }
-            );
-        }
-
-        // ========================================================
-        // PRISMA RECORD NOT FOUND
-        // ========================================================
-
-        if (error?.code === "P2025") {
-            return Response.json(
-                {
-                    success: false,
-                    message:
-                        "Verification request could not be found. Please register again.",
-                },
-                {
-                    status: 404,
-                }
-            );
-        }
-
-        // ========================================================
-        // SERVER ERROR
-        // ========================================================
-
-        return Response.json(
-            {
-                success: false,
-                message:
-                    error?.message ||
-                    "Unable to verify email.",
-            },
-            {
-                status: 500,
-            }
-        );
-    }
+                                Verifying...
+                            </>
+                        ) : (
+                            "Verify Email"
+                        )}
+                    </button>
+                </form>
+            </div>
+        </main>
+    );
 }
