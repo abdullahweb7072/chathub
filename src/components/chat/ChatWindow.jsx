@@ -124,13 +124,6 @@ export default function ChatWindow({
 
     // ========================================================
     // AUDIO CALL
-    //
-    // ChatWindow does NOT start the call itself.
-    //
-    // This callback comes from ChatLayout and eventually calls:
-    //
-    // callManager.startAudioCall()
-    //
     // ========================================================
 
     onStartAudioCall,
@@ -836,14 +829,10 @@ export default function ChatWindow({
                 onProfileClick={
                     handleProfileClick
                 }
-
-          
                 onStartAudioCall={
                     onStartAudioCall
                 }
             />
-
-           
 
             <div
                 className="

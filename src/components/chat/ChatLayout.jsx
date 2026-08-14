@@ -3149,8 +3149,6 @@ export default function ChatLayout({
                         toggleReaction
                     }
 
-                  
-
                     callState={
                         callState
                     }

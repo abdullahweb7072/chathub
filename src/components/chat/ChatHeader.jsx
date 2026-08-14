@@ -150,24 +150,6 @@ export default function ChatHeader({
                     return;
                 }
 
-                /*
-                 * Supports common API response shapes:
-                 *
-                 * {
-                 *   success: true,
-                 *   data: {...}
-                 * }
-                 *
-                 * or
-                 *
-                 * {
-                 *   success: true,
-                 *   user: {...}
-                 * }
-                 *
-                 * or direct user object.
-                 */
-
                 const fetchedUser =
                     data?.data ||
                     data?.user ||
@@ -190,12 +172,6 @@ export default function ChatHeader({
                         "❌ CHAT HEADER USER FETCH ERROR:",
                         error
                     );
-
-                    /*
-                     * Keep the conversation's
-                     * existing user data as a
-                     * fallback if the API fails.
-                     */
 
                     setOtherUser(
                         otherMember?.user ||
@@ -225,12 +201,6 @@ export default function ChatHeader({
     // ============================================================
     // FALLBACK USER
     // ============================================================
-
-    /*
-     * If the API is still loading or fails,
-     * use the user already included in the
-     * conversation.
-     */
 
     const fallbackUser =
         otherMember?.user || null;
@@ -264,12 +234,6 @@ export default function ChatHeader({
     // ONLINE STATUS
     // ============================================================
 
-    /*
-     * Socket.IO onlineUsers takes priority.
-     *
-     * API isOnline is used as the fallback.
-     */
-
     const isOnline =
         onlineUsers.some(
             (id) =>
@@ -302,7 +266,6 @@ export default function ChatHeader({
             return;
         }
 
-        // Own profile
         if (
             userId ===
             currentUserId
@@ -311,7 +274,6 @@ export default function ChatHeader({
             return;
         }
 
-        // Other user's profile
         router.push(
             `/profile/${userId}`
         );
@@ -511,196 +473,78 @@ export default function ChatHeader({
                         items-center justify-center
                         overflow-hidden
                         rounded-full
-                        bg-[#2563eb]
-                        text-[17px]
-                        font-semibold
-                        text-white
+                        bg-surface-tertiary
                         transition
                         hover:opacity-90
-                        active:scale-95
-                        disabled:cursor-default
                     "
                 >
                     {avatar ? (
                         <Image
                             src={avatar}
-                            alt={`${displayName} avatar`}
+                            alt={displayName}
                             width={44}
                             height={44}
-                            className="
-                                h-full
-                                w-full
-                                object-cover
-                            "
+                            className="h-full w-full object-cover"
                         />
                     ) : (
-                        displayName
-                            ?.charAt(
-                                0
-                            )
-                            ?.toUpperCase() ||
-                        "?"
+                        <span className="text-base font-semibold text-text-primary">
+                            {displayName.charAt(0).toUpperCase()}
+                        </span>
                     )}
                 </button>
 
                 {/* ==================================================
-                    USER NAME + STATUS
+                    USER INFO
                 ================================================== */}
 
                 <button
                     type="button"
-                    onClick={
-                        handleOpenProfile
-                    }
+                    onClick={handleOpenProfile}
                     disabled={
-                        !Number.isInteger(
-                            userId
-                        ) ||
-                        userId <= 0
+                        !Number.isInteger(userId) || userId <= 0
                     }
-                    className="
-                        min-w-0
-                        text-left
-                        disabled:cursor-default
-                    "
-                    title={`View ${displayName}'s profile`}
+                    className="flex min-w-0 flex-col text-left focus:outline-none"
                 >
-                    <h2
-                        style={{
-                            margin: 0,
-                            fontSize:
-                                "16px",
-                            fontWeight:
-                                500,
-                            color:
-                                "var(--text-primary)",
-                            whiteSpace:
-                                "nowrap",
-                            overflow:
-                                "hidden",
-                            textOverflow:
-                                "ellipsis",
-                            maxWidth:
-                                "220px",
-                        }}
-                    >
-                        {loadingUser &&
-                        !resolvedUser
-                            ? "Loading..."
-                            : displayName}
-                    </h2>
-
-                    <span
-                        style={{
-                            fontSize:
-                                "13px",
-                            color:
-                                isOnline
-                                    ? "#10b981"
-                                    : "var(--text-muted)",
-                        }}
-                    >
-                        {isOnline
-                            ? "Online"
-                            : formatLastSeen()}
+                    <span className="truncate text-base font-medium text-text-primary">
+                        {displayName}
+                    </span>
+                    <span className="truncate text-xs text-text-secondary">
+                        {isOnline ? "Online" : formatLastSeen()}
                     </span>
                 </button>
             </div>
 
             {/* ==================================================
-                ACTIONS
+                RIGHT SIDE / ACTION BUTTONS
             ================================================== */}
 
-            <div
-                style={{
-                    display: "flex",
-                    gap: "4px",
-                    flexShrink: 0,
-                }}
-            >
-                {/* ==================================================
-                    AUDIO CALL
-                ================================================== */}
-
+            <div className="flex items-center gap-1">
+                {/* AUDIO CALL */}
                 <button
                     type="button"
-                    onClick={
-                        handleStartAudioCall
-                    }
-                    disabled={
-                        !Number.isInteger(
-                            userId
-                        ) ||
-                        userId <= 0
-                    }
-                    aria-label={`Audio call ${displayName}`}
-                    title={`Audio call ${displayName}`}
+                    onClick={handleStartAudioCall}
                     className="
-                        flex h-10 w-10
-                        items-center justify-center
-                        rounded-full
-                        text-text-secondary
-                        transition
-                        hover:bg-surface-tertiary
-                        active:scale-95
-                        disabled:cursor-default
-                        disabled:opacity-50
+                        flex h-10 w-10 items-center justify-center
+                        rounded-full text-text-secondary transition
+                        hover:bg-surface-tertiary hover:text-text-primary
                     "
+                    title="Start Audio Call"
                 >
                     📞
                 </button>
 
-                {/* ==================================================
-                    VIDEO CALL
-                ================================================== */}
-
+                {/* VIDEO CALL */}
                 <button
                     type="button"
-                    onClick={
-                        handleStartVideoCall
-                    }
-                    disabled={
-                        !Number.isInteger(
-                            userId
-                        ) ||
-                        userId <= 0
-                    }
-                    aria-label={`Video call ${displayName}`}
-                    title={`Video call ${displayName}`}
+                    onClick={handleStartVideoCall}
                     className="
-                        flex h-10 w-10
-                        items-center justify-center
-                        rounded-full
-                        text-text-secondary
-                        transition
-                        hover:bg-surface-tertiary
-                        active:scale-95
-                        disabled:cursor-default
-                        disabled:opacity-50
+                        flex h-10 w-10 items-center justify-center
+                        rounded-full text-text-secondary transition
+                        hover:bg-surface-tertiary hover:text-text-primary
                     "
+                    title="Start Video Call"
                 >
-                    🎥
-                </button>
-
-                {/* ==================================================
-                    MORE
-                ================================================== */}
-
-                <button
-                    type="button"
-                    aria-label="More options"
-                    className="
-                        flex h-10 w-10
-                        items-center justify-center
-                        rounded-full
-                        text-xl
-                        text-text-secondary
-                        transition
-                        hover:bg-surface-tertiary
-                        active:scale-95
-                    "
-                >
-                    ⋮
+                    📹
                 </button>
             </div>
         </header>
