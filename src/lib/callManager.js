@@ -778,91 +778,150 @@ class CallManager {
     // ============================================================
     // HANDLE INCOMING CALL
     // ============================================================
+// ============================================================
+// HANDLE INCOMING CALL
+// ============================================================
 
-    handleIncomingCall(
-        data
-    ) {
-        if (!data) {
-            return;
-        }
+handleIncomingCall(data) {
+    if (!data?.callId) {
+        console.error(
+            "❌ Incoming call rejected: missing callId",
+            data
+        );
 
-        // ========================================================
-        // IF ALREADY IN A CALL
-        // ========================================================
-
-        if (
-            this.isCallActive ||
-            this.callId
-        ) {
-            console.log(
-                "⚠️ Already in a call. Rejecting new call."
-            );
-
-            socket.emit(
-                "call_rejected",
-                {
-                    callId:
-                        data.callId,
-
-                    callerId:
-                        data.callerId,
-
-                    conversationId:
-                        data.conversationId,
-
-                    reason:
-                        "busy",
-                }
-            );
-
-            return;
-        }
-
-        // ========================================================
-        // STORE CALL INFORMATION
-        // ========================================================
-
-        this.callId =
-            data.callId;
-
-        this.conversationId =
-            Number(
-                data.conversationId
-            );
-
-        this.currentUserId =
-            Number(
-                data.receiverId
-            );
-
-        this.remoteUserId =
-            Number(
-                data.callerId
-            );
-
-        this.callType =
-            data.callType ===
-            "video"
-                ? "video"
-                : "audio";
-
-        this.isIncomingCall =
-            true;
-
-        // ========================================================
-        // NOTIFY UI
-        // ========================================================
-
-        if (
-            this.callbacks
-                .onIncomingCall
-        ) {
-            this.callbacks
-                .onIncomingCall(
-                    data
-                );
-        }
+        return;
     }
+
+    const incomingCallId = data.callId;
+
+    const incomingConversationId =
+        Number(data.conversationId);
+
+    const incomingCallerId =
+        Number(data.callerId);
+
+    // ========================================================
+    // IMPORTANT
+    // ========================================================
+    // Do NOT consider callId alone as proof that we are
+    // currently in an active call.
+    //
+    // A stale callId can remain temporarily during cleanup.
+    //
+    // A call is considered busy only when:
+    //
+    // 1. We actually have a local stream
+    // 2. OR we have a peer connection
+    // 3. OR the call is actually marked active
+    //
+    // This prevents false "busy" rejections.
+    // ========================================================
+
+    const actuallyInCall =
+        this.isCallActive ||
+        Boolean(this.peerConnection) ||
+        Boolean(this.localStream);
+
+    if (actuallyInCall) {
+        console.log(
+            "⚠️ Already in an active call. Rejecting incoming call:",
+            incomingCallId
+        );
+
+        socket.emit(
+            "call_reject",
+            {
+                callId: incomingCallId,
+                reason: "busy",
+            },
+            (response) => {
+                console.log(
+                    "📞 Busy rejection response:",
+                    response
+                );
+            }
+        );
+
+        return;
+    }
+
+    // ========================================================
+    // CLEAR ANY STALE CALL STATE
+    // ========================================================
+
+    this.callId = null;
+    this.conversationId = null;
+    this.remoteUserId = null;
+
+    this.callType = "audio";
+
+    this.isIncomingCall = false;
+    this.isCallActive = false;
+
+    this.pendingIceCandidates = [];
+
+    // ========================================================
+    // STORE INCOMING CALL
+    // ========================================================
+
+    this.callId = incomingCallId;
+
+    this.conversationId =
+        incomingConversationId;
+
+    this.currentUserId =
+        Number(this.currentUserId);
+
+    this.remoteUserId =
+        incomingCallerId;
+
+    this.callType =
+        data.callType === "video" ||
+        data.type === "video"
+            ? "video"
+            : "audio";
+
+    this.isIncomingCall = true;
+
+    console.log(
+        "📞 Incoming call stored:",
+        {
+            callId: this.callId,
+            conversationId:
+                this.conversationId,
+            callerId:
+                this.remoteUserId,
+            callType:
+                this.callType,
+        }
+    );
+
+    // ========================================================
+    // NOTIFY UI
+    // ========================================================
+
+    if (
+        typeof this.callbacks
+            .onIncomingCall ===
+        "function"
+    ) {
+        this.callbacks.onIncomingCall({
+            ...data,
+
+            callId:
+                this.callId,
+
+            conversationId:
+                this.conversationId,
+
+            callerId:
+                this.remoteUserId,
+
+            callType:
+                this.callType,
+        });
+    }
+}
 
     // ============================================================
     // ACCEPT INCOMING CALL
@@ -980,55 +1039,74 @@ class CallManager {
     // REJECT INCOMING CALL
     // ============================================================
 
-    rejectCall(
-        reason = "rejected"
-    ) {
-        if (!this.callId) {
-            return;
-        }
+// ============================================================
+// REJECT INCOMING CALL
+// ============================================================
 
+rejectCall(reason = "rejected") {
+    if (!this.callId) {
         console.log(
-            "❌ Rejecting call:",
-            reason
+            "⚠️ No incoming call to reject"
         );
 
-        socket.emit(
-            "call_rejected",
-            {
-                callId:
-                    this.callId,
-
-                callerId:
-                    this.remoteUserId,
-
-                conversationId:
-                    this.conversationId,
-
-                reason,
-            },
-            (response) => {
-                console.log(
-                    "❌ call_rejected response:",
-                    response
-                );
-            }
-        );
-
-        if (
-            this.callbacks
-                .onCallRejected
-        ) {
-            this.callbacks
-                .onCallRejected({
-                    callId:
-                        this.callId,
-
-                    reason,
-                });
-        }
-
-        this.cleanup();
+        return;
     }
+
+    const rejectedCallId =
+        this.callId;
+
+    const rejectedConversationId =
+        this.conversationId;
+
+    const rejectedRemoteUserId =
+        this.remoteUserId;
+
+    console.log(
+        "❌ Rejecting call:",
+        {
+            callId:
+                rejectedCallId,
+            reason,
+        }
+    );
+
+    socket.emit(
+        "call_reject",
+        {
+            callId:
+                rejectedCallId,
+
+            reason,
+        },
+        (response) => {
+            console.log(
+                "❌ call_reject response:",
+                response
+            );
+        }
+    );
+
+    if (
+        typeof this.callbacks
+            .onCallRejected ===
+        "function"
+    ) {
+        this.callbacks.onCallRejected({
+            callId:
+                rejectedCallId,
+
+            conversationId:
+                rejectedConversationId,
+
+            callerId:
+                rejectedRemoteUserId,
+
+            reason,
+        });
+    }
+
+    this.cleanup();
+}
 
     // ============================================================
     // HANDLE CALL ACCEPTED
@@ -1484,30 +1562,54 @@ class CallManager {
     // HANDLE CALL REJECTED
     // ============================================================
 
-    handleCallRejected(
-        data
-    ) {
-        if (
-            this.callId &&
-            data?.callId &&
-            data.callId !==
-                this.callId
-        ) {
-            return;
-        }
+  // ============================================================
+// HANDLE CALL REJECTED
+// ============================================================
 
-        if (
-            this.callbacks
-                .onCallRejected
-        ) {
-            this.callbacks
-                .onCallRejected(
-                    data
-                );
-        }
-
-        this.cleanup();
+handleCallRejected(data) {
+    if (!data?.callId) {
+        return;
     }
+
+    // ========================================================
+    // IGNORE REJECTION FOR ANOTHER CALL
+    // ========================================================
+
+    if (
+        this.callId &&
+        data.callId !== this.callId
+    ) {
+        console.log(
+            "⚠️ Ignoring rejection for another call:",
+            {
+                currentCallId:
+                    this.callId,
+
+                rejectedCallId:
+                    data.callId,
+            }
+        );
+
+        return;
+    }
+
+    console.log(
+        "❌ Call rejected:",
+        data
+    );
+
+    if (
+        typeof this.callbacks
+            .onCallRejected ===
+        "function"
+    ) {
+        this.callbacks.onCallRejected(
+            data
+        );
+    }
+
+    this.cleanup();
+}
 
     // ============================================================
     // MUTE / UNMUTE MICROPHONE
