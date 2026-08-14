@@ -14,6 +14,25 @@ const prisma = new PrismaClient();
 const onlineUsers = new Map();
 
 // ============================================================
+// ACTIVE CALL TRACKER
+// ============================================================
+
+// callId -> {
+//     callId,
+//     conversationId,
+//     callerId,
+//     receiverId,
+//     type,
+//     status,
+//     startedAt
+// }
+
+const activeCalls = new Map();
+
+// userId -> callId
+const userActiveCalls = new Map();
+
+// ============================================================
 // CONFIGURATION
 // ============================================================
 
@@ -226,6 +245,111 @@ async function getLatestPresencePrivacy(userId) {
 }
 
 // ============================================================
+// GENERATE CALL ID
+// ============================================================
+
+function generateCallId() {
+    return `${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 12)}`;
+}
+
+// ============================================================
+// GET USER SOCKET ROOM
+// ============================================================
+
+function getUserRoom(userId) {
+    return `user:${userId}`;
+}
+
+// ============================================================
+// GET CONVERSATION ROOM
+// ============================================================
+
+function getConversationRoom(conversationId) {
+    return `conversation:${conversationId}`;
+}
+
+// ============================================================
+// CHECK CONVERSATION MEMBERSHIP
+// ============================================================
+
+async function isConversationMember(
+    userId,
+    conversationId
+) {
+    try {
+        const membership =
+            await prisma.conversationMember.findUnique({
+                where: {
+                    userId_conversationId: {
+                        userId,
+                        conversationId,
+                    },
+                },
+            });
+
+        return Boolean(membership);
+    } catch (error) {
+        console.error(
+            "❌ MEMBERSHIP CHECK ERROR:",
+            error
+        );
+
+        return false;
+    }
+}
+
+// ============================================================
+// GET CALL PARTICIPANT
+// ============================================================
+
+function getOtherCallParticipant(
+    call,
+    userId
+) {
+    if (call.callerId === userId) {
+        return call.receiverId;
+    }
+
+    if (call.receiverId === userId) {
+        return call.callerId;
+    }
+
+    return null;
+}
+
+// ============================================================
+// CLEANUP CALL
+// ============================================================
+
+function cleanupCall(callId) {
+    const call = activeCalls.get(callId);
+
+    if (!call) {
+        return null;
+    }
+
+    activeCalls.delete(callId);
+
+    if (
+        userActiveCalls.get(call.callerId) ===
+        callId
+    ) {
+        userActiveCalls.delete(call.callerId);
+    }
+
+    if (
+        userActiveCalls.get(call.receiverId) ===
+        callId
+    ) {
+        userActiveCalls.delete(call.receiverId);
+    }
+
+    return call;
+}
+
+// ============================================================
 // NEXT.JS
 // ============================================================
 
@@ -296,22 +420,23 @@ app.prepare()
         // SOCKET.IO
         // ========================================================
 
-    const io =
-    new Server(
-        httpServer,
-        {
-            cors: {
-                origin: true,
+        const io =
+            new Server(
+                httpServer,
+                {
+                    cors: {
+                        origin: true,
 
-                methods: [
-                    "GET",
-                    "POST",
-                ],
+                        methods: [
+                            "GET",
+                            "POST",
+                        ],
 
-                credentials: true,
-            },
-        }
-    );
+                        credentials: true,
+                    },
+                }
+            );
+
         globalThis.io = io;
 
         // ========================================================
@@ -433,7 +558,7 @@ app.prepare()
                 }
 
                 const userRoom =
-                    `user:${userId}`;
+                    getUserRoom(userId);
 
                 socket.join(userRoom);
 
@@ -520,7 +645,9 @@ app.prepare()
                         const membership of memberships
                     ) {
                         socket.join(
-                            `conversation:${membership.conversationId}`
+                            getConversationRoom(
+                                membership.conversationId
+                            )
                         );
                     }
                 } catch (error) {
@@ -575,7 +702,9 @@ app.prepare()
                             }
 
                             socket.join(
-                                `conversation:${conversationId}`
+                                getConversationRoom(
+                                    conversationId
+                                )
                             );
 
                             callback?.({
@@ -624,7 +753,9 @@ app.prepare()
                             }
 
                             socket.leave(
-                                `conversation:${conversationId}`
+                                getConversationRoom(
+                                    conversationId
+                                )
                             );
 
                             callback?.({
@@ -641,6 +772,993 @@ app.prepare()
                                 success: false,
                                 message:
                                     "Failed to leave conversation",
+                            });
+                        }
+                    }
+                );
+
+                // ====================================================
+                // ====================================================
+                // CALL FEATURE
+                // ====================================================
+                // ====================================================
+
+                // ====================================================
+                // START CALL
+                // ====================================================
+
+                socket.on(
+                    "call_user",
+                    async (data, callback) => {
+                        try {
+                            const callerId =
+                                Number(
+                                    socket.user.id
+                                );
+
+                            const receiverId =
+                                Number(
+                                    data?.receiverId
+                                );
+
+                            const conversationId =
+                                Number(
+                                    data?.conversationId
+                                );
+
+                            const callType =
+                                data?.type === "video"
+                                    ? "video"
+                                    : "audio";
+
+                            if (
+                                !Number.isInteger(
+                                    receiverId
+                                ) ||
+                                receiverId <= 0
+                            ) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "Invalid receiver ID",
+                                });
+                            }
+
+                            if (
+                                !Number.isInteger(
+                                    conversationId
+                                ) ||
+                                conversationId <= 0
+                            ) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "Invalid conversation ID",
+                                });
+                            }
+
+                            if (
+                                receiverId ===
+                                callerId
+                            ) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "You cannot call yourself",
+                                });
+                            }
+
+                            // ==================================================
+                            // VERIFY CALLER MEMBERSHIP
+                            // ==================================================
+
+                            const callerIsMember =
+                                await isConversationMember(
+                                    callerId,
+                                    conversationId
+                                );
+
+                            if (!callerIsMember) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "You are not a member of this conversation",
+                                });
+                            }
+
+                            // ==================================================
+                            // VERIFY RECEIVER MEMBERSHIP
+                            // ==================================================
+
+                            const receiverIsMember =
+                                await isConversationMember(
+                                    receiverId,
+                                    conversationId
+                                );
+
+                            if (!receiverIsMember) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "The selected user is not a member of this conversation",
+                                });
+                            }
+
+                            // ==================================================
+                            // CHECK CALLER ALREADY IN CALL
+                            // ==================================================
+
+                            if (
+                                userActiveCalls.has(
+                                    callerId
+                                )
+                            ) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "You are already in a call",
+                                });
+                            }
+
+                            // ==================================================
+                            // CHECK RECEIVER ALREADY IN CALL
+                            // ==================================================
+
+                            if (
+                                userActiveCalls.has(
+                                    receiverId
+                                )
+                            ) {
+                                socket.emit(
+                                    "call_busy",
+                                    {
+                                        receiverId,
+                                        conversationId,
+                                        type:
+                                            callType,
+                                    }
+                                );
+
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "User is already in another call",
+                                    code:
+                                        "USER_BUSY",
+                                });
+                            }
+
+                            // ==================================================
+                            // CHECK RECEIVER ONLINE
+                            // ==================================================
+
+                            const receiverConnections =
+                                onlineUsers.get(
+                                    receiverId
+                                ) || 0;
+
+                            if (
+                                receiverConnections <=
+                                0
+                            ) {
+                                socket.emit(
+                                    "call_unavailable",
+                                    {
+                                        receiverId,
+                                        conversationId,
+                                        type:
+                                            callType,
+                                        reason:
+                                            "USER_OFFLINE",
+                                    }
+                                );
+
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "User is offline",
+                                    code:
+                                        "USER_OFFLINE",
+                                });
+                            }
+
+                            // ==================================================
+                            // CREATE CALL
+                            // ==================================================
+
+                            const callId =
+                                generateCallId();
+
+                            const call = {
+                                callId,
+
+                                conversationId,
+
+                                callerId,
+
+                                receiverId,
+
+                                type:
+                                    callType,
+
+                                status:
+                                    "ringing",
+
+                                startedAt:
+                                    new Date(),
+                            };
+
+                            activeCalls.set(
+                                callId,
+                                call
+                            );
+
+                            userActiveCalls.set(
+                                callerId,
+                                callId
+                            );
+
+                            userActiveCalls.set(
+                                receiverId,
+                                callId
+                            );
+
+                            // ==================================================
+                            // GET CALLER INFORMATION
+                            // ==================================================
+
+                            const caller =
+                                await prisma.user.findUnique({
+                                    where: {
+                                        id:
+                                            callerId,
+                                    },
+
+                                    select: {
+                                        id: true,
+                                        username: true,
+                                        displayName: true,
+                                        avatar: true,
+                                    },
+                                });
+
+                            // ==================================================
+                            // SEND INCOMING CALL
+                            // ==================================================
+
+                            io.to(
+                                getUserRoom(
+                                    receiverId
+                                )
+                            ).emit(
+                                "incoming_call",
+                                {
+                                    callId,
+
+                                    conversationId,
+
+                                    type:
+                                        callType,
+
+                                    caller: {
+                                        id:
+                                            caller?.id ??
+                                            callerId,
+
+                                        username:
+                                            caller?.username ??
+                                            null,
+
+                                        displayName:
+                                            caller?.displayName ??
+                                            null,
+
+                                        avatar:
+                                            caller?.avatar ??
+                                            null,
+                                    },
+                                }
+                            );
+
+                            console.log(
+                                `📞 ${callType.toUpperCase()} CALL STARTED: ${callerId} -> ${receiverId}`
+                            );
+
+                            callback?.({
+                                success: true,
+
+                                callId,
+
+                                type:
+                                    callType,
+
+                                message:
+                                    "Call started",
+                            });
+                        } catch (error) {
+                            console.error(
+                                "❌ CALL USER ERROR:",
+                                error
+                            );
+
+                            callback?.({
+                                success: false,
+
+                                message:
+                                    "Failed to start call",
+                            });
+                        }
+                    }
+                );
+
+                // ====================================================
+                // ACCEPT CALL
+                // ====================================================
+
+                socket.on(
+                    "call_accept",
+                    async (data, callback) => {
+                        try {
+                            const currentUserId =
+                                Number(
+                                    socket.user.id
+                                );
+
+                            const callId =
+                                data?.callId;
+
+                            if (!callId) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "Call ID is required",
+                                });
+                            }
+
+                            const call =
+                                activeCalls.get(
+                                    callId
+                                );
+
+                            if (!call) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "Call no longer exists",
+                                });
+                            }
+
+                            // Only receiver can accept.
+                            if (
+                                call.receiverId !==
+                                currentUserId
+                            ) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "You cannot accept this call",
+                                });
+                            }
+
+                            if (
+                                call.status !==
+                                "ringing"
+                            ) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "Call is no longer ringing",
+                                });
+                            }
+
+                            call.status =
+                                "accepted";
+
+                            activeCalls.set(
+                                callId,
+                                call
+                            );
+
+                            // ==================================================
+                            // INFORM CALLER
+                            // ==================================================
+
+                            io.to(
+                                getUserRoom(
+                                    call.callerId
+                                )
+                            ).emit(
+                                "call_accepted",
+                                {
+                                    callId,
+
+                                    conversationId:
+                                        call.conversationId,
+
+                                    type:
+                                        call.type,
+
+                                    acceptedBy:
+                                        currentUserId,
+                                }
+                            );
+
+                            console.log(
+                                `📞 CALL ACCEPTED: ${callId}`
+                            );
+
+                            callback?.({
+                                success: true,
+
+                                callId,
+
+                                message:
+                                    "Call accepted",
+                            });
+                        } catch (error) {
+                            console.error(
+                                "❌ CALL ACCEPT ERROR:",
+                                error
+                            );
+
+                            callback?.({
+                                success: false,
+
+                                message:
+                                    "Failed to accept call",
+                            });
+                        }
+                    }
+                );
+
+                // ====================================================
+                // REJECT CALL
+                // ====================================================
+
+                socket.on(
+                    "call_reject",
+                    async (data, callback) => {
+                        try {
+                            const currentUserId =
+                                Number(
+                                    socket.user.id
+                                );
+
+                            const callId =
+                                data?.callId;
+
+                            if (!callId) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "Call ID is required",
+                                });
+                            }
+
+                            const call =
+                                activeCalls.get(
+                                    callId
+                                );
+
+                            if (!call) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "Call no longer exists",
+                                });
+                            }
+
+                            if (
+                                call.receiverId !==
+                                currentUserId
+                            ) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "You cannot reject this call",
+                                });
+                            }
+
+                            io.to(
+                                getUserRoom(
+                                    call.callerId
+                                )
+                            ).emit(
+                                "call_rejected",
+                                {
+                                    callId,
+
+                                    conversationId:
+                                        call.conversationId,
+
+                                    type:
+                                        call.type,
+
+                                    rejectedBy:
+                                        currentUserId,
+                                }
+                            );
+
+                            cleanupCall(
+                                callId
+                            );
+
+                            console.log(
+                                `📞 CALL REJECTED: ${callId}`
+                            );
+
+                            callback?.({
+                                success: true,
+
+                                callId,
+
+                                message:
+                                    "Call rejected",
+                            });
+                        } catch (error) {
+                            console.error(
+                                "❌ CALL REJECT ERROR:",
+                                error
+                            );
+
+                            callback?.({
+                                success: false,
+
+                                message:
+                                    "Failed to reject call",
+                            });
+                        }
+                    }
+                );
+
+                // ====================================================
+                // END CALL
+                // ====================================================
+
+                socket.on(
+                    "call_end",
+                    async (data, callback) => {
+                        try {
+                            const currentUserId =
+                                Number(
+                                    socket.user.id
+                                );
+
+                            const callId =
+                                data?.callId;
+
+                            if (!callId) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "Call ID is required",
+                                });
+                            }
+
+                            const call =
+                                activeCalls.get(
+                                    callId
+                                );
+
+                            if (!call) {
+                                return callback?.({
+                                    success: true,
+
+                                    message:
+                                        "Call already ended",
+                                });
+                            }
+
+                            const participant =
+                                getOtherCallParticipant(
+                                    call,
+                                    currentUserId
+                                );
+
+                            if (!participant) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "You are not part of this call",
+                                });
+                            }
+
+                            io.to(
+                                getUserRoom(
+                                    participant
+                                )
+                            ).emit(
+                                "call_ended",
+                                {
+                                    callId,
+
+                                    conversationId:
+                                        call.conversationId,
+
+                                    type:
+                                        call.type,
+
+                                    endedBy:
+                                        currentUserId,
+                                }
+                            );
+
+                            cleanupCall(
+                                callId
+                            );
+
+                            console.log(
+                                `📞 CALL ENDED: ${callId}`
+                            );
+
+                            callback?.({
+                                success: true,
+
+                                callId,
+
+                                message:
+                                    "Call ended",
+                            });
+                        } catch (error) {
+                            console.error(
+                                "❌ CALL END ERROR:",
+                                error
+                            );
+
+                            callback?.({
+                                success: false,
+
+                                message:
+                                    "Failed to end call",
+                            });
+                        }
+                    }
+                );
+
+                // ====================================================
+                // WEBRTC OFFER
+                // ====================================================
+
+                socket.on(
+                    "webrtc_offer",
+                    async (data, callback) => {
+                        try {
+                            const currentUserId =
+                                Number(
+                                    socket.user.id
+                                );
+
+                            const {
+                                callId,
+                                offer,
+                            } = data || {};
+
+                            if (
+                                !callId ||
+                                !offer
+                            ) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "Call ID and offer are required",
+                                });
+                            }
+
+                            const call =
+                                activeCalls.get(
+                                    callId
+                                );
+
+                            if (!call) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "Call not found",
+                                });
+                            }
+
+                            const receiverId =
+                                getOtherCallParticipant(
+                                    call,
+                                    currentUserId
+                                );
+
+                            if (!receiverId) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "You are not part of this call",
+                                });
+                            }
+
+                            io.to(
+                                getUserRoom(
+                                    receiverId
+                                )
+                            ).emit(
+                                "webrtc_offer",
+                                {
+                                    callId,
+
+                                    offer,
+
+                                    fromUserId:
+                                        currentUserId,
+                                }
+                            );
+
+                            callback?.({
+                                success: true,
+                            });
+                        } catch (error) {
+                            console.error(
+                                "❌ WEBRTC OFFER ERROR:",
+                                error
+                            );
+
+                            callback?.({
+                                success: false,
+
+                                message:
+                                    "Failed to send WebRTC offer",
+                            });
+                        }
+                    }
+                );
+
+                // ====================================================
+                // WEBRTC ANSWER
+                // ====================================================
+
+                socket.on(
+                    "webrtc_answer",
+                    async (data, callback) => {
+                        try {
+                            const currentUserId =
+                                Number(
+                                    socket.user.id
+                                );
+
+                            const {
+                                callId,
+                                answer,
+                            } = data || {};
+
+                            if (
+                                !callId ||
+                                !answer
+                            ) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "Call ID and answer are required",
+                                });
+                            }
+
+                            const call =
+                                activeCalls.get(
+                                    callId
+                                );
+
+                            if (!call) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "Call not found",
+                                });
+                            }
+
+                            const receiverId =
+                                getOtherCallParticipant(
+                                    call,
+                                    currentUserId
+                                );
+
+                            if (!receiverId) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "You are not part of this call",
+                                });
+                            }
+
+                            io.to(
+                                getUserRoom(
+                                    receiverId
+                                )
+                            ).emit(
+                                "webrtc_answer",
+                                {
+                                    callId,
+
+                                    answer,
+
+                                    fromUserId:
+                                        currentUserId,
+                                }
+                            );
+
+                            callback?.({
+                                success: true,
+                            });
+                        } catch (error) {
+                            console.error(
+                                "❌ WEBRTC ANSWER ERROR:",
+                                error
+                            );
+
+                            callback?.({
+                                success: false,
+
+                                message:
+                                    "Failed to send WebRTC answer",
+                            });
+                        }
+                    }
+                );
+
+                // ====================================================
+                // WEBRTC ICE CANDIDATE
+                // ====================================================
+
+                socket.on(
+                    "webrtc_ice_candidate",
+                    async (data, callback) => {
+                        try {
+                            const currentUserId =
+                                Number(
+                                    socket.user.id
+                                );
+
+                            const {
+                                callId,
+                                candidate,
+                            } = data || {};
+
+                            if (
+                                !callId ||
+                                !candidate
+                            ) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "Call ID and ICE candidate are required",
+                                });
+                            }
+
+                            const call =
+                                activeCalls.get(
+                                    callId
+                                );
+
+                            if (!call) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "Call not found",
+                                });
+                            }
+
+                            const receiverId =
+                                getOtherCallParticipant(
+                                    call,
+                                    currentUserId
+                                );
+
+                            if (!receiverId) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "You are not part of this call",
+                                });
+                            }
+
+                            io.to(
+                                getUserRoom(
+                                    receiverId
+                                )
+                            ).emit(
+                                "webrtc_ice_candidate",
+                                {
+                                    callId,
+
+                                    candidate,
+
+                                    fromUserId:
+                                        currentUserId,
+                                }
+                            );
+
+                            callback?.({
+                                success: true,
+                            });
+                        } catch (error) {
+                            console.error(
+                                "❌ WEBRTC ICE ERROR:",
+                                error
+                            );
+
+                            callback?.({
+                                success: false,
+
+                                message:
+                                    "Failed to send ICE candidate",
+                            });
+                        }
+                    }
+                );
+
+                // ====================================================
+                // CALL STATUS
+                // ====================================================
+
+                socket.on(
+                    "call_get_status",
+                    async (data, callback) => {
+                        try {
+                            const currentUserId =
+                                Number(
+                                    socket.user.id
+                                );
+
+                            const callId =
+                                data?.callId;
+
+                            if (!callId) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "Call ID is required",
+                                });
+                            }
+
+                            const call =
+                                activeCalls.get(
+                                    callId
+                                );
+
+                            if (!call) {
+                                return callback?.({
+                                    success: true,
+
+                                    active: false,
+
+                                    call: null,
+                                });
+                            }
+
+                            const isParticipant =
+                                call.callerId ===
+                                    currentUserId ||
+                                call.receiverId ===
+                                    currentUserId;
+
+                            if (!isParticipant) {
+                                return callback?.({
+                                    success: false,
+                                    message:
+                                        "Unauthorized",
+                                });
+                            }
+
+                            callback?.({
+                                success: true,
+
+                                active: true,
+
+                                call,
+                            });
+                        } catch (error) {
+                            console.error(
+                                "❌ CALL STATUS ERROR:",
+                                error
+                            );
+
+                            callback?.({
+                                success: false,
+
+                                message:
+                                    "Failed to get call status",
                             });
                         }
                     }
@@ -677,10 +1795,6 @@ app.prepare()
                                     conversationId
                                 );
 
-                            // =================================================
-                            // VALIDATE CONVERSATION ID
-                            // =================================================
-
                             if (
                                 !Number.isInteger(
                                     parsedConversationId
@@ -693,10 +1807,6 @@ app.prepare()
                                         "Invalid conversation ID",
                                 });
                             }
-
-                            // =================================================
-                            // VALIDATE MESSAGE TYPE
-                            // =================================================
 
                             const allowedTypes = [
                                 "TEXT",
@@ -718,18 +1828,10 @@ app.prepare()
                                 });
                             }
 
-                            // =================================================
-                            // NORMALIZE CONTENT
-                            // =================================================
-
                             const trimmedContent =
                                 typeof content === "string"
                                     ? content.trim()
                                     : "";
-
-                            // =================================================
-                            // ATTACHMENT CHECK
-                            // =================================================
 
                             const hasAttachment =
                                 Boolean(
@@ -738,10 +1840,6 @@ app.prepare()
                                         "string" &&
                                     attachmentUrl.trim()
                                 );
-
-                            // =================================================
-                            // STATUS ID NORMALIZATION
-                            // =================================================
 
                             let parsedStatusId = null;
 
@@ -767,10 +1865,6 @@ app.prepare()
                                 }
                             }
 
-                            // =================================================
-                            // MESSAGE CONTENT VALIDATION
-                            // =================================================
-
                             if (
                                 !trimmedContent &&
                                 !hasAttachment &&
@@ -783,10 +1877,6 @@ app.prepare()
                                 });
                             }
 
-                            // =================================================
-                            // CONTENT LENGTH VALIDATION
-                            // =================================================
-
                             if (
                                 trimmedContent.length >
                                 5000
@@ -797,10 +1887,6 @@ app.prepare()
                                         "Message cannot exceed 5000 characters",
                                 });
                             }
-
-                            // =================================================
-                            // VERIFY SENDER MEMBERSHIP
-                            // =================================================
 
                             const senderMembership =
                                 await prisma.conversationMember.findUnique({
@@ -822,10 +1908,6 @@ app.prepare()
                                         "You are not a member of this conversation",
                                 });
                             }
-
-                            // =================================================
-                            // STATUS VALIDATION
-                            // =================================================
 
                             let statusPreview = null;
 
@@ -877,10 +1959,6 @@ app.prepare()
                                     });
                                 }
                             }
-
-                            // =================================================
-                            // CREATE MESSAGE
-                            // =================================================
 
                             const newMessage =
                                 await prisma.message.create({
@@ -971,10 +2049,6 @@ app.prepare()
                                     },
                                 });
 
-                            // =================================================
-                            // UPDATE CONVERSATION
-                            // =================================================
-
                             await prisma.conversation.update({
                                 where: {
                                     id:
@@ -986,10 +2060,6 @@ app.prepare()
                                         new Date(),
                                 },
                             });
-
-                            // =================================================
-                            // GET RECIPIENTS
-                            // =================================================
 
                             const recipients =
                                 await prisma.conversationMember.findMany({
@@ -1007,10 +2077,6 @@ app.prepare()
                                         userId: true,
                                     },
                                 });
-
-                            // =================================================
-                            // CREATE MESSAGE RECEIPTS
-                            // =================================================
 
                             if (
                                 recipients.length >
@@ -1039,10 +2105,6 @@ app.prepare()
                                 });
                             }
 
-                            // =================================================
-                            // GET FINAL RECEIPTS
-                            // =================================================
-
                             const receipts =
                                 await prisma.messageReceipt.findMany({
                                     where: {
@@ -1059,29 +2121,19 @@ app.prepare()
                                     },
                                 });
 
-                            // =================================================
-                            // FINAL MESSAGE OBJECT
-                            // =================================================
-
                             const messageWithReceipts = {
                                 ...newMessage,
                                 receipts,
                             };
 
-                            // =================================================
-                            // REAL-TIME MESSAGE
-                            // =================================================
-
                             io.to(
-                                `conversation:${parsedConversationId}`
+                                getConversationRoom(
+                                    parsedConversationId
+                                )
                             ).emit(
                                 "new_message",
                                 messageWithReceipts
                             );
-
-                            // =================================================
-                            // MESSAGE NOTIFICATIONS
-                            // =================================================
 
                             for (
                                 const recipient of recipients
@@ -1120,7 +2172,9 @@ app.prepare()
                                         recipientNotifications.messages
                                     ) {
                                         io.to(
-                                            `user:${recipient.userId}`
+                                            getUserRoom(
+                                                recipient.userId
+                                            )
                                         ).emit(
                                             "message_notification",
                                             {
@@ -1141,10 +2195,6 @@ app.prepare()
                                     );
                                 }
                             }
-
-                            // =================================================
-                            // SUCCESS CALLBACK
-                            // =================================================
 
                             callback?.({
                                 success: true,
@@ -1189,10 +2239,6 @@ app.prepare()
                                     data?.messageId
                                 );
 
-                            // ==================================================
-                            // VALIDATE MESSAGE ID
-                            // ==================================================
-
                             if (
                                 !Number.isInteger(
                                     messageId
@@ -1205,10 +2251,6 @@ app.prepare()
                                         "Invalid message ID",
                                 });
                             }
-
-                            // ==================================================
-                            // FIND RECEIPT
-                            // ==================================================
 
                             const receipt =
                                 await prisma.messageReceipt.findUnique({
@@ -1247,10 +2289,6 @@ app.prepare()
                                 });
                             }
 
-                            // ==================================================
-                            // VERIFY RECIPIENT
-                            // ==================================================
-
                             if (
                                 receipt.userId !==
                                 recipientId
@@ -1261,10 +2299,6 @@ app.prepare()
                                         "Unauthorized receipt update",
                                 });
                             }
-
-                            // ==================================================
-                            // ALREADY DELIVERED
-                            // ==================================================
 
                             if (
                                 receipt.deliveredAt
@@ -1293,10 +2327,6 @@ app.prepare()
                                 return;
                             }
 
-                            // ==================================================
-                            // UPDATE DELIVERY TIME
-                            // ==================================================
-
                             const deliveredAt =
                                 new Date();
 
@@ -1320,10 +2350,6 @@ app.prepare()
                                     },
                                 });
 
-                            // ==================================================
-                            // STANDARD RECEIPT PAYLOAD
-                            // ==================================================
-
                             const receiptUpdate = {
                                 messageId:
                                     updatedReceipt.messageId,
@@ -1343,20 +2369,14 @@ app.prepare()
                                 receiptUpdate
                             );
 
-                            // ==================================================
-                            // SEND TO CONVERSATION
-                            // ==================================================
-
                             io.to(
-                                `conversation:${receipt.message.conversationId}`
+                                getConversationRoom(
+                                    receipt.message.conversationId
+                                )
                             ).emit(
                                 "message_receipt_updated",
                                 receiptUpdate
                             );
-
-                            // ==================================================
-                            // CALLBACK
-                            // ==================================================
 
                             callback?.({
                                 success: true,
@@ -1398,10 +2418,6 @@ app.prepare()
                                     data?.conversationId
                                 );
 
-                            // ==================================================
-                            // VALIDATE CONVERSATION
-                            // ==================================================
-
                             if (
                                 !Number.isInteger(
                                     conversationId
@@ -1414,10 +2430,6 @@ app.prepare()
                                         "Invalid conversation ID",
                                 });
                             }
-
-                            // ==================================================
-                            // VERIFY MEMBERSHIP
-                            // ==================================================
 
                             const membership =
                                 await prisma.conversationMember.findUnique({
@@ -1439,16 +2451,8 @@ app.prepare()
                                 });
                             }
 
-                            // ==================================================
-                            // CURRENT READ TIME
-                            // ==================================================
-
                             const lastReadAt =
                                 new Date();
-
-                            // ==================================================
-                            // UPDATE CONVERSATION MEMBER
-                            // ==================================================
 
                             await prisma.conversationMember.update({
                                 where: {
@@ -1464,10 +2468,6 @@ app.prepare()
                                     lastReadAt,
                                 },
                             });
-
-                            // ==================================================
-                            // FIND UNREAD RECEIPTS
-                            // ==================================================
 
                             const unreadReceipts =
                                 await prisma.messageReceipt.findMany({
@@ -1494,21 +2494,6 @@ app.prepare()
                                         readAt: true,
                                     },
                                 });
-
-                            // ==================================================
-                            // UPDATE RECEIPTS AS READ
-                            //
-                            // IMPORTANT:
-                            //
-                            // We DO NOT replace deliveredAt with
-                            // lastReadAt if the message was already
-                            // delivered.
-                            //
-                            // This preserves:
-                            //
-                            // deliveredAt = delivery time
-                            // readAt      = read time
-                            // ==================================================
 
                             const receiptUpdates = [];
 
@@ -1548,18 +2533,10 @@ app.prepare()
                                 );
                             }
 
-                            // ==================================================
-                            // PRIVACY
-                            // ==================================================
-
                             const latestPrivacy =
                                 await getLatestPresencePrivacy(
                                     readerId
                                 );
-
-                            // ==================================================
-                            // EMIT READ RECEIPTS
-                            // ==================================================
 
                             if (
                                 latestPrivacy.readReceipts
@@ -1573,20 +2550,20 @@ app.prepare()
                                     );
 
                                     io.to(
-                                        `conversation:${conversationId}`
+                                        getConversationRoom(
+                                            conversationId
+                                        )
                                     ).emit(
                                         "message_receipt_updated",
                                         update
                                     );
                                 }
 
-                                // ==================================================
-                                // CONVERSATION READ
-                                // ==================================================
-
                                 socket
                                     .to(
-                                        `conversation:${conversationId}`
+                                        getConversationRoom(
+                                            conversationId
+                                        )
                                     )
                                     .emit(
                                         "conversation_read",
@@ -1600,10 +2577,6 @@ app.prepare()
                                         }
                                     );
                             }
-
-                            // ==================================================
-                            // CALLBACK
-                            // ==================================================
 
                             callback?.({
                                 success: true,
@@ -1813,7 +2786,9 @@ app.prepare()
                                 });
 
                             io.to(
-                                `conversation:${message.conversationId}`
+                                getConversationRoom(
+                                    message.conversationId
+                                )
                             ).emit(
                                 "message_updated",
                                 updatedMessage
@@ -1943,7 +2918,9 @@ app.prepare()
                                 });
 
                             io.to(
-                                `user:${currentUserId}`
+                                getUserRoom(
+                                    currentUserId
+                                )
                             ).emit(
                                 "message_deleted_for_me",
                                 {
@@ -2138,7 +3115,9 @@ app.prepare()
                                 });
 
                             io.to(
-                                `conversation:${message.conversationId}`
+                                getConversationRoom(
+                                    message.conversationId
+                                )
                             ).emit(
                                 "message_deleted",
                                 deletedMessage
@@ -2293,7 +3272,9 @@ app.prepare()
                                 });
 
                             io.to(
-                                `conversation:${message.conversationId}`
+                                getConversationRoom(
+                                    message.conversationId
+                                )
                             ).emit(
                                 "message_reaction_added",
                                 reaction
@@ -2439,7 +3420,9 @@ app.prepare()
                             };
 
                             io.to(
-                                `conversation:${reaction.message.conversationId}`
+                                getConversationRoom(
+                                    reaction.message.conversationId
+                                )
                             ).emit(
                                 "message_reaction_removed",
                                 payload
@@ -2517,7 +3500,9 @@ app.prepare()
 
                             socket
                                 .to(
-                                    `conversation:${conversationId}`
+                                    getConversationRoom(
+                                        conversationId
+                                    )
                                 )
                                 .emit(
                                     "user_typing",
@@ -2590,7 +3575,9 @@ app.prepare()
 
                             socket
                                 .to(
-                                    `conversation:${conversationId}`
+                                    getConversationRoom(
+                                        conversationId
+                                    )
                                 )
                                 .emit(
                                     "user_stopped_typing",
@@ -2612,7 +3599,1176 @@ app.prepare()
                         }
                     }
                 );
+         
+                // ====================================================
+// CALL SIGNALING
+// ====================================================
 
+// ----------------------------------------------------
+// START CALL
+// ----------------------------------------------------
+
+socket.on(
+    "call_user",
+    async (data, callback) => {
+        try {
+            const callerId = Number(socket.user.id);
+
+            const {
+                conversationId,
+                receiverId,
+                callType = "audio",
+            } = data || {};
+
+            const parsedConversationId =
+                Number(conversationId);
+
+            const parsedReceiverId =
+                Number(receiverId);
+
+            // =================================================
+            // VALIDATE CALL TYPE
+            // =================================================
+
+            if (
+                callType !== "audio" &&
+                callType !== "video"
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid call type",
+                });
+            }
+
+            // =================================================
+            // VALIDATE RECEIVER
+            // =================================================
+
+            if (
+                !Number.isInteger(parsedReceiverId) ||
+                parsedReceiverId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid receiver ID",
+                });
+            }
+
+            if (
+                parsedReceiverId === callerId
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "You cannot call yourself",
+                });
+            }
+
+            // =================================================
+            // VALIDATE CONVERSATION
+            // =================================================
+
+            if (
+                !Number.isInteger(
+                    parsedConversationId
+                ) ||
+                parsedConversationId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid conversation ID",
+                });
+            }
+
+            // =================================================
+            // VERIFY CALLER MEMBERSHIP
+            // =================================================
+
+            const callerMembership =
+                await prisma.conversationMember.findUnique({
+                    where: {
+                        userId_conversationId: {
+                            userId: callerId,
+                            conversationId:
+                                parsedConversationId,
+                        },
+                    },
+                });
+
+            if (!callerMembership) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "You are not a member of this conversation",
+                });
+            }
+
+            // =================================================
+            // VERIFY RECEIVER MEMBERSHIP
+            // =================================================
+
+            const receiverMembership =
+                await prisma.conversationMember.findUnique({
+                    where: {
+                        userId_conversationId: {
+                            userId:
+                                parsedReceiverId,
+
+                            conversationId:
+                                parsedConversationId,
+                        },
+                    },
+                });
+
+            if (!receiverMembership) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "The user is not a member of this conversation",
+                });
+            }
+
+            // =================================================
+            // GET CALLER
+            // =================================================
+
+            const caller =
+                await prisma.user.findUnique({
+                    where: {
+                        id: callerId,
+                    },
+
+                    select: {
+                        id: true,
+                        username: true,
+                        displayName: true,
+                        avatar: true,
+                    },
+                });
+
+            if (!caller) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Caller not found",
+                });
+            }
+
+            // =================================================
+            // GET RECEIVER
+            // =================================================
+
+            const receiver =
+                await prisma.user.findUnique({
+                    where: {
+                        id: parsedReceiverId,
+                    },
+
+                    select: {
+                        id: true,
+                        username: true,
+                        displayName: true,
+                        avatar: true,
+                        isOnline: true,
+                    },
+                });
+
+            if (!receiver) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Receiver not found",
+                });
+            }
+
+            // =================================================
+            // GENERATE CALL ID
+            // =================================================
+
+            const callId =
+                `${callerId}-${parsedReceiverId}-${Date.now()}-${Math.random()
+                    .toString(36)
+                    .slice(2, 10)}`;
+
+            // =================================================
+            // CHECK RECEIVER ONLINE
+            // =================================================
+
+            const receiverConnections =
+                onlineUsers.get(
+                    parsedReceiverId
+                ) || 0;
+
+            if (
+                receiverConnections <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "User is currently offline",
+                    code:
+                        "USER_OFFLINE",
+                });
+            }
+
+            // =================================================
+            // INCOMING CALL PAYLOAD
+            // =================================================
+
+            const incomingCall = {
+                callId,
+
+                conversationId:
+                    parsedConversationId,
+
+                callerId,
+
+                receiverId:
+                    parsedReceiverId,
+
+                callType,
+
+                caller: {
+                    id: caller.id,
+                    username:
+                        caller.username,
+                    displayName:
+                        caller.displayName,
+                    avatar:
+                        caller.avatar,
+                },
+
+                createdAt:
+                    new Date().toISOString(),
+            };
+
+            console.log(
+                "📞 INCOMING CALL:",
+                incomingCall
+            );
+
+            // =================================================
+            // SEND CALL TO RECEIVER
+            // =================================================
+
+            io.to(
+                `user:${parsedReceiverId}`
+            ).emit(
+                "incoming_call",
+                incomingCall
+            );
+
+            // =================================================
+            // CONFIRM TO CALLER
+            // =================================================
+
+            callback?.({
+                success: true,
+
+                message:
+                    "Call initiated successfully",
+
+                data: {
+                    callId,
+
+                    conversationId:
+                        parsedConversationId,
+
+                    callerId,
+
+                    receiverId:
+                        parsedReceiverId,
+
+                    callType,
+                },
+            });
+        } catch (error) {
+            console.error(
+                "❌ CALL USER ERROR:",
+                error
+            );
+
+            callback?.({
+                success: false,
+
+                message:
+                    "Failed to start call",
+            });
+        }
+    }
+);
+
+
+// ----------------------------------------------------
+// ACCEPT CALL
+// ----------------------------------------------------
+
+socket.on(
+    "call_accepted",
+    async (data, callback) => {
+        try {
+            const receiverId =
+                Number(socket.user.id);
+
+            const {
+                callId,
+                callerId,
+                conversationId,
+            } = data || {};
+
+            const parsedCallerId =
+                Number(callerId);
+
+            const parsedConversationId =
+                Number(conversationId);
+
+            // =================================================
+            // VALIDATION
+            // =================================================
+
+            if (!callId) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Call ID is required",
+                });
+            }
+
+            if (
+                !Number.isInteger(
+                    parsedCallerId
+                ) ||
+                parsedCallerId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid caller ID",
+                });
+            }
+
+            if (
+                !Number.isInteger(
+                    parsedConversationId
+                ) ||
+                parsedConversationId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid conversation ID",
+                });
+            }
+
+            // =================================================
+            // VERIFY MEMBERSHIP
+            // =================================================
+
+            const receiverMembership =
+                await prisma.conversationMember.findUnique({
+                    where: {
+                        userId_conversationId: {
+                            userId:
+                                receiverId,
+
+                            conversationId:
+                                parsedConversationId,
+                        },
+                    },
+                });
+
+            const callerMembership =
+                await prisma.conversationMember.findUnique({
+                    where: {
+                        userId_conversationId: {
+                            userId:
+                                parsedCallerId,
+
+                            conversationId:
+                                parsedConversationId,
+                        },
+                    },
+                });
+
+            if (
+                !receiverMembership ||
+                !callerMembership
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Call participants are not members of this conversation",
+                });
+            }
+
+            // =================================================
+            // SEND ACCEPTED EVENT TO CALLER
+            // =================================================
+
+            console.log(
+                "✅ CALL ACCEPTED:",
+                {
+                    callId,
+                    callerId:
+                        parsedCallerId,
+                    receiverId,
+                }
+            );
+
+            io.to(
+                `user:${parsedCallerId}`
+            ).emit(
+                "call_accepted",
+                {
+                    callId,
+
+                    conversationId:
+                        parsedConversationId,
+
+                    callerId:
+                        parsedCallerId,
+
+                    receiverId,
+
+                    acceptedAt:
+                        new Date().toISOString(),
+                }
+            );
+
+            callback?.({
+                success: true,
+
+                message:
+                    "Call accepted",
+            });
+        } catch (error) {
+            console.error(
+                "❌ CALL ACCEPT ERROR:",
+                error
+            );
+
+            callback?.({
+                success: false,
+
+                message:
+                    "Failed to accept call",
+            });
+        }
+    }
+);
+
+
+// ----------------------------------------------------
+// REJECT CALL
+// ----------------------------------------------------
+
+socket.on(
+    "call_rejected",
+    async (data, callback) => {
+        try {
+            const receiverId =
+                Number(socket.user.id);
+
+            const {
+                callId,
+                callerId,
+                conversationId,
+                reason = "rejected",
+            } = data || {};
+
+            const parsedCallerId =
+                Number(callerId);
+
+            const parsedConversationId =
+                Number(conversationId);
+
+            if (!callId) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Call ID is required",
+                });
+            }
+
+            if (
+                !Number.isInteger(
+                    parsedCallerId
+                ) ||
+                parsedCallerId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid caller ID",
+                });
+            }
+
+            if (
+                !Number.isInteger(
+                    parsedConversationId
+                ) ||
+                parsedConversationId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid conversation ID",
+                });
+            }
+
+            // =================================================
+            // VERIFY RECEIVER MEMBERSHIP
+            // =================================================
+
+            const receiverMembership =
+                await prisma.conversationMember.findUnique({
+                    where: {
+                        userId_conversationId: {
+                            userId:
+                                receiverId,
+
+                            conversationId:
+                                parsedConversationId,
+                        },
+                    },
+                });
+
+            if (!receiverMembership) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "You are not a member of this conversation",
+                });
+            }
+
+            // =================================================
+            // SEND REJECTION TO CALLER
+            // =================================================
+
+            console.log(
+                "❌ CALL REJECTED:",
+                {
+                    callId,
+                    callerId:
+                        parsedCallerId,
+                    receiverId,
+                    reason,
+                }
+            );
+
+            io.to(
+                `user:${parsedCallerId}`
+            ).emit(
+                "call_rejected",
+                {
+                    callId,
+
+                    conversationId:
+                        parsedConversationId,
+
+                    callerId:
+                        parsedCallerId,
+
+                    receiverId,
+
+                    reason,
+
+                    rejectedAt:
+                        new Date().toISOString(),
+                }
+            );
+
+            callback?.({
+                success: true,
+
+                message:
+                    "Call rejected",
+            });
+        } catch (error) {
+            console.error(
+                "❌ CALL REJECT ERROR:",
+                error
+            );
+
+            callback?.({
+                success: false,
+
+                message:
+                    "Failed to reject call",
+            });
+        }
+    }
+);
+
+
+// ----------------------------------------------------
+// WEBRTC OFFER
+// ----------------------------------------------------
+
+socket.on(
+    "webrtc_offer",
+    async (data, callback) => {
+        try {
+            const senderId =
+                Number(socket.user.id);
+
+            const {
+                callId,
+                receiverId,
+                conversationId,
+                offer,
+            } = data || {};
+
+            const parsedReceiverId =
+                Number(receiverId);
+
+            const parsedConversationId =
+                Number(conversationId);
+
+            if (!callId) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Call ID is required",
+                });
+            }
+
+            if (
+                !offer
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "WebRTC offer is required",
+                });
+            }
+
+            if (
+                !Number.isInteger(
+                    parsedReceiverId
+                ) ||
+                parsedReceiverId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid receiver ID",
+                });
+            }
+
+            if (
+                !Number.isInteger(
+                    parsedConversationId
+                ) ||
+                parsedConversationId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid conversation ID",
+                });
+            }
+
+            // =================================================
+            // VERIFY MEMBERSHIP
+            // =================================================
+
+            const membership =
+                await prisma.conversationMember.findUnique({
+                    where: {
+                        userId_conversationId: {
+                            userId:
+                                senderId,
+
+                            conversationId:
+                                parsedConversationId,
+                        },
+                    },
+                });
+
+            if (!membership) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "You are not a member of this conversation",
+                });
+            }
+
+            // =================================================
+            // FORWARD OFFER
+            // =================================================
+
+            console.log(
+                "📡 WEBRTC OFFER:",
+                {
+                    callId,
+                    senderId,
+                    receiverId:
+                        parsedReceiverId,
+                }
+            );
+
+            io.to(
+                `user:${parsedReceiverId}`
+            ).emit(
+                "webrtc_offer",
+                {
+                    callId,
+
+                    conversationId:
+                        parsedConversationId,
+
+                    senderId,
+
+                    receiverId:
+                        parsedReceiverId,
+
+                    offer,
+                }
+            );
+
+            callback?.({
+                success: true,
+            });
+        } catch (error) {
+            console.error(
+                "❌ WEBRTC OFFER ERROR:",
+                error
+            );
+
+            callback?.({
+                success: false,
+
+                message:
+                    "Failed to send WebRTC offer",
+            });
+        }
+    }
+);
+
+
+// ----------------------------------------------------
+// WEBRTC ANSWER
+// ----------------------------------------------------
+
+socket.on(
+    "webrtc_answer",
+    async (data, callback) => {
+        try {
+            const senderId =
+                Number(socket.user.id);
+
+            const {
+                callId,
+                receiverId,
+                conversationId,
+                answer,
+            } = data || {};
+
+            const parsedReceiverId =
+                Number(receiverId);
+
+            const parsedConversationId =
+                Number(conversationId);
+
+            if (!callId) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Call ID is required",
+                });
+            }
+
+            if (!answer) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "WebRTC answer is required",
+                });
+            }
+
+            if (
+                !Number.isInteger(
+                    parsedReceiverId
+                ) ||
+                parsedReceiverId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid receiver ID",
+                });
+            }
+
+            if (
+                !Number.isInteger(
+                    parsedConversationId
+                ) ||
+                parsedConversationId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid conversation ID",
+                });
+            }
+
+            // =================================================
+            // VERIFY MEMBERSHIP
+            // =================================================
+
+            const membership =
+                await prisma.conversationMember.findUnique({
+                    where: {
+                        userId_conversationId: {
+                            userId:
+                                senderId,
+
+                            conversationId:
+                                parsedConversationId,
+                        },
+                    },
+                });
+
+            if (!membership) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "You are not a member of this conversation",
+                });
+            }
+
+            // =================================================
+            // FORWARD ANSWER
+            // =================================================
+
+            console.log(
+                "📡 WEBRTC ANSWER:",
+                {
+                    callId,
+                    senderId,
+                    receiverId:
+                        parsedReceiverId,
+                }
+            );
+
+            io.to(
+                `user:${parsedReceiverId}`
+            ).emit(
+                "webrtc_answer",
+                {
+                    callId,
+
+                    conversationId:
+                        parsedConversationId,
+
+                    senderId,
+
+                    receiverId:
+                        parsedReceiverId,
+
+                    answer,
+                }
+            );
+
+            callback?.({
+                success: true,
+            });
+        } catch (error) {
+            console.error(
+                "❌ WEBRTC ANSWER ERROR:",
+                error
+            );
+
+            callback?.({
+                success: false,
+
+                message:
+                    "Failed to send WebRTC answer",
+            });
+        }
+    }
+);
+
+
+// ----------------------------------------------------
+// ICE CANDIDATE
+// ----------------------------------------------------
+
+socket.on(
+    "ice_candidate",
+    async (data, callback) => {
+        try {
+            const senderId =
+                Number(socket.user.id);
+
+            const {
+                callId,
+                receiverId,
+                conversationId,
+                candidate,
+            } = data || {};
+
+            const parsedReceiverId =
+                Number(receiverId);
+
+            const parsedConversationId =
+                Number(conversationId);
+
+            if (!callId) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Call ID is required",
+                });
+            }
+
+            if (!candidate) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "ICE candidate is required",
+                });
+            }
+
+            if (
+                !Number.isInteger(
+                    parsedReceiverId
+                ) ||
+                parsedReceiverId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid receiver ID",
+                });
+            }
+
+            if (
+                !Number.isInteger(
+                    parsedConversationId
+                ) ||
+                parsedConversationId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid conversation ID",
+                });
+            }
+
+            // =================================================
+            // VERIFY MEMBERSHIP
+            // =================================================
+
+            const membership =
+                await prisma.conversationMember.findUnique({
+                    where: {
+                        userId_conversationId: {
+                            userId:
+                                senderId,
+
+                            conversationId:
+                                parsedConversationId,
+                        },
+                    },
+                });
+
+            if (!membership) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "You are not a member of this conversation",
+                });
+            }
+
+            // =================================================
+            // FORWARD ICE CANDIDATE
+            // =================================================
+
+            io.to(
+                `user:${parsedReceiverId}`
+            ).emit(
+                "ice_candidate",
+                {
+                    callId,
+
+                    conversationId:
+                        parsedConversationId,
+
+                    senderId,
+
+                    receiverId:
+                        parsedReceiverId,
+
+                    candidate,
+                }
+            );
+
+            callback?.({
+                success: true,
+            });
+        } catch (error) {
+            console.error(
+                "❌ ICE CANDIDATE ERROR:",
+                error
+            );
+
+            callback?.({
+                success: false,
+
+                message:
+                    "Failed to send ICE candidate",
+            });
+        }
+    }
+);
+
+
+// ----------------------------------------------------
+// END CALL
+// ----------------------------------------------------
+
+socket.on(
+    "call_ended",
+    async (data, callback) => {
+        try {
+            const senderId =
+                Number(socket.user.id);
+
+            const {
+                callId,
+                receiverId,
+                conversationId,
+                reason = "ended",
+            } = data || {};
+
+            const parsedReceiverId =
+                Number(receiverId);
+
+            const parsedConversationId =
+                Number(conversationId);
+
+            if (!callId) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Call ID is required",
+                });
+            }
+
+            if (
+                !Number.isInteger(
+                    parsedReceiverId
+                ) ||
+                parsedReceiverId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid receiver ID",
+                });
+            }
+
+            if (
+                !Number.isInteger(
+                    parsedConversationId
+                ) ||
+                parsedConversationId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid conversation ID",
+                });
+            }
+
+            // =================================================
+            // VERIFY MEMBERSHIP
+            // =================================================
+
+            const membership =
+                await prisma.conversationMember.findUnique({
+                    where: {
+                        userId_conversationId: {
+                            userId:
+                                senderId,
+
+                            conversationId:
+                                parsedConversationId,
+                        },
+                    },
+                });
+
+            if (!membership) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "You are not a member of this conversation",
+                });
+            }
+
+            // =================================================
+            // SEND END CALL EVENT
+            // =================================================
+
+            console.log(
+                "📴 CALL ENDED:",
+                {
+                    callId,
+                    senderId,
+                    receiverId:
+                        parsedReceiverId,
+                    reason,
+                }
+            );
+
+            io.to(
+                `user:${parsedReceiverId}`
+            ).emit(
+                "call_ended",
+                {
+                    callId,
+
+                    conversationId:
+                        parsedConversationId,
+
+                    senderId,
+
+                    receiverId:
+                        parsedReceiverId,
+
+                    reason,
+
+                    endedAt:
+                        new Date().toISOString(),
+                }
+            );
+
+            callback?.({
+                success: true,
+
+                message:
+                    "Call ended",
+            });
+        } catch (error) {
+            console.error(
+                "❌ END CALL ERROR:",
+                error
+            );
+
+            callback?.({
+                success: false,
+
+                message:
+                    "Failed to end call",
+            });
+        }
+    }
+);
                 // ====================================================
                 // DISCONNECT
                 // ====================================================
@@ -2621,6 +4777,65 @@ app.prepare()
                     "disconnect",
                     async (reason) => {
                         try {
+                            // ==================================================
+                            // HANDLE ACTIVE CALL
+                            // ==================================================
+
+                            const callId =
+                                userActiveCalls.get(
+                                    userId
+                                );
+
+                            if (callId) {
+                                const call =
+                                    activeCalls.get(
+                                        callId
+                                    );
+
+                                if (call) {
+                                    const otherUserId =
+                                        getOtherCallParticipant(
+                                            call,
+                                            userId
+                                        );
+
+                                    if (
+                                        otherUserId
+                                    ) {
+                                        io.to(
+                                            getUserRoom(
+                                                otherUserId
+                                            )
+                                        ).emit(
+                                            "call_ended",
+                                            {
+                                                callId,
+
+                                                conversationId:
+                                                    call.conversationId,
+
+                                                type:
+                                                    call.type,
+
+                                                endedBy:
+                                                    userId,
+
+                                                reason:
+                                                    "DISCONNECTED",
+                                            }
+                                        );
+                                    }
+
+                                    cleanupCall(
+                                        callId
+                                    );
+                                }
+                            }
+
+                            // ==================================================
+                            // PRESENCE
+                            // ==================================================
+
                             const currentConnections =
                                 onlineUsers.get(
                                     userId
@@ -2719,6 +4934,10 @@ app.prepare()
                     console.log(
                         `> Ready on http://${hostname}:${port}`
                     );
+
+                    console.log(
+                        "📞 Audio/Video calling signaling enabled"
+                    );
                 }
             );
 
@@ -2732,6 +4951,66 @@ app.prepare()
             );
 
             try {
+                // ==================================================
+                // END ALL ACTIVE CALLS
+                // ==================================================
+
+                for (
+                    const [
+                        callId,
+                        call,
+                    ] of activeCalls
+                ) {
+                    io.to(
+                        getUserRoom(
+                            call.callerId
+                        )
+                    ).emit(
+                        "call_ended",
+                        {
+                            callId,
+
+                            conversationId:
+                                call.conversationId,
+
+                            type:
+                                call.type,
+
+                            endedBy:
+                                null,
+
+                            reason:
+                                "SERVER_SHUTDOWN",
+                        }
+                    );
+
+                    io.to(
+                        getUserRoom(
+                            call.receiverId
+                        )
+                    ).emit(
+                        "call_ended",
+                        {
+                            callId,
+
+                            conversationId:
+                                call.conversationId,
+
+                            type:
+                                call.type,
+
+                            endedBy:
+                                null,
+
+                            reason:
+                                "SERVER_SHUTDOWN",
+                        }
+                    );
+                }
+
+                activeCalls.clear();
+                userActiveCalls.clear();
+
                 await prisma.user.updateMany({
                     where: {
                         isOnline: true,

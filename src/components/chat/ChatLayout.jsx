@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import { socket } from "@/lib/socket";
+import { callManager } from "@/lib/callManager";
 
 import ChatSideBar from "./ChatSideBar";
 import ChatWindow from "./ChatWindow";
@@ -26,7 +27,11 @@ function updateConversationPreview(
         message?.conversationId
     );
 
-    if (!Number.isFinite(conversationId)) {
+    if (
+        !Number.isFinite(
+            conversationId
+        )
+    ) {
         return conversations;
     }
 
@@ -38,50 +43,61 @@ function updateConversationPreview(
         Number(activeConversationId) ===
         conversationId;
 
-    const existing = conversations.find(
-        (conversation) =>
-            Number(conversation.id) ===
-            conversationId
-    );
+    const existing =
+        conversations.find(
+            (conversation) =>
+                Number(conversation.id) ===
+                conversationId
+        );
 
     if (!existing) {
         return conversations;
     }
 
-    const updated = conversations.map(
-        (conversation) => {
-            if (
-                Number(conversation.id) !==
-                conversationId
-            ) {
-                return conversation;
+    const updated =
+        conversations.map(
+            (conversation) => {
+                if (
+                    Number(
+                        conversation.id
+                    ) !== conversationId
+                ) {
+                    return conversation;
+                }
+
+                const currentUnread =
+                    Number(
+                        conversation.unreadCount ||
+                            0
+                    );
+
+                return {
+                    ...conversation,
+
+                    latestMessage:
+                        message,
+
+                    updatedAt:
+                        message.createdAt ||
+                        new Date().toISOString(),
+
+                    unreadCount:
+                        isOwnMessage ||
+                        isActive
+                            ? currentUnread
+                            : currentUnread + 1,
+                };
             }
-
-            const currentUnread = Number(
-                conversation.unreadCount || 0
-            );
-
-            return {
-                ...conversation,
-
-                latestMessage: message,
-
-                updatedAt:
-                    message.createdAt ||
-                    new Date().toISOString(),
-
-                unreadCount:
-                    isOwnMessage || isActive
-                        ? currentUnread
-                        : currentUnread + 1,
-            };
-        }
-    );
+        );
 
     return [...updated].sort(
         (a, b) =>
-            new Date(b.updatedAt || 0) -
-            new Date(a.updatedAt || 0)
+            new Date(
+                b.updatedAt || 0
+            ) -
+            new Date(
+                a.updatedAt || 0
+            )
     );
 }
 
@@ -104,8 +120,9 @@ function updateConversationMembers(
                 conversation.members || []
             ).map((member) => {
                 if (
-                    Number(member.userId) !==
-                    id
+                    Number(
+                        member.userId
+                    ) !== id
                 ) {
                     return member;
                 }
@@ -145,8 +162,9 @@ function updateActiveConversationMember(
             conversation.members || []
         ).map((member) => {
             if (
-                Number(member.userId) !==
-                id
+                Number(
+                    member.userId
+                ) !== id
             ) {
                 return member;
             }
@@ -211,16 +229,9 @@ export default function ChatLayout({
     const [
         socketConnected,
         setSocketConnected,
-    ] = useState(socket.connected);
-
-    // ========================================================
-    // DELETE CONFIRMATION STATE
-    // ========================================================
-
-    const [
-        deleteConfirmation,
-        setDeleteConfirmation,
-    ] = useState(null);
+    ] = useState(
+        socket.connected
+    );
 
     // ========================================================
     // MOBILE VIEW STATE
@@ -230,6 +241,31 @@ export default function ChatLayout({
         mobileChatOpen,
         setMobileChatOpen,
     ] = useState(false);
+
+    // ========================================================
+    // CALL STATE
+    // ========================================================
+
+    const [callState, setCallState] =
+        useState("idle");
+
+    const [incomingCall, setIncomingCall] =
+        useState(null);
+
+    const [localStream, setLocalStream] =
+        useState(null);
+
+    const [remoteStream, setRemoteStream] =
+        useState(null);
+
+    const [isMuted, setIsMuted] =
+        useState(false);
+
+    const [isCameraOff, setIsCameraOff] =
+        useState(false);
+
+    const [callError, setCallError] =
+        useState(null);
 
     // ========================================================
     // REFS
@@ -244,6 +280,9 @@ export default function ChatLayout({
     const activeConversationRef =
         useRef(null);
 
+    const conversationsRef =
+        useRef(initialConversations || []);
+
     const currentUserId =
         Number(currentUser?.id);
 
@@ -256,6 +295,11 @@ export default function ChatLayout({
             activeConversation;
     }, [activeConversation]);
 
+    useEffect(() => {
+        conversationsRef.current =
+            conversations;
+    }, [conversations]);
+
     // ========================================================
     // SOCKET CONNECTION
     // ========================================================
@@ -265,6 +309,10 @@ export default function ChatLayout({
             socket.connect();
         }
 
+        // ----------------------------------------------------
+        // CONNECT
+        // ----------------------------------------------------
+
         const onConnect = () => {
             console.log(
                 "🟢 Chat socket connected:",
@@ -273,6 +321,10 @@ export default function ChatLayout({
 
             setSocketConnected(true);
         };
+
+        // ----------------------------------------------------
+        // DISCONNECT
+        // ----------------------------------------------------
 
         const onDisconnect = (
             reason
@@ -285,6 +337,10 @@ export default function ChatLayout({
             setSocketConnected(false);
         };
 
+        // ----------------------------------------------------
+        // CONNECT ERROR
+        // ----------------------------------------------------
+
         const onConnectError = (
             error
         ) => {
@@ -295,6 +351,10 @@ export default function ChatLayout({
 
             setSocketConnected(false);
         };
+
+        // ----------------------------------------------------
+        // PRESENCE STATE
+        // ----------------------------------------------------
 
         const onPresenceState = (
             data
@@ -309,17 +369,22 @@ export default function ChatLayout({
 
             setOnlineUsers(users);
 
+            // Keep conversation member state synchronized with initial presence while preserving privacy settings
             setConversations(
                 (previous) =>
                     previous.map(
-                        (conversation) => ({
+                        (
+                            conversation
+                        ) => ({
                             ...conversation,
 
                             members: (
                                 conversation.members ||
                                 []
                             ).map(
-                                (member) => {
+                                (
+                                    member
+                                ) => {
                                     const memberId =
                                         Number(
                                             member?.userId ??
@@ -348,6 +413,8 @@ export default function ChatLayout({
                                             ...(member.user ||
                                                 {}),
                                             isOnline,
+                                            showOnlineStatus: member.user?.showOnlineStatus ?? true,
+                                            showLastSeen: member.user?.showLastSeen ?? true,
                                         },
                                     };
                                 }
@@ -357,100 +424,176 @@ export default function ChatLayout({
             );
         };
 
+        // ----------------------------------------------------
+        // USER ONLINE
+        // ----------------------------------------------------
+
         const onUserOnline = ({
             userId,
+            showOnlineStatus,
+            showLastSeen,
         }) => {
-            const id = Number(
-                userId
-            );
+            const id = Number(userId);
 
             if (!Number.isFinite(id)) {
                 return;
             }
 
-            setOnlineUsers(
-                (previous) => {
-                    if (
-                        previous.includes(
-                            id
-                        )
-                    ) {
-                        return previous;
-                    }
-
-                    return [
-                        ...previous,
-                        id,
-                    ];
+            setOnlineUsers((previous) => {
+                if (previous.includes(id)) {
+                    return previous;
                 }
+                return [...previous, id];
+            });
+
+            const updates = {
+                isOnline: true,
+                ...(showOnlineStatus !== undefined && { showOnlineStatus: Boolean(showOnlineStatus) }),
+                ...(showLastSeen !== undefined && { showLastSeen: Boolean(showLastSeen) }),
+            };
+
+            setConversations((previous) =>
+                updateConversationMembers(previous, id, updates)
             );
 
-            setConversations(
-                (previous) =>
-                    updateConversationMembers(
-                        previous,
-                        id,
-                        {
-                            isOnline: true,
-                        }
-                    )
-            );
-
-            setActiveConversation(
-                (previous) =>
-                    updateActiveConversationMember(
-                        previous,
-                        id,
-                        {
-                            isOnline: true,
-                        }
-                    )
+            setActiveConversation((previous) =>
+                updateActiveConversationMember(previous, id, updates)
             );
         };
+
+        // ----------------------------------------------------
+        // USER OFFLINE
+        // ----------------------------------------------------
 
         const onUserOffline = ({
             userId,
+            lastSeen,
+            showOnlineStatus,
+            showLastSeen,
+            privacyHidden,
         }) => {
-            const id = Number(
-                userId
-            );
+            const id = Number(userId);
 
             if (!Number.isFinite(id)) {
                 return;
             }
 
-            setOnlineUsers(
-                (previous) =>
-                    previous.filter(
-                        (existingId) =>
-                            Number(
-                                existingId
-                            ) !== id
-                    )
+            setOnlineUsers((previous) =>
+                previous.filter((existingId) => Number(existingId) !== id)
             );
 
-            setConversations(
-                (previous) =>
-                    updateConversationMembers(
-                        previous,
-                        id,
-                        {
-                            isOnline: false,
-                        }
-                    )
+            const isLastSeenVisible = privacyHidden
+                ? false
+                : showLastSeen !== undefined
+                ? Boolean(showLastSeen)
+                : true;
+
+            const updatedLastSeen = isLastSeenVisible
+                ? lastSeen || new Date().toISOString()
+                : null;
+
+            const updates = {
+                isOnline: false,
+                lastSeen: updatedLastSeen,
+                ...(showOnlineStatus !== undefined && { showOnlineStatus: Boolean(showOnlineStatus) }),
+                showLastSeen: isLastSeenVisible,
+            };
+
+            setConversations((previous) =>
+                updateConversationMembers(previous, id, updates)
             );
 
-            setActiveConversation(
-                (previous) =>
-                    updateActiveConversationMember(
-                        previous,
-                        id,
-                        {
-                            isOnline: false,
-                        }
-                    )
+            setActiveConversation((previous) =>
+                updateActiveConversationMember(previous, id, updates)
             );
         };
+
+        // ----------------------------------------------------
+        // USER LAST SEEN UPDATED
+        // ----------------------------------------------------
+
+        const onUserLastSeenUpdated = ({
+            userId,
+            lastSeen,
+            privacyHidden,
+        }) => {
+            const id = Number(userId);
+
+            if (!Number.isFinite(id)) {
+                return;
+            }
+
+            const updatedLastSeen = privacyHidden
+                ? null
+                : lastSeen || new Date().toISOString();
+
+            setConversations((previous) =>
+                updateConversationMembers(
+                    previous,
+                    id,
+                    {
+                        lastSeen: updatedLastSeen,
+                        showLastSeen: !privacyHidden,
+                    }
+                )
+            );
+
+            setActiveConversation((previous) =>
+                updateActiveConversationMember(
+                    previous,
+                    id,
+                    {
+                        lastSeen: updatedLastSeen,
+                        showLastSeen: !privacyHidden,
+                    }
+                )
+            );
+        };
+
+        // ----------------------------------------------------
+        // PRIVACY SETTINGS UPDATED
+        // ----------------------------------------------------
+
+        const onPrivacySettingsUpdated = ({
+            userId,
+            privacy,
+        }) => {
+            const id = Number(userId);
+
+            if (!Number.isFinite(id)) {
+                return;
+            }
+
+            const isLastSeenAllowed = Boolean(privacy?.lastSeen);
+
+            setConversations((previous) =>
+                updateConversationMembers(
+                    previous,
+                    id,
+                    {
+                        showOnlineStatus: Boolean(privacy?.onlineStatus),
+                        showLastSeen: isLastSeenAllowed,
+                        lastSeen: isLastSeenAllowed ? undefined : null,
+                    }
+                )
+            );
+
+            setActiveConversation((previous) =>
+                updateActiveConversationMember(
+                    previous,
+                    id,
+                    {
+                        showOnlineStatus: Boolean(privacy?.onlineStatus),
+                        showLastSeen: isLastSeenAllowed,
+                        lastSeen: isLastSeenAllowed ? undefined : null,
+                    }
+                )
+            );
+        };
+
+        // ====================================================
+        // REGISTER
+        // ====================================================
 
         socket.on(
             "connect",
@@ -482,6 +625,20 @@ export default function ChatLayout({
             onUserOffline
         );
 
+        socket.on(
+            "user_last_seen_updated",
+            onUserLastSeenUpdated
+        );
+
+        socket.on(
+            "privacy_settings_updated",
+            onPrivacySettingsUpdated
+        );
+
+        // ====================================================
+        // CLEANUP
+        // ====================================================
+
         return () => {
             socket.off(
                 "connect",
@@ -512,8 +669,140 @@ export default function ChatLayout({
                 "user_offline",
                 onUserOffline
             );
+
+            socket.off(
+                "user_last_seen_updated",
+                onUserLastSeenUpdated
+            );
+
+            socket.off(
+                "privacy_settings_updated",
+                onPrivacySettingsUpdated
+            );
         };
     }, []);
+
+    // ============================================================
+    // CALL MANAGER
+    // ============================================================
+
+    useEffect(() => {
+        if (
+            !Number.isInteger(currentUserId) ||
+            currentUserId <= 0
+        ) {
+            return;
+        }
+
+        const getCallerFromConversation = (
+            conversationId,
+            callerId
+        ) => {
+            const conversation =
+                conversationsRef.current.find(
+                    (item) =>
+                        Number(item?.id) ===
+                        Number(conversationId)
+                );
+
+            const member = (
+                conversation?.members || []
+            ).find(
+                (item) =>
+                    Number(
+                        item?.userId ??
+                            item?.user?.id
+                    ) === Number(callerId)
+            );
+
+            return member?.user || null;
+        };
+
+        callManager.initialize(
+            currentUserId
+        );
+
+        callManager.setCallbacks({
+            onIncomingCall: (data) => {
+                const caller =
+                    getCallerFromConversation(
+                        data?.conversationId,
+                        data?.callerId
+                    );
+
+                setIncomingCall({
+                    ...data,
+                    caller,
+                });
+
+                setCallError(null);
+                setCallState("incoming");
+            },
+
+            onCallStarted: () => {
+                setIncomingCall(null);
+                setCallError(null);
+                setCallState("outgoing");
+            },
+
+            onCallAccepted: () => {
+                setIncomingCall(null);
+                setCallError(null);
+                setCallState("connecting");
+            },
+
+            onCallConnected: () => {
+                setIncomingCall(null);
+                setCallError(null);
+                setCallState("connected");
+            },
+
+            onLocalStream: (stream) => {
+                setLocalStream(stream || null);
+            },
+
+            onRemoteStream: (stream) => {
+                setRemoteStream(stream || null);
+            },
+
+            onCallRejected: () => {
+                setIncomingCall(null);
+                setLocalStream(null);
+                setRemoteStream(null);
+                setIsMuted(false);
+                setIsCameraOff(false);
+                setCallState("idle");
+            },
+
+            onCallEnded: () => {
+                setIncomingCall(null);
+                setLocalStream(null);
+                setRemoteStream(null);
+                setIsMuted(false);
+                setIsCameraOff(false);
+                setCallState("idle");
+            },
+
+            onMuteChanged: (muted) => {
+                setIsMuted(Boolean(muted));
+            },
+
+            onCameraChanged: (cameraOff) => {
+                setIsCameraOff(Boolean(cameraOff));
+            },
+
+            onCallError: (message) => {
+                setCallError(
+                    message ||
+                        "Unable to establish the call."
+                );
+            },
+        });
+
+        return () => {
+            callManager.destroy();
+        };
+    }, [currentUserId]);
 
     // ============================================================
     // NEW CONVERSATION CREATED
@@ -525,7 +814,13 @@ export default function ChatLayout({
                 const conversation =
                     data?.conversation;
 
-                if (!conversation?.id) {
+                if (
+                    !conversation?.id
+                ) {
+                    console.warn(
+                        "⚠️ conversation_created received without conversation"
+                    );
+
                     return;
                 }
 
@@ -534,11 +829,18 @@ export default function ChatLayout({
                         conversation.id
                     );
 
+                console.log(
+                    "💬 New conversation received:",
+                    conversation
+                );
+
                 setConversations(
                     (previous) => {
                         const exists =
                             previous.some(
-                                (item) =>
+                                (
+                                    item
+                                ) =>
                                     Number(
                                         item.id
                                     ) ===
@@ -556,11 +858,29 @@ export default function ChatLayout({
                     }
                 );
 
-                if (socket.connected) {
+                if (
+                    socket.connected
+                ) {
                     socket.emit(
                         "join_conversation",
                         {
                             conversationId,
+                        },
+                        (
+                            response
+                        ) => {
+                            if (
+                                response?.success
+                            ) {
+                                console.log(
+                                    `👥 Joined new conversation room: ${conversationId}`
+                                );
+                            } else {
+                                console.error(
+                                    "❌ Failed to join new conversation:",
+                                    response?.message
+                                );
+                            }
                         }
                     );
                 }
@@ -606,33 +926,26 @@ export default function ChatLayout({
     // ============================================================
     // CHECK DELIVERY RECEIPT
     // ============================================================
-    //
-    // IMPORTANT:
-    //
-    // Do NOT check receipt.userId against currentUserId here.
-    //
-    // For an incoming message, the receipt belongs to the
-    // current user.
-    //
-    // We only need to know whether this message already has
-    // a delivered receipt.
-    //
-    // ============================================================
 
     const hasDeliveredReceipt =
         useCallback(
             (message) => {
                 const receipts =
-                    message?.receipts || [];
+                    message?.receipts ||
+                    [];
 
                 return receipts.some(
                     (receipt) =>
+                        Number(
+                            receipt.userId
+                        ) ===
+                            currentUserId &&
                         Boolean(
-                            receipt?.deliveredAt
+                            receipt.deliveredAt
                         )
                 );
             },
-            []
+            [currentUserId]
         );
 
     // ============================================================
@@ -769,7 +1082,9 @@ export default function ChatLayout({
                 setConversations(
                     (previous) =>
                         previous.map(
-                            (conversation) =>
+                            (
+                                conversation
+                            ) =>
                                 Number(
                                     conversation.id
                                 ) ===
@@ -779,8 +1094,7 @@ export default function ChatLayout({
                                     ? {
                                           ...conversation,
 
-                                          unreadCount:
-                                              0,
+                                          unreadCount: 0,
 
                                           lastReadAt:
                                               new Date().toISOString(),
@@ -801,7 +1115,9 @@ export default function ChatLayout({
             async (
                 conversation
             ) => {
-                if (!conversation?.id) {
+                if (
+                    !conversation?.id
+                ) {
                     return;
                 }
 
@@ -856,11 +1172,25 @@ export default function ChatLayout({
 
                 setMessages([]);
 
-                if (socket.connected) {
+                if (
+                    socket.connected
+                ) {
                     socket.emit(
                         "join_conversation",
                         {
                             conversationId,
+                        },
+                        (
+                            response
+                        ) => {
+                            if (
+                                !response?.success
+                            ) {
+                                console.error(
+                                    "❌ JOIN CONVERSATION:",
+                                    response?.message
+                                );
+                            }
                         }
                     );
                 }
@@ -876,15 +1206,16 @@ export default function ChatLayout({
                 setConversations(
                     (previous) =>
                         previous.map(
-                            (item) =>
+                            (
+                                item
+                            ) =>
                                 Number(
                                     item.id
                                 ) ===
                                 conversationId
                                     ? {
                                           ...item,
-                                          unreadCount:
-                                              0,
+                                          unreadCount: 0,
                                       }
                                     : item
                         )
@@ -895,6 +1226,114 @@ export default function ChatLayout({
                 markConversationRead,
             ]
         );
+
+    // ============================================================
+    // CALL ACTIONS
+    // ============================================================
+
+    const getOtherConversationMember =
+        useCallback(() => {
+            const active =
+                activeConversationRef.current;
+
+            if (!active) {
+                return null;
+            }
+
+            return (active.members || []).find(
+                (member) =>
+                    Number(
+                        member?.userId ??
+                            member?.user?.id
+                    ) !== currentUserId
+            ) || null;
+        }, [currentUserId]);
+
+    const startAudioCall =
+        useCallback(async () => {
+            const active =
+                activeConversationRef.current;
+            const member =
+                getOtherConversationMember();
+            const receiverId = Number(
+                member?.userId ??
+                    member?.user?.id
+            );
+
+            if (
+                !active?.id ||
+                !Number.isInteger(receiverId) ||
+                receiverId <= 0
+            ) {
+                setCallError(
+                    "Unable to find the other user for this call."
+                );
+                return { success: false };
+            }
+
+            setCallError(null);
+
+            return callManager.startAudioCall(
+                Number(active.id),
+                receiverId
+            );
+        }, [getOtherConversationMember]);
+
+    const startVideoCall =
+        useCallback(async () => {
+            const active =
+                activeConversationRef.current;
+            const member =
+                getOtherConversationMember();
+            const receiverId = Number(
+                member?.userId ??
+                    member?.user?.id
+            );
+
+            if (
+                !active?.id ||
+                !Number.isInteger(receiverId) ||
+                receiverId <= 0
+            ) {
+                setCallError(
+                    "Unable to find the other user for this call."
+                );
+                return { success: false };
+            }
+
+            setCallError(null);
+
+            return callManager.startVideoCall(
+                Number(active.id),
+                receiverId
+            );
+        }, [getOtherConversationMember]);
+
+    const acceptIncomingCall =
+        useCallback(async () => {
+            setCallError(null);
+            return callManager.acceptCall();
+        }, []);
+
+    const rejectIncomingCall =
+        useCallback((reason = "rejected") => {
+            callManager.rejectCall(reason);
+        }, []);
+
+    const endCurrentCall =
+        useCallback((reason = "ended") => {
+            callManager.endCall(reason);
+        }, []);
+
+    const toggleCallMute =
+        useCallback(() => {
+            return callManager.toggleMute();
+        }, []);
+
+    const toggleCallCamera =
+        useCallback(() => {
+            return callManager.toggleCamera();
+        }, []);
 
     // ============================================================
     // BACK TO CONVERSATIONS
@@ -1044,7 +1483,9 @@ export default function ChatLayout({
                     (previous) => {
                         const exists =
                             previous.some(
-                                (item) =>
+                                (
+                                    item
+                                ) =>
                                     Number(
                                         item.id
                                     ) ===
@@ -1081,10 +1522,6 @@ export default function ChatLayout({
             }
         };
 
-        // ========================================================
-        // RECEIPT UPDATED
-        // ========================================================
-
         const onReceiptUpdated = (
             receipt
         ) => {
@@ -1113,9 +1550,11 @@ export default function ChatLayout({
                                 message.receipts ||
                                 [];
 
-                            const existingIndex =
-                                receipts.findIndex(
-                                    (item) =>
+                            const existing =
+                                receipts.find(
+                                    (
+                                        item
+                                    ) =>
                                         Number(
                                             item.userId
                                         ) ===
@@ -1124,86 +1563,39 @@ export default function ChatLayout({
                                         )
                                 );
 
-                            // ====================================
-                            // NEW RECEIPT
-                            // ====================================
-
                             if (
-                                existingIndex ===
-                                -1
+                                existing
                             ) {
                                 return {
                                     ...message,
 
-                                    receipts: [
-                                        ...receipts,
-
-                                        {
-                                            userId:
-                                                receipt.userId,
-
-                                            deliveredAt:
-                                                receipt.deliveredAt ||
-                                                null,
-
-                                            readAt:
-                                                receipt.readAt ||
-                                                null,
-                                        },
-                                    ],
+                                    receipts:
+                                        receipts.map(
+                                            (
+                                                item
+                                            ) =>
+                                                Number(
+                                                    item.userId
+                                                ) ===
+                                                Number(
+                                                    receipt.userId
+                                                )
+                                                    ? {
+                                                          ...item,
+                                                          ...receipt,
+                                                      }
+                                                    : item
+                                        ),
                                 };
                             }
-
-                            // ====================================
-                            // UPDATE EXISTING RECEIPT
-                            // ====================================
 
                             return {
                                 ...message,
 
-                                receipts:
-                                    receipts.map(
-                                        (
-                                            item,
-                                            index
-                                        ) => {
-                                            if (
-                                                index !==
-                                                existingIndex
-                                            ) {
-                                                return item;
-                                            }
-
-                                            return {
-                                                ...item,
-
-                                                userId:
-                                                    item.userId,
-
-                                                /*
-                                                 * Keep the old
-                                                 * deliveredAt if
-                                                 * this event doesn't
-                                                 * contain it.
-                                                 */
-                                                deliveredAt:
-                                                    receipt.deliveredAt ??
-                                                    item.deliveredAt ??
-                                                    null,
-
-                                                /*
-                                                 * Keep the old
-                                                 * readAt if this
-                                                 * event doesn't
-                                                 * contain it.
-                                                 */
-                                                readAt:
-                                                    receipt.readAt ??
-                                                    item.readAt ??
-                                                    null,
-                                            };
-                                        }
-                                    ),
+                                receipts: [
+                                    ...receipts,
+                                    receipt,
+                                ],
                             };
                         }
                     )
@@ -1332,7 +1724,9 @@ export default function ChatLayout({
 
                             const exists =
                                 reactions.some(
-                                    (item) =>
+                                    (
+                                        item
+                                    ) =>
                                         Number(
                                             item.id
                                         ) ===
@@ -1386,7 +1780,9 @@ export default function ChatLayout({
                                           message.reactions ||
                                           []
                                       ).filter(
-                                          (item) =>
+                                          (
+                                              item
+                                          ) =>
                                               Number(
                                                   item.id
                                               ) !==
@@ -1605,7 +2001,8 @@ export default function ChatLayout({
         } = messageData;
 
         const trimmedContent =
-            typeof content === "string"
+            typeof content ===
+            "string"
                 ? content.trim()
                 : "";
 
@@ -1617,10 +2014,6 @@ export default function ChatLayout({
         }
 
         stopTyping();
-
-        // ========================================================
-        // FILE UPLOAD
-        // ========================================================
 
         if (file) {
             try {
@@ -1637,8 +2030,10 @@ export default function ChatLayout({
                         "/api/upload",
                         {
                             method: "POST",
+
                             credentials:
                                 "include",
+
                             body: formData,
                         }
                     );
@@ -1657,11 +2052,6 @@ export default function ChatLayout({
                               )
                             : null;
                 } catch {
-                    console.error(
-                        "❌ Upload returned invalid JSON:",
-                        rawText
-                    );
-
                     return;
                 }
 
@@ -1669,11 +2059,6 @@ export default function ChatLayout({
                     !uploadResponse.ok ||
                     !uploadData?.success
                 ) {
-                    console.error(
-                        "❌ UPLOAD ERROR:",
-                        uploadData
-                    );
-
                     return;
                 }
 
@@ -1706,11 +2091,9 @@ export default function ChatLayout({
                         ?.type ||
                     type;
 
-                if (!attachmentUrl) {
-                    console.error(
-                        "❌ Upload succeeded but no attachment URL was returned."
-                    );
-
+                if (
+                    !attachmentUrl
+                ) {
                     return;
                 }
 
@@ -1758,10 +2141,6 @@ export default function ChatLayout({
             return;
         }
 
-        // ========================================================
-        // TEXT MESSAGE
-        // ========================================================
-
         socket.emit(
             "send_message",
             {
@@ -1775,12 +2154,11 @@ export default function ChatLayout({
             },
             (response) => {
                 if (
-                    response &&
-                    !response.success
+                    !response?.success
                 ) {
                     console.error(
                         "❌ SEND MESSAGE:",
-                        response.message
+                        response?.message
                     );
                 }
             }
@@ -1929,23 +2307,17 @@ export default function ChatLayout({
     };
 
     // ============================================================
-    // REQUEST DELETE
+    // DELETE MESSAGE
     // ============================================================
 
     const deleteMessage = (
-        message,
-        mode = "FOR_ME"
+        message
     ) => {
         if (!message) {
             return;
         }
 
-        if (!message.id) {
-            return;
-        }
-
         if (
-            mode === "FOR_EVERYONE" &&
             Number(
                 message.senderId
             ) !== currentUserId
@@ -1957,126 +2329,38 @@ export default function ChatLayout({
             return;
         }
 
+        const confirmed =
+            window.confirm(
+                "Delete message?"
+            );
+
+        if (!confirmed) {
+            return;
+        }
+
         if (!socket.connected) {
             return;
         }
 
-        setDeleteConfirmation({
-            message,
-            mode,
-        });
+        socket.emit(
+            "delete_message",
+            {
+                messageId:
+                    message.id,
+            },
+            (response) => {
+                if (
+                    response &&
+                    !response.success
+                ) {
+                    console.error(
+                        "❌ DELETE MESSAGE:",
+                        response.message
+                    );
+                }
+            }
+        );
     };
-
-    // ============================================================
-    // CONFIRM DELETE
-    // ============================================================
-
-    const confirmDeleteMessage =
-        () => {
-            if (
-                !deleteConfirmation?.message
-            ) {
-                return;
-            }
-
-            const {
-                message,
-                mode,
-            } = deleteConfirmation;
-
-            if (!socket.connected) {
-                setDeleteConfirmation(
-                    null
-                );
-
-                return;
-            }
-
-            if (mode === "FOR_ME") {
-                socket.emit(
-                    "delete_message_for_me",
-                    {
-                        messageId:
-                            message.id,
-                    },
-                    (response) => {
-                        if (
-                            response &&
-                            !response.success
-                        ) {
-                            console.error(
-                                "❌ DELETE FOR ME:",
-                                response.message
-                            );
-
-                            return;
-                        }
-
-                        setMessages(
-                            (previous) =>
-                                previous.filter(
-                                    (
-                                        item
-                                    ) =>
-                                        Number(
-                                            item.id
-                                        ) !==
-                                        Number(
-                                            message.id
-                                        )
-                                )
-                        );
-
-                        setDeleteConfirmation(
-                            null
-                        );
-                    }
-                );
-
-                return;
-            }
-
-            if (
-                mode ===
-                "FOR_EVERYONE"
-            ) {
-                socket.emit(
-                    "delete_message",
-                    {
-                        messageId:
-                            message.id,
-                    },
-                    (response) => {
-                        if (
-                            response &&
-                            !response.success
-                        ) {
-                            console.error(
-                                "❌ DELETE FOR EVERYONE:",
-                                response.message
-                            );
-
-                            return;
-                        }
-
-                        setDeleteConfirmation(
-                            null
-                        );
-                    }
-                );
-            }
-        };
-
-    // ============================================================
-    // CANCEL DELETE
-    // ============================================================
-
-    const cancelDeleteMessage =
-        () => {
-            setDeleteConfirmation(
-                null
-            );
-        };
 
     // ============================================================
     // TOGGLE REACTION
@@ -2095,17 +2379,19 @@ export default function ChatLayout({
             return;
         }
 
-        const existing = (
-            message.reactions ||
-            []
-        ).find(
-            (reaction) =>
-                Number(
-                    reaction.userId
-                ) === currentUserId &&
-                reaction.emoji ===
-                    emoji
-        );
+        const existing =
+            (
+                message.reactions ||
+                []
+            ).find(
+                (reaction) =>
+                    Number(
+                        reaction.userId
+                    ) ===
+                        currentUserId &&
+                    reaction.emoji ===
+                        emoji
+            );
 
         if (existing) {
             socket.emit(
@@ -2193,12 +2479,7 @@ export default function ChatLayout({
     // ============================================================
 
     return (
-        <div className="relative flex h-full w-full overflow-hidden bg-background text-foreground transition-colors duration-200">
-
-            {/* ==================================================
-                SIDEBAR
-            ================================================== */}
-
+        <div className="flex h-full w-full overflow-hidden bg-[#111b21] text-white">
             <aside
                 className={`
                     h-full
@@ -2240,10 +2521,6 @@ export default function ChatLayout({
                     }
                 />
             </aside>
-
-            {/* ==================================================
-                CHAT WINDOW
-            ================================================== */}
 
             <main
                 className={`
@@ -2317,174 +2594,67 @@ export default function ChatLayout({
                         toggleReaction
                     }
 
+                    callState={
+                        callState
+                    }
+
+                    incomingCall={
+                        incomingCall
+                    }
+
+                    localStream={
+                        localStream
+                    }
+
+                    remoteStream={
+                        remoteStream
+                    }
+
+                    isMuted={
+                        isMuted
+                    }
+
+                    isCameraOff={
+                        isCameraOff
+                    }
+
+                    callError={
+                        callError
+                    }
+
+                    onStartAudioCall={
+                        startAudioCall
+                    }
+
+                    onStartVideoCall={
+                        startVideoCall
+                    }
+
+                    onAcceptCall={
+                        acceptIncomingCall
+                    }
+
+                    onRejectCall={
+                        rejectIncomingCall
+                    }
+
+                    onEndCall={
+                        endCurrentCall
+                    }
+
+                    onToggleCallMute={
+                        toggleCallMute
+                    }
+
+                    onToggleCallCamera={
+                        toggleCallCamera
+                    }
+
                     onBack={
                         handleBackToConversations
                     }
                 />
             </main>
-
-            {/* ==================================================
-                DELETE CONFIRMATION POPUP
-            ================================================== */}
-
-            {deleteConfirmation && (
-                <div
-                    className="
-                        fixed
-                        inset-0
-                        z-[9999]
-                        flex
-                        items-center
-                        justify-center
-                        bg-black/40
-                        p-4
-                        backdrop-blur-[2px]
-                    "
-                    onMouseDown={(
-                        event
-                    ) => {
-                        if (
-                            event.target ===
-                            event.currentTarget
-                        ) {
-                            cancelDeleteMessage();
-                        }
-                    }}
-                >
-                    <div
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="delete-message-title"
-                        className="
-                            w-full
-                            max-w-[360px]
-                            overflow-hidden
-                            rounded-2xl
-                            border
-                            border-border
-                            bg-surface
-                            shadow-2xl
-                            animate-in
-                            fade-in
-                            zoom-in-95
-                            duration-150
-                        "
-                    >
-                        <div className="px-5 pt-5">
-                            <h2
-                                id="delete-message-title"
-                                className="
-                                    text-base
-                                    font-semibold
-                                    text-foreground
-                                "
-                            >
-                                {deleteConfirmation.mode ===
-                                "FOR_EVERYONE"
-                                    ? "Delete for everyone?"
-                                    : "Delete for me?"}
-                            </h2>
-
-                            <p
-                                className="
-                                    mt-2
-                                    text-sm
-                                    leading-5
-                                    text-muted
-                                "
-                            >
-                                {deleteConfirmation.mode ===
-                                "FOR_EVERYONE"
-                                    ? "This message will be deleted for everyone in this conversation."
-                                    : "This message will be removed from your view."}
-                            </p>
-
-                            {deleteConfirmation
-                                .message
-                                ?.content && (
-                                <div
-                                    className="
-                                        mt-4
-                                        max-h-20
-                                        overflow-hidden
-                                        rounded-xl
-                                        bg-hover
-                                        px-3
-                                        py-2.5
-                                        text-sm
-                                        text-muted
-                                    "
-                                >
-                                    <p className="line-clamp-3">
-                                        {
-                                            deleteConfirmation
-                                                .message
-                                                .content
-                                        }
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-
-                        <div
-                            className="
-                                mt-5
-                                flex
-                                items-center
-                                justify-end
-                                gap-2
-                                border-t
-                                border-border
-                                bg-background/30
-                                px-4
-                                py-3
-                            "
-                        >
-                            <button
-                                type="button"
-                                onClick={
-                                    cancelDeleteMessage
-                                }
-                                className="
-                                    rounded-lg
-                                    px-4
-                                    py-2
-                                    text-sm
-                                    font-medium
-                                    text-muted
-                                    transition
-                                    hover:bg-hover
-                                    hover:text-foreground
-                                    active:scale-95
-                                "
-                            >
-                                Cancel
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={
-                                    confirmDeleteMessage
-                                }
-                                className="
-                                    rounded-lg
-                                    bg-red-500
-                                    px-4
-                                    py-2
-                                    text-sm
-                                    font-medium
-                                    text-white
-                                    transition
-                                    hover:bg-red-600
-                                    active:scale-95
-                                "
-                            >
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
