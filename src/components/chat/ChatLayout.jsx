@@ -27,11 +27,7 @@ function updateConversationPreview(
         message?.conversationId
     );
 
-    if (
-        !Number.isFinite(
-            conversationId
-        )
-    ) {
+    if (!Number.isFinite(conversationId)) {
         return conversations;
     }
 
@@ -43,61 +39,50 @@ function updateConversationPreview(
         Number(activeConversationId) ===
         conversationId;
 
-    const existing =
-        conversations.find(
-            (conversation) =>
-                Number(conversation.id) ===
-                conversationId
-        );
+    const existing = conversations.find(
+        (conversation) =>
+            Number(conversation.id) ===
+            conversationId
+    );
 
     if (!existing) {
         return conversations;
     }
 
-    const updated =
-        conversations.map(
-            (conversation) => {
-                if (
-                    Number(
-                        conversation.id
-                    ) !== conversationId
-                ) {
-                    return conversation;
-                }
-
-                const currentUnread =
-                    Number(
-                        conversation.unreadCount ||
-                            0
-                    );
-
-                return {
-                    ...conversation,
-
-                    latestMessage:
-                        message,
-
-                    updatedAt:
-                        message.createdAt ||
-                        new Date().toISOString(),
-
-                    unreadCount:
-                        isOwnMessage ||
-                        isActive
-                            ? currentUnread
-                            : currentUnread + 1,
-                };
+    const updated = conversations.map(
+        (conversation) => {
+            if (
+                Number(conversation.id) !==
+                conversationId
+            ) {
+                return conversation;
             }
-        );
+
+            const currentUnread = Number(
+                conversation.unreadCount || 0
+            );
+
+            return {
+                ...conversation,
+
+                latestMessage: message,
+
+                updatedAt:
+                    message.createdAt ||
+                    new Date().toISOString(),
+
+                unreadCount:
+                    isOwnMessage || isActive
+                        ? currentUnread
+                        : currentUnread + 1,
+            };
+        }
+    );
 
     return [...updated].sort(
         (a, b) =>
-            new Date(
-                b.updatedAt || 0
-            ) -
-            new Date(
-                a.updatedAt || 0
-            )
+            new Date(b.updatedAt || 0) -
+            new Date(a.updatedAt || 0)
     );
 }
 
@@ -120,9 +105,8 @@ function updateConversationMembers(
                 conversation.members || []
             ).map((member) => {
                 if (
-                    Number(
-                        member.userId
-                    ) !== id
+                    Number(member.userId) !==
+                    id
                 ) {
                     return member;
                 }
@@ -162,9 +146,8 @@ function updateActiveConversationMember(
             conversation.members || []
         ).map((member) => {
             if (
-                Number(
-                    member.userId
-                ) !== id
+                Number(member.userId) !==
+                id
             ) {
                 return member;
             }
@@ -229,9 +212,7 @@ export default function ChatLayout({
     const [
         socketConnected,
         setSocketConnected,
-    ] = useState(
-        socket.connected
-    );
+    ] = useState(socket.connected);
 
     // ========================================================
     // MOBILE VIEW STATE
@@ -246,26 +227,40 @@ export default function ChatLayout({
     // CALL STATE
     // ========================================================
 
-    const [callState, setCallState] =
-        useState("idle");
+    const [
+        callState,
+        setCallState,
+    ] = useState("idle");
 
-    const [incomingCall, setIncomingCall] =
-        useState(null);
+    const [
+        incomingCall,
+        setIncomingCall,
+    ] = useState(null);
 
-    const [localStream, setLocalStream] =
-        useState(null);
+    const [
+        localStream,
+        setLocalStream,
+    ] = useState(null);
 
-    const [remoteStream, setRemoteStream] =
-        useState(null);
+    const [
+        remoteStream,
+        setRemoteStream,
+    ] = useState(null);
 
-    const [isMuted, setIsMuted] =
-        useState(false);
+    const [
+        isMuted,
+        setIsMuted,
+    ] = useState(false);
 
-    const [isCameraOff, setIsCameraOff] =
-        useState(false);
+    const [
+        isCameraOff,
+        setIsCameraOff,
+    ] = useState(false);
 
-    const [callError, setCallError] =
-        useState(null);
+    const [
+        callError,
+        setCallError,
+    ] = useState(null);
 
     // ========================================================
     // REFS
@@ -369,7 +364,6 @@ export default function ChatLayout({
 
             setOnlineUsers(users);
 
-            // Keep conversation member state synchronized with initial presence while preserving privacy settings
             setConversations(
                 (previous) =>
                     previous.map(
@@ -413,8 +407,16 @@ export default function ChatLayout({
                                             ...(member.user ||
                                                 {}),
                                             isOnline,
-                                            showOnlineStatus: member.user?.showOnlineStatus ?? true,
-                                            showLastSeen: member.user?.showLastSeen ?? true,
+                                            showOnlineStatus:
+                                                member
+                                                    .user
+                                                    ?.showOnlineStatus ??
+                                                true,
+                                            showLastSeen:
+                                                member
+                                                    .user
+                                                    ?.showLastSeen ??
+                                                true,
                                         },
                                     };
                                 }
@@ -443,21 +445,46 @@ export default function ChatLayout({
                 if (previous.includes(id)) {
                     return previous;
                 }
+
                 return [...previous, id];
             });
 
             const updates = {
                 isOnline: true,
-                ...(showOnlineStatus !== undefined && { showOnlineStatus: Boolean(showOnlineStatus) }),
-                ...(showLastSeen !== undefined && { showLastSeen: Boolean(showLastSeen) }),
+
+                ...(showOnlineStatus !==
+                    undefined && {
+                    showOnlineStatus:
+                        Boolean(
+                            showOnlineStatus
+                        ),
+                }),
+
+                ...(showLastSeen !==
+                    undefined && {
+                    showLastSeen:
+                        Boolean(
+                            showLastSeen
+                        ),
+                }),
             };
 
-            setConversations((previous) =>
-                updateConversationMembers(previous, id, updates)
+            setConversations(
+                (previous) =>
+                    updateConversationMembers(
+                        previous,
+                        id,
+                        updates
+                    )
             );
 
-            setActiveConversation((previous) =>
-                updateActiveConversationMember(previous, id, updates)
+            setActiveConversation(
+                (previous) =>
+                    updateActiveConversationMember(
+                        previous,
+                        id,
+                        updates
+                    )
             );
         };
 
@@ -479,32 +506,63 @@ export default function ChatLayout({
             }
 
             setOnlineUsers((previous) =>
-                previous.filter((existingId) => Number(existingId) !== id)
+                previous.filter(
+                    (existingId) =>
+                        Number(existingId) !==
+                        id
+                )
             );
 
-            const isLastSeenVisible = privacyHidden
-                ? false
-                : showLastSeen !== undefined
-                ? Boolean(showLastSeen)
-                : true;
+            const isLastSeenVisible =
+                privacyHidden
+                    ? false
+                    : showLastSeen !==
+                      undefined
+                    ? Boolean(
+                          showLastSeen
+                      )
+                    : true;
 
-            const updatedLastSeen = isLastSeenVisible
-                ? lastSeen || new Date().toISOString()
-                : null;
+            const updatedLastSeen =
+                isLastSeenVisible
+                    ? lastSeen ||
+                      new Date().toISOString()
+                    : null;
 
             const updates = {
                 isOnline: false,
-                lastSeen: updatedLastSeen,
-                ...(showOnlineStatus !== undefined && { showOnlineStatus: Boolean(showOnlineStatus) }),
-                showLastSeen: isLastSeenVisible,
+
+                lastSeen:
+                    updatedLastSeen,
+
+                ...(showOnlineStatus !==
+                    undefined && {
+                    showOnlineStatus:
+                        Boolean(
+                            showOnlineStatus
+                        ),
+                }),
+
+                showLastSeen:
+                    isLastSeenVisible,
             };
 
-            setConversations((previous) =>
-                updateConversationMembers(previous, id, updates)
+            setConversations(
+                (previous) =>
+                    updateConversationMembers(
+                        previous,
+                        id,
+                        updates
+                    )
             );
 
-            setActiveConversation((previous) =>
-                updateActiveConversationMember(previous, id, updates)
+            setActiveConversation(
+                (previous) =>
+                    updateActiveConversationMember(
+                        previous,
+                        id,
+                        updates
+                    )
             );
         };
 
@@ -523,30 +581,38 @@ export default function ChatLayout({
                 return;
             }
 
-            const updatedLastSeen = privacyHidden
-                ? null
-                : lastSeen || new Date().toISOString();
+            const updatedLastSeen =
+                privacyHidden
+                    ? null
+                    : lastSeen ||
+                      new Date().toISOString();
 
-            setConversations((previous) =>
-                updateConversationMembers(
-                    previous,
-                    id,
-                    {
-                        lastSeen: updatedLastSeen,
-                        showLastSeen: !privacyHidden,
-                    }
-                )
+            setConversations(
+                (previous) =>
+                    updateConversationMembers(
+                        previous,
+                        id,
+                        {
+                            lastSeen:
+                                updatedLastSeen,
+                            showLastSeen:
+                                !privacyHidden,
+                        }
+                    )
             );
 
-            setActiveConversation((previous) =>
-                updateActiveConversationMember(
-                    previous,
-                    id,
-                    {
-                        lastSeen: updatedLastSeen,
-                        showLastSeen: !privacyHidden,
-                    }
-                )
+            setActiveConversation(
+                (previous) =>
+                    updateActiveConversationMember(
+                        previous,
+                        id,
+                        {
+                            lastSeen:
+                                updatedLastSeen,
+                            showLastSeen:
+                                !privacyHidden,
+                        }
+                    )
             );
         };
 
@@ -564,30 +630,53 @@ export default function ChatLayout({
                 return;
             }
 
-            const isLastSeenAllowed = Boolean(privacy?.lastSeen);
+            const isLastSeenAllowed =
+                Boolean(
+                    privacy?.lastSeen
+                );
 
-            setConversations((previous) =>
-                updateConversationMembers(
-                    previous,
-                    id,
-                    {
-                        showOnlineStatus: Boolean(privacy?.onlineStatus),
-                        showLastSeen: isLastSeenAllowed,
-                        lastSeen: isLastSeenAllowed ? undefined : null,
-                    }
-                )
+            setConversations(
+                (previous) =>
+                    updateConversationMembers(
+                        previous,
+                        id,
+                        {
+                            showOnlineStatus:
+                                Boolean(
+                                    privacy?.onlineStatus
+                                ),
+
+                            showLastSeen:
+                                isLastSeenAllowed,
+
+                            lastSeen:
+                                isLastSeenAllowed
+                                    ? undefined
+                                    : null,
+                        }
+                    )
             );
 
-            setActiveConversation((previous) =>
-                updateActiveConversationMember(
-                    previous,
-                    id,
-                    {
-                        showOnlineStatus: Boolean(privacy?.onlineStatus),
-                        showLastSeen: isLastSeenAllowed,
-                        lastSeen: isLastSeenAllowed ? undefined : null,
-                    }
-                )
+            setActiveConversation(
+                (previous) =>
+                    updateActiveConversationMember(
+                        previous,
+                        id,
+                        {
+                            showOnlineStatus:
+                                Boolean(
+                                    privacy?.onlineStatus
+                                ),
+
+                            showLastSeen:
+                                isLastSeenAllowed,
+
+                            lastSeen:
+                                isLastSeenAllowed
+                                    ? undefined
+                                    : null,
+                        }
+                    )
             );
         };
 
@@ -688,11 +777,22 @@ export default function ChatLayout({
 
     useEffect(() => {
         if (
-            !Number.isInteger(currentUserId) ||
+            !Number.isInteger(
+                currentUserId
+            ) ||
             currentUserId <= 0
         ) {
+            console.warn(
+                "⚠️ Call manager skipped: invalid current user ID"
+            );
+
             return;
         }
+
+        console.log(
+            "📞 Initializing call manager for user:",
+            currentUserId
+        );
 
         const getCallerFromConversation = (
             conversationId,
@@ -702,7 +802,9 @@ export default function ChatLayout({
                 conversationsRef.current.find(
                     (item) =>
                         Number(item?.id) ===
-                        Number(conversationId)
+                        Number(
+                            conversationId
+                        )
                 );
 
             const member = (
@@ -712,18 +814,38 @@ export default function ChatLayout({
                     Number(
                         item?.userId ??
                             item?.user?.id
-                    ) === Number(callerId)
+                    ) ===
+                    Number(callerId)
             );
 
-            return member?.user || null;
+            return (
+                member?.user || null
+            );
         };
+
+        // ----------------------------------------------------
+        // INITIALIZE
+        // ----------------------------------------------------
 
         callManager.initialize(
             currentUserId
         );
 
+        // ----------------------------------------------------
+        // CALLBACKS
+        // ----------------------------------------------------
+
         callManager.setCallbacks({
+            // ----------------------------------------------
+            // INCOMING CALL
+            // ----------------------------------------------
+
             onIncomingCall: (data) => {
+                console.log(
+                    "📥 Incoming call:",
+                    data
+                );
+
                 const caller =
                     getCallerFromConversation(
                         data?.conversationId,
@@ -736,36 +858,105 @@ export default function ChatLayout({
                 });
 
                 setCallError(null);
-                setCallState("incoming");
+                setCallState(
+                    "incoming"
+                );
             },
 
-            onCallStarted: () => {
+            // ----------------------------------------------
+            // CALL STARTED
+            // ----------------------------------------------
+
+            onCallStarted: (data) => {
+                console.log(
+                    "📞 Call started:",
+                    data
+                );
+
                 setIncomingCall(null);
                 setCallError(null);
-                setCallState("outgoing");
+                setCallState(
+                    "outgoing"
+                );
             },
 
-            onCallAccepted: () => {
+            // ----------------------------------------------
+            // CALL ACCEPTED
+            // ----------------------------------------------
+
+            onCallAccepted: (data) => {
+                console.log(
+                    "✅ Call accepted:",
+                    data
+                );
+
                 setIncomingCall(null);
                 setCallError(null);
-                setCallState("connecting");
+                setCallState(
+                    "connecting"
+                );
             },
+
+            // ----------------------------------------------
+            // CALL CONNECTED
+            // ----------------------------------------------
 
             onCallConnected: () => {
+                console.log(
+                    "🟢 Call connected"
+                );
+
                 setIncomingCall(null);
                 setCallError(null);
-                setCallState("connected");
+                setCallState(
+                    "connected"
+                );
             },
 
-            onLocalStream: (stream) => {
-                setLocalStream(stream || null);
+            // ----------------------------------------------
+            // LOCAL STREAM
+            // ----------------------------------------------
+
+            onLocalStream: (
+                stream
+            ) => {
+                console.log(
+                    "🎙️ Local stream received"
+                );
+
+                setLocalStream(
+                    stream || null
+                );
             },
 
-            onRemoteStream: (stream) => {
-                setRemoteStream(stream || null);
+            // ----------------------------------------------
+            // REMOTE STREAM
+            // ----------------------------------------------
+
+            onRemoteStream: (
+                stream
+            ) => {
+                console.log(
+                    "🔊 Remote stream received"
+                );
+
+                setRemoteStream(
+                    stream || null
+                );
             },
 
-            onCallRejected: () => {
+            // ----------------------------------------------
+            // CALL REJECTED
+            // ----------------------------------------------
+
+            onCallRejected: (
+                data
+            ) => {
+                console.log(
+                    "❌ Call rejected:",
+                    data
+                );
+
                 setIncomingCall(null);
                 setLocalStream(null);
                 setRemoteStream(null);
@@ -774,7 +965,18 @@ export default function ChatLayout({
                 setCallState("idle");
             },
 
-            onCallEnded: () => {
+            // ----------------------------------------------
+            // CALL ENDED
+            // ----------------------------------------------
+
+            onCallEnded: (
+                data
+            ) => {
+                console.log(
+                    "📵 Call ended:",
+                    data
+                );
+
                 setIncomingCall(null);
                 setLocalStream(null);
                 setRemoteStream(null);
@@ -783,15 +985,42 @@ export default function ChatLayout({
                 setCallState("idle");
             },
 
-            onMuteChanged: (muted) => {
-                setIsMuted(Boolean(muted));
+            // ----------------------------------------------
+            // MUTE
+            // ----------------------------------------------
+
+            onMuteChanged: (
+                muted
+            ) => {
+                setIsMuted(
+                    Boolean(muted)
+                );
             },
 
-            onCameraChanged: (cameraOff) => {
-                setIsCameraOff(Boolean(cameraOff));
+            // ----------------------------------------------
+            // CAMERA
+            // ----------------------------------------------
+
+            onCameraChanged: (
+                cameraOff
+            ) => {
+                setIsCameraOff(
+                    Boolean(cameraOff)
+                );
             },
 
-            onCallError: (message) => {
+            // ----------------------------------------------
+            // ERROR
+            // ----------------------------------------------
+
+            onCallError: (
+                message
+            ) => {
+                console.error(
+                    "❌ CALL ERROR:",
+                    message
+                );
+
                 setCallError(
                     message ||
                         "Unable to establish the call."
@@ -800,6 +1029,10 @@ export default function ChatLayout({
         });
 
         return () => {
+            console.log(
+                "🧹 Destroying call manager"
+            );
+
             callManager.destroy();
         };
     }, [currentUserId]);
@@ -1228,7 +1461,7 @@ export default function ChatLayout({
         );
 
     // ============================================================
-    // CALL ACTIONS
+    // CALL ACTION HELPERS
     // ============================================================
 
     const getOtherConversationMember =
@@ -1240,99 +1473,408 @@ export default function ChatLayout({
                 return null;
             }
 
-            return (active.members || []).find(
+            return (
+                active.members || []
+            ).find(
                 (member) =>
                     Number(
                         member?.userId ??
                             member?.user?.id
-                    ) !== currentUserId
+                    ) !==
+                    currentUserId
             ) || null;
         }, [currentUserId]);
 
+    // ============================================================
+    // START AUDIO CALL
+    // ============================================================
+
     const startAudioCall =
-        useCallback(async () => {
-            const active =
-                activeConversationRef.current;
-            const member =
-                getOtherConversationMember();
-            const receiverId = Number(
-                member?.userId ??
-                    member?.user?.id
-            );
-
-            if (
-                !active?.id ||
-                !Number.isInteger(receiverId) ||
-                receiverId <= 0
-            ) {
-                setCallError(
-                    "Unable to find the other user for this call."
+        useCallback(
+            async () => {
+                console.log(
+                    "📞 startAudioCall called"
                 );
-                return { success: false };
-            }
 
-            setCallError(null);
+                const active =
+                    activeConversationRef.current;
 
-            return callManager.startAudioCall(
-                Number(active.id),
-                receiverId
-            );
-        }, [getOtherConversationMember]);
+                const member =
+                    getOtherConversationMember();
+
+                const receiverId =
+                    Number(
+                        member?.userId ??
+                            member?.user?.id
+                    );
+
+                if (!active?.id) {
+                    const error =
+                        "Please select a conversation first.";
+
+                    console.error(
+                        "❌",
+                        error
+                    );
+
+                    setCallError(
+                        error
+                    );
+
+                    return {
+                        success: false,
+                    };
+                }
+
+                if (
+                    !Number.isInteger(
+                        receiverId
+                    ) ||
+                    receiverId <= 0
+                ) {
+                    const error =
+                        "Unable to find the other user for this call.";
+
+                    console.error(
+                        "❌",
+                        error
+                    );
+
+                    setCallError(
+                        error
+                    );
+
+                    return {
+                        success: false,
+                    };
+                }
+
+                if (
+                    !socket.connected
+                ) {
+                    const error =
+                        "Chat server is not connected.";
+
+                    console.error(
+                        "❌",
+                        error
+                    );
+
+                    setCallError(
+                        error
+                    );
+
+                    return {
+                        success: false,
+                    };
+                }
+
+                console.log(
+                    "📞 Starting audio call:",
+                    {
+                        conversationId:
+                            Number(
+                                active.id
+                            ),
+                        receiverId,
+                    }
+                );
+
+                setCallError(null);
+
+                try {
+                    const result =
+                        await callManager.startAudioCall(
+                            Number(
+                                active.id
+                            ),
+                            receiverId
+                        );
+
+                    console.log(
+                        "📞 Audio call result:",
+                        result
+                    );
+
+                    return result;
+                } catch (error) {
+                    console.error(
+                        "❌ startAudioCall error:",
+                        error
+                    );
+
+                    setCallError(
+                        error?.message ||
+                            "Unable to start audio call."
+                    );
+
+                    return {
+                        success: false,
+                        error,
+                    };
+                }
+            },
+            [
+                getOtherConversationMember,
+            ]
+        );
+
+    // ============================================================
+    // START VIDEO CALL
+    // ============================================================
 
     const startVideoCall =
-        useCallback(async () => {
-            const active =
-                activeConversationRef.current;
-            const member =
-                getOtherConversationMember();
-            const receiverId = Number(
-                member?.userId ??
-                    member?.user?.id
-            );
-
-            if (
-                !active?.id ||
-                !Number.isInteger(receiverId) ||
-                receiverId <= 0
-            ) {
-                setCallError(
-                    "Unable to find the other user for this call."
+        useCallback(
+            async () => {
+                console.log(
+                    "📹 startVideoCall called"
                 );
-                return { success: false };
-            }
 
-            setCallError(null);
+                const active =
+                    activeConversationRef.current;
 
-            return callManager.startVideoCall(
-                Number(active.id),
-                receiverId
-            );
-        }, [getOtherConversationMember]);
+                const member =
+                    getOtherConversationMember();
+
+                const receiverId =
+                    Number(
+                        member?.userId ??
+                            member?.user?.id
+                    );
+
+                if (!active?.id) {
+                    const error =
+                        "Please select a conversation first.";
+
+                    console.error(
+                        "❌",
+                        error
+                    );
+
+                    setCallError(
+                        error
+                    );
+
+                    return {
+                        success: false,
+                    };
+                }
+
+                if (
+                    !Number.isInteger(
+                        receiverId
+                    ) ||
+                    receiverId <= 0
+                ) {
+                    const error =
+                        "Unable to find the other user for this call.";
+
+                    console.error(
+                        "❌",
+                        error
+                    );
+
+                    setCallError(
+                        error
+                    );
+
+                    return {
+                        success: false,
+                    };
+                }
+
+                if (
+                    !socket.connected
+                ) {
+                    const error =
+                        "Chat server is not connected.";
+
+                    console.error(
+                        "❌",
+                        error
+                    );
+
+                    setCallError(
+                        error
+                    );
+
+                    return {
+                        success: false,
+                    };
+                }
+
+                console.log(
+                    "📹 Starting video call:",
+                    {
+                        conversationId:
+                            Number(
+                                active.id
+                            ),
+                        receiverId,
+                    }
+                );
+
+                setCallError(null);
+
+                try {
+                    const result =
+                        await callManager.startVideoCall(
+                            Number(
+                                active.id
+                            ),
+                            receiverId
+                        );
+
+                    console.log(
+                        "📹 Video call result:",
+                        result
+                    );
+
+                    return result;
+                } catch (error) {
+                    console.error(
+                        "❌ startVideoCall error:",
+                        error
+                    );
+
+                    setCallError(
+                        error?.message ||
+                            "Unable to start video call."
+                    );
+
+                    return {
+                        success: false,
+                        error,
+                    };
+                }
+            },
+            [
+                getOtherConversationMember,
+            ]
+        );
+
+    // ============================================================
+    // ACCEPT INCOMING CALL
+    // ============================================================
 
     const acceptIncomingCall =
         useCallback(async () => {
+            console.log(
+                "✅ Accepting incoming call"
+            );
+
             setCallError(null);
-            return callManager.acceptCall();
+
+            try {
+                return await callManager.acceptCall();
+            } catch (error) {
+                console.error(
+                    "❌ Accept call error:",
+                    error
+                );
+
+                setCallError(
+                    error?.message ||
+                        "Unable to accept call."
+                );
+
+                return {
+                    success: false,
+                    error,
+                };
+            }
         }, []);
+
+    // ============================================================
+    // REJECT INCOMING CALL
+    // ============================================================
 
     const rejectIncomingCall =
-        useCallback((reason = "rejected") => {
-            callManager.rejectCall(reason);
-        }, []);
+        useCallback(
+            (
+                reason = "rejected"
+            ) => {
+                console.log(
+                    "❌ Rejecting call:",
+                    reason
+                );
+
+                try {
+                    callManager.rejectCall(
+                        reason
+                    );
+                } catch (error) {
+                    console.error(
+                        "❌ Reject call error:",
+                        error
+                    );
+                }
+            },
+            []
+        );
+
+    // ============================================================
+    // END CURRENT CALL
+    // ============================================================
 
     const endCurrentCall =
-        useCallback((reason = "ended") => {
-            callManager.endCall(reason);
-        }, []);
+        useCallback(
+            (
+                reason = "ended"
+            ) => {
+                console.log(
+                    "📵 Ending call:",
+                    reason
+                );
+
+                try {
+                    callManager.endCall(
+                        reason
+                    );
+                } catch (error) {
+                    console.error(
+                        "❌ End call error:",
+                        error
+                    );
+                }
+            },
+            []
+        );
+
+    // ============================================================
+    // TOGGLE CALL MUTE
+    // ============================================================
 
     const toggleCallMute =
         useCallback(() => {
-            return callManager.toggleMute();
+            try {
+                return callManager.toggleMute();
+            } catch (error) {
+                console.error(
+                    "❌ Toggle mute error:",
+                    error
+                );
+
+                return false;
+            }
         }, []);
+
+    // ============================================================
+    // TOGGLE CALL CAMERA
+    // ============================================================
 
     const toggleCallCamera =
         useCallback(() => {
-            return callManager.toggleCamera();
+            try {
+                return callManager.toggleCamera();
+            } catch (error) {
+                console.error(
+                    "❌ Toggle camera error:",
+                    error
+                );
+
+                return false;
+            }
         }, []);
 
     // ============================================================
@@ -1508,8 +2050,7 @@ export default function ChatLayout({
                 if (
                     Number(
                         message.senderId
-                    ) !==
-                    currentUserId
+                    ) !== currentUserId
                 ) {
                     deliverMessage(
                         message.id
@@ -1735,9 +2276,7 @@ export default function ChatLayout({
                                         )
                                 );
 
-                            if (
-                                exists
-                            ) {
+                            if (exists) {
                                 return message;
                             }
 
@@ -1885,6 +2424,10 @@ export default function ChatLayout({
             );
         };
 
+        // ----------------------------------------------------
+        // REGISTER MESSAGE EVENTS
+        // ----------------------------------------------------
+
         socket.on(
             "new_message",
             onNewMessage
@@ -1924,6 +2467,10 @@ export default function ChatLayout({
             "user_stopped_typing",
             onUserStoppedTyping
         );
+
+        // ----------------------------------------------------
+        // CLEANUP
+        // ----------------------------------------------------
 
         return () => {
             socket.off(
@@ -2379,19 +2926,18 @@ export default function ChatLayout({
             return;
         }
 
-        const existing =
-            (
-                message.reactions ||
-                []
-            ).find(
-                (reaction) =>
-                    Number(
-                        reaction.userId
-                    ) ===
-                        currentUserId &&
-                    reaction.emoji ===
-                        emoji
-            );
+        const existing = (
+            message.reactions ||
+            []
+        ).find(
+            (reaction) =>
+                Number(
+                    reaction.userId
+                ) ===
+                    currentUserId &&
+                reaction.emoji ===
+                    emoji
+        );
 
         if (existing) {
             socket.emit(
@@ -2441,7 +2987,7 @@ export default function ChatLayout({
     };
 
     // ============================================================
-    // CLEANUP TYPING TIMER
+    // CLEANUP
     // ============================================================
 
     useEffect(() => {
@@ -2480,6 +3026,11 @@ export default function ChatLayout({
 
     return (
         <div className="flex h-full w-full overflow-hidden bg-[#111b21] text-white">
+
+            {/* ==================================================
+                SIDEBAR
+            ================================================== */}
+
             <aside
                 className={`
                     h-full
@@ -2521,6 +3072,10 @@ export default function ChatLayout({
                     }
                 />
             </aside>
+
+            {/* ==================================================
+                CHAT WINDOW
+            ================================================== */}
 
             <main
                 className={`
@@ -2593,6 +3148,8 @@ export default function ChatLayout({
                     onToggleReaction={
                         toggleReaction
                     }
+
+                  
 
                     callState={
                         callState

@@ -112,13 +112,28 @@ export default function ChatWindow({
     typingUsers = [],
     loadingMessages,
     socketConnected,
+
     onSendMessage,
     onStartTyping,
     onStopTyping,
     onEditMessage,
     onDeleteMessage,
     onToggleReaction,
+
     onBack,
+
+    // ========================================================
+    // AUDIO CALL
+    //
+    // ChatWindow does NOT start the call itself.
+    //
+    // This callback comes from ChatLayout and eventually calls:
+    //
+    // callManager.startAudioCall()
+    //
+    // ========================================================
+
+    onStartAudioCall,
 }) {
     const router = useRouter();
 
@@ -821,11 +836,14 @@ export default function ChatWindow({
                 onProfileClick={
                     handleProfileClick
                 }
+
+          
+                onStartAudioCall={
+                    onStartAudioCall
+                }
             />
 
-            {/* ==================================================
-                MESSAGE AREA
-            ================================================== */}
+           
 
             <div
                 className="
@@ -936,18 +954,11 @@ export default function ChatWindow({
                                     currentUserId={
                                         currentUserId
                                     }
-
-                                    /*
-                                     * IMPORTANT:
-                                     * Pass recipient online
-                                     * state to each message.
-                                     */
                                     isRecipientOnline={
                                         Boolean(
                                             isOtherOnline
                                         )
                                     }
-
                                     showReactionFor={
                                         showReactionFor
                                     }
@@ -1510,11 +1521,6 @@ function MessageBubble({
     message,
     currentUserId,
 
-    /*
-     * NEW:
-     * True when the recipient of this message
-     * is currently connected to ChatHub.
-     */
     isRecipientOnline = false,
 
     showReactionFor,
@@ -1922,13 +1928,11 @@ function MessageBubble({
                             break-words
                             text-[14px]
                             leading-5
-
                             ${
                                 isDeleted
                                     ? "italic text-muted"
                                     : "text-foreground"
                             }
-
                             ${
                                 message?.attachmentUrl &&
                                 !isStatusReply
@@ -2022,10 +2026,8 @@ function MessageBubble({
                             style={{
                                 top:
                                     reactionPosition.top,
-
                                 left:
                                     reactionPosition.left,
-
                                 width:
                                     "260px",
                             }}
@@ -2152,8 +2154,7 @@ function StatusReplyPreview({
         );
 
     const mediaType =
-        status?.mediaType ||
-        "";
+        status?.mediaType || "";
 
     const isImage =
         mediaType ===
@@ -2388,8 +2389,7 @@ function MessageAttachment({
     } = message;
 
     const mime =
-        attachmentMimeType ||
-        "";
+        attachmentMimeType || "";
 
     if (
         message?.type ===
@@ -2567,11 +2567,6 @@ function ReceiptTicks({
 
     // ========================================================
     // READ
-    //
-    // Read always has highest priority.
-    //
-    // If the recipient has opened/read the message,
-    // show GREEN double ticks.
     // ========================================================
 
     const allRead =
@@ -2600,16 +2595,6 @@ function ReceiptTicks({
 
     // ========================================================
     // ONLINE / DELIVERED
-    //
-    // IMPORTANT FIX:
-    //
-    // If the recipient is currently online,
-    // show DOUBLE GRAY ticks even if:
-    //
-    // - they are not currently inside this conversation
-    // - the delivery receipt has not arrived yet
-    //
-    // This is what fixes your current problem.
     // ========================================================
 
     if (isRecipientOnline) {
@@ -2629,9 +2614,6 @@ function ReceiptTicks({
 
     // ========================================================
     // SERVER DELIVERY RECEIPT
-    //
-    // If the recipient was delivered the message,
-    // show DOUBLE GRAY ticks.
     // ========================================================
 
     const allDelivered =
@@ -2660,8 +2642,6 @@ function ReceiptTicks({
 
     // ========================================================
     // SENT
-    //
-    // Recipient is offline and there is no delivery receipt.
     // ========================================================
 
     return (
