@@ -171,17 +171,9 @@ const themeBackgroundStyle = themeImage
               rgba(0,0,0,0.22),
               rgba(0,0,0,0.22)
           ), url("${themeImage}")`,
-
-          // IMPORTANT:
-          // contain = show the COMPLETE image
-          // instead of zooming/cropping it like cover.
-          backgroundSize: "contain",
-
+          backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
-
-          // Area outside the image
-          // uses your normal theme background.
           backgroundColor: "var(--background)",
       }
     : undefined;
