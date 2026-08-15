@@ -147,30 +147,44 @@ export default function ChatWindow({
     // ========================================================
     // CHAT THEME BACKGROUND
     // ========================================================
+// ========================================================
+// CHAT THEME BACKGROUND
+// ========================================================
 
-    const CHAT_THEME_IMAGES = {
-        default: null,
-        nature: "/chat-themes/nature1.jpg",
-        spiderman: "/chat-themes/spiderman1.jpg",
-        superman: "/chat-themes/superman1.avif",
-        car: "/chat-themes/car1.avif",
-        ocean: "/chat-themes/ocean1.jpg",
-        sunset: "/chat-themes/sunset1.jpg",
-        dark: "/chat-themes/dark.jpg",
-    };
+const CHAT_THEME_IMAGES = {
+    default: null,
+    nature: "/chat-themes/nature1.jpg",
+    spiderman: "/chat-themes/spiderman1.jpg",
+    superman: "/chat-themes/superman1.avif",
+    car: "/chat-themes/car1.avif",
+    ocean: "/chat-themes/ocean1.jpg",
+    sunset: "/chat-themes/sunset1.jpg",
+    dark: "/chat-themes/dark.jpg",
+};
 
-    const themeImage =
-        CHAT_THEME_IMAGES[selectedTheme] || null;
+const themeImage =
+    CHAT_THEME_IMAGES[selectedTheme] || null;
 
-    const themeBackgroundStyle = themeImage
-        ? {
-              backgroundImage: `linear-gradient(rgba(0,0,0,0.22), rgba(0,0,0,0.22)), url("${themeImage}")`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-              backgroundAttachment: "fixed",
-          }
-        : undefined;
+const themeBackgroundStyle = themeImage
+    ? {
+          backgroundImage: `linear-gradient(
+              rgba(0,0,0,0.22),
+              rgba(0,0,0,0.22)
+          ), url("${themeImage}")`,
+
+          // IMPORTANT:
+          // contain = show the COMPLETE image
+          // instead of zooming/cropping it like cover.
+          backgroundSize: "contain",
+
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+
+          // Area outside the image
+          // uses your normal theme background.
+          backgroundColor: "var(--background)",
+      }
+    : undefined;
 
     const [message, setMessage] =
         useState("");
