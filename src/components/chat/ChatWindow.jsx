@@ -154,7 +154,7 @@ export default function ChatWindow({
 const CHAT_THEME_IMAGES = {
     default: null,
     nature: "/chat-themes/nature1.jpg",
-    spiderman: "/chat-themes/spiderman1.jpg",
+    spiderman: "/chat-themes/spiderman3.jpg",
     superman: "/chat-themes/superman1.avif",
     car: "/chat-themes/car1.avif",
     ocean: "/chat-themes/ocean1.jpg",

@@ -20,7 +20,7 @@ export const CHAT_THEMES = [
     {
         id: "spiderman",
         name: "Spiderman",
-        image: "/chat-themes/spiderman1.jpg",
+        image: "/chat-themes/spiderman3.jpg",
     },
     {
         id: "superman",
