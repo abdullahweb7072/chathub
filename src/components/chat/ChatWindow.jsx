@@ -6,6 +6,8 @@ import {
     useState,
 } from "react";
 
+import { useRouter } from "next/navigation";
+
 import ChatHeader from "./ChatHeader";
 import MessageActions from "./MessageActions";
 
@@ -121,17 +123,55 @@ export default function ChatWindow({
     onBack,
 
     // ========================================================
+    // CHAT THEME
+    // ========================================================
+
+    selectedTheme = "default",
+    onSelectTheme,
+
+    // ========================================================
     // AUDIO CALL
+    //
+    // ChatWindow does NOT start the call itself.
+    //
+    // This callback comes from ChatLayout and eventually calls:
+    //
+    // callManager.startAudioCall()
+    //
     // ========================================================
 
     onStartAudioCall,
-
-    // ========================================================
-    // VIDEO CALL
-    // ========================================================
-
-    onStartVideoCall,
 }) {
+    const router = useRouter();
+
+    // ========================================================
+    // CHAT THEME BACKGROUND
+    // ========================================================
+
+    const CHAT_THEME_IMAGES = {
+        default: null,
+        nature: "/chat-themes/nature1.jpg",
+        spiderman: "/chat-themes/spiderman1.jpg",
+        superman: "/chat-themes/superman1.avif",
+        car: "/chat-themes/car1.avif",
+        ocean: "/chat-themes/ocean1.jpg",
+        sunset: "/chat-themes/sunset1.jpg",
+        dark: "/chat-themes/dark.jpg",
+    };
+
+    const themeImage =
+        CHAT_THEME_IMAGES[selectedTheme] || null;
+
+    const themeBackgroundStyle = themeImage
+        ? {
+              backgroundImage: `linear-gradient(rgba(0,0,0,0.22), rgba(0,0,0,0.22)), url("${themeImage}")`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+              backgroundAttachment: "fixed",
+          }
+        : undefined;
+
     const [message, setMessage] =
         useState("");
 
@@ -197,15 +237,16 @@ export default function ChatWindow({
     // ========================================================
 
     useEffect(() => {
-        const handleChatClosed = () => {
-            inputRef.current?.blur();
+        const handleChatClosed =
+            () => {
+                inputRef.current?.blur();
 
-            setMessage("");
-            setShowReactionFor(null);
-            setShowEmojiPicker(false);
+                setMessage("");
+                setShowReactionFor(null);
+                setShowEmojiPicker(false);
 
-            removeSelectedFile();
-        };
+                removeSelectedFile();
+            };
 
         window.addEventListener(
             "chathub:chat-closed",
@@ -225,20 +266,19 @@ export default function ChatWindow({
     // ========================================================
 
     useEffect(() => {
-        const handleClickOutside = (
-            event
-        ) => {
-            if (
-                emojiPickerRef.current &&
-                !emojiPickerRef.current.contains(
-                    event.target
-                )
-            ) {
-                setShowEmojiPicker(
-                    false
-                );
-            }
-        };
+        const handleClickOutside =
+            (event) => {
+                if (
+                    emojiPickerRef.current &&
+                    !emojiPickerRef.current.contains(
+                        event.target
+                    )
+                ) {
+                    setShowEmojiPicker(
+                        false
+                    );
+                }
+            };
 
         document.addEventListener(
             "mousedown",
@@ -258,20 +298,21 @@ export default function ChatWindow({
     // ========================================================
 
     useEffect(() => {
-        const handleOutsideReactionClick = (
-            event
-        ) => {
-            if (
-                !event.target.closest(
-                    "[data-reaction-picker]"
-                ) &&
-                !event.target.closest(
-                    "[data-message-bubble]"
-                )
-            ) {
-                setShowReactionFor(null);
-            }
-        };
+        const handleOutsideReactionClick =
+            (event) => {
+                if (
+                    !event.target.closest(
+                        "[data-reaction-picker]"
+                    ) &&
+                    !event.target.closest(
+                        "[data-message-bubble]"
+                    )
+                ) {
+                    setShowReactionFor(
+                        null
+                    );
+                }
+            };
 
         document.addEventListener(
             "mousedown",
@@ -352,6 +393,40 @@ export default function ChatWindow({
     };
 
     // ========================================================
+    // PROFILE NAVIGATION
+    // ========================================================
+
+    const handleProfileClick = (
+        user
+    ) => {
+        const targetUserId =
+            user?.id ??
+            user?.userId;
+
+        if (!targetUserId) {
+            return;
+        }
+
+        const isOwnProfile =
+            Number(targetUserId) ===
+            Number(currentUserId);
+
+        if (isOwnProfile) {
+            router.push(
+                "/profile"
+            );
+
+            return;
+        }
+
+        router.push(
+            `/profile?userId=${encodeURIComponent(
+                targetUserId
+            )}`
+        );
+    };
+
+    // ========================================================
     // OPEN FILE SELECTOR
     // ========================================================
 
@@ -388,7 +463,8 @@ export default function ChatWindow({
                 "File size cannot exceed 25 MB."
             );
 
-            event.target.value = "";
+            event.target.value =
+                "";
 
             return;
         }
@@ -451,39 +527,38 @@ export default function ChatWindow({
     // GET ATTACHMENT TYPE
     // ========================================================
 
-    const getAttachmentType = (
-        file
-    ) => {
-        if (!file) {
-            return "TEXT";
-        }
+    const getAttachmentType =
+        (file) => {
+            if (!file) {
+                return "TEXT";
+            }
 
-        if (
-            file.type.startsWith(
-                "image/"
-            )
-        ) {
-            return "IMAGE";
-        }
+            if (
+                file.type.startsWith(
+                    "image/"
+                )
+            ) {
+                return "IMAGE";
+            }
 
-        if (
-            file.type.startsWith(
-                "video/"
-            )
-        ) {
-            return "VIDEO";
-        }
+            if (
+                file.type.startsWith(
+                    "video/"
+                )
+            ) {
+                return "VIDEO";
+            }
 
-        if (
-            file.type.startsWith(
-                "audio/"
-            )
-        ) {
-            return "AUDIO";
-        }
+            if (
+                file.type.startsWith(
+                    "audio/"
+                )
+            ) {
+                return "AUDIO";
+            }
 
-        return "FILE";
-    };
+            return "FILE";
+        };
 
     // ========================================================
     // SEND MESSAGE
@@ -687,6 +762,26 @@ export default function ChatWindow({
         getOtherUser();
 
     // ========================================================
+    // DISPLAY NAME
+    // ========================================================
+
+    const getDisplayName = (
+        user
+    ) => {
+        return (
+            user?.displayName?.trim() ||
+            user?.username?.trim() ||
+            user?.email?.trim() ||
+            "User"
+        );
+    };
+
+    const otherUserDisplayName =
+        getDisplayName(
+            otherUser
+        );
+
+    // ========================================================
     // ONLINE STATUS
     // ========================================================
 
@@ -735,11 +830,11 @@ export default function ChatWindow({
                 min-w-0
                 flex-1
                 flex-col
-                bg-background
                 text-foreground
                 transition-colors
                 duration-200
             "
+            style={themeBackgroundStyle}
         >
             {/* ==================================================
                 CHAT HEADER
@@ -749,42 +844,58 @@ export default function ChatWindow({
                 conversation={
                     conversation
                 }
-
                 currentUser={
                     currentUser
                 }
-
-                onlineUsers={
-                    onlineUsers
+                currentUserId={
+                    currentUserId
                 }
-
+                selectedTheme={
+                    selectedTheme
+                }
+                onSelectTheme={
+                    onSelectTheme
+                }
+                otherUser={
+                    otherUser
+                }
+                otherUserDisplayName={
+                    otherUserDisplayName
+                }
+                isOtherOnline={
+                    isOtherOnline
+                }
+                typingUsers={
+                    typingUsers
+                }
+                onClose={
+                    handleCloseChat
+                }
                 onBack={
                     onBack
                 }
+                onProfileClick={
+                    handleProfileClick
+                }
 
+          
                 onStartAudioCall={
                     onStartAudioCall
                 }
-
-                onStartVideoCall={
-                    onStartVideoCall
-                }
             />
 
-            {/* ==================================================
-                MESSAGES AREA
-            ================================================== */}
+           
 
             <div
                 className="
                     relative
                     flex-1
                     overflow-y-auto
-                    bg-background
                     px-3
                     py-5
                     sm:px-6
                 "
+                style={themeBackgroundStyle}
             >
                 <div
                     className="
@@ -878,45 +989,35 @@ export default function ChatWindow({
                                     key={
                                         msg.id
                                     }
-
                                     message={
                                         msg
                                     }
-
                                     currentUserId={
                                         currentUserId
                                     }
-
                                     isRecipientOnline={
                                         Boolean(
                                             isOtherOnline
                                         )
                                     }
-
                                     showReactionFor={
                                         showReactionFor
                                     }
-
                                     setShowReactionFor={
                                         setShowReactionFor
                                     }
-
                                     reactionPosition={
                                         reactionPosition
                                     }
-
                                     setReactionPosition={
                                         setReactionPosition
                                     }
-
                                     onEditMessage={
                                         onEditMessage
                                     }
-
                                     onDeleteMessage={
                                         onDeleteMessage
                                     }
-
                                     onToggleReaction={
                                         onToggleReaction
                                     }
