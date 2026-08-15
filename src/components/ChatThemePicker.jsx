@@ -15,7 +15,7 @@ export const CHAT_THEMES = [
     {
         id: "nature",
         name: "Nature",
-        image: "/chat-themes/nature1.jpg",
+        image: "/chat-themes/nature4.webp",
     },
     {
         id: "spiderman",

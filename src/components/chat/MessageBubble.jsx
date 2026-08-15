@@ -9,6 +9,20 @@ import {
 import MessageActions from "./MessageActions";
 
 // ============================================================
+// MESSAGE COLORS
+// These are intentionally hardcoded so message text does NOT
+// change when the application theme changes.
+// ============================================================
+
+const MESSAGE_TEXT_COLORS = {
+    own: "#FFFFFF",
+    other: "#111827",
+    deleted: "#6B7280",
+    senderName: "#374151",
+    meta: "#6B7280",
+};
+
+// ============================================================
 // MESSAGE BUBBLE
 // ============================================================
 
@@ -125,6 +139,17 @@ export default function MessageBubble({
         "Unknown User";
 
     // ========================================================
+    // MESSAGE TEXT COLOR
+    // ========================================================
+
+    const messageTextColor =
+        isDeleted
+            ? MESSAGE_TEXT_COLORS.deleted
+            : isOwn
+            ? MESSAGE_TEXT_COLORS.own
+            : MESSAGE_TEXT_COLORS.other;
+
+    // ========================================================
     // RENDER
     // ========================================================
 
@@ -157,8 +182,11 @@ export default function MessageBubble({
                             ml-1
                             text-xs
                             font-medium
-                            text-muted
                         "
+                        style={{
+                            color:
+                                MESSAGE_TEXT_COLORS.senderName,
+                        }}
                     >
                         {senderDisplayName}
                     </div>
@@ -187,7 +215,6 @@ export default function MessageBubble({
                                     rounded-[14px]
                                     rounded-br
                                     bg-primary
-                                    text-primary-foreground
                                 `
                                 : `
                                     rounded-[14px]
@@ -195,7 +222,6 @@ export default function MessageBubble({
                                     border
                                     border-border
                                     bg-surface
-                                    text-foreground
                                 `
                         }
                     `}
@@ -225,18 +251,16 @@ export default function MessageBubble({
                     ================================================== */}
 
                     <div
-                        className={`
+                        className="
                             whitespace-pre-wrap
                             break-words
                             text-[15px]
                             leading-[1.5]
-
-                            ${
-                                isDeleted
-                                    ? "italic text-muted"
-                                    : "text-inherit"
-                            }
-                        `}
+                        "
+                        style={{
+                            color:
+                                messageTextColor,
+                        }}
                     >
                         {isDeleted
                             ? "This message was deleted"
@@ -254,7 +278,6 @@ export default function MessageBubble({
                             items-center
                             justify-end
                             gap-[5px]
-                            text-muted
                         "
                     >
                         {message?.editedAt &&
@@ -262,8 +285,11 @@ export default function MessageBubble({
                                 <span
                                     className="
                                         text-[10px]
-                                        opacity-65
                                     "
+                                    style={{
+                                        color:
+                                            MESSAGE_TEXT_COLORS.meta,
+                                    }}
                                 >
                                     Edited
                                 </span>
@@ -272,8 +298,11 @@ export default function MessageBubble({
                         <span
                             className="
                                 text-[10px]
-                                opacity-60
                             "
+                            style={{
+                                color:
+                                    MESSAGE_TEXT_COLORS.meta,
+                            }}
                         >
                             {formatTime(
                                 message?.createdAt
@@ -325,12 +354,15 @@ export default function MessageBubble({
                                             px-[7px]
                                             py-[3px]
                                             text-xs
-                                            text-foreground
                                             shadow-sm
                                             transition-colors
                                             duration-200
                                             hover:bg-hover
                                         "
+                                        style={{
+                                            color:
+                                                MESSAGE_TEXT_COLORS.other,
+                                        }}
                                     >
                                         {
                                             reaction.emoji
@@ -354,7 +386,8 @@ function formatTime(date) {
         return "";
     }
 
-    const value = new Date(date);
+    const value =
+        new Date(date);
 
     if (
         Number.isNaN(
