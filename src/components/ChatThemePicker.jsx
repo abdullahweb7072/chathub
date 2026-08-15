@@ -25,7 +25,7 @@ export const CHAT_THEMES = [
     {
         id: "superman",
         name: "Superman",
-        image: "/chat-themes/superman1.avif",
+        image: "/chat-themes/superman2.jpeg",
     },
     {
         id: "car",

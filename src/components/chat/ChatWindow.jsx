@@ -12,6 +12,19 @@ import ChatHeader from "./ChatHeader";
 import MessageActions from "./MessageActions";
 
 // ============================================================
+// FIXED MESSAGE COLORS
+// These do NOT change with light/dark theme.
+// ============================================================
+
+const MESSAGE_OWN_BACKGROUND = "#172554";
+const MESSAGE_OTHER_BACKGROUND = "#1e293b";
+
+const MESSAGE_TEXT_COLOR = "#ffffff";
+const MESSAGE_SENDER_COLOR = "#bfdbfe";
+const MESSAGE_META_COLOR = "#cbd5e1";
+const MESSAGE_DELETED_COLOR = "#94a3b8";
+
+// ============================================================
 // REACTIONS
 // ============================================================
 
@@ -131,13 +144,6 @@ export default function ChatWindow({
 
     // ========================================================
     // AUDIO CALL
-    //
-    // ChatWindow does NOT start the call itself.
-    //
-    // This callback comes from ChatLayout and eventually calls:
-    //
-    // callManager.startAudioCall()
-    //
     // ========================================================
 
     onStartAudioCall,
@@ -147,36 +153,33 @@ export default function ChatWindow({
     // ========================================================
     // CHAT THEME BACKGROUND
     // ========================================================
-// ========================================================
-// CHAT THEME BACKGROUND
-// ========================================================
 
-const CHAT_THEME_IMAGES = {
-    default: null,
-    nature: "/chat-themes/nature1.jpg",
-    spiderman: "/chat-themes/spiderman3.jpg",
-    superman: "/chat-themes/superman1.avif",
-    car: "/chat-themes/car1.avif",
-    ocean: "/chat-themes/ocean1.jpg",
-    sunset: "/chat-themes/sunset1.jpg",
-    dark: "/chat-themes/dark.jpg",
-};
+    const CHAT_THEME_IMAGES = {
+        default: null,
+        nature: "/chat-themes/nature1.jpg",
+        spiderman: "/chat-themes/spiderman3.jpg",
+        superman: "/chat-themes/superman1.avif",
+        car: "/chat-themes/car1.avif",
+        ocean: "/chat-themes/ocean1.jpg",
+        sunset: "/chat-themes/sunset1.jpg",
+        dark: "/chat-themes/dark.jpg",
+    };
 
-const themeImage =
-    CHAT_THEME_IMAGES[selectedTheme] || null;
+    const themeImage =
+        CHAT_THEME_IMAGES[selectedTheme] || null;
 
-const themeBackgroundStyle = themeImage
-    ? {
-          backgroundImage: `linear-gradient(
-              rgba(0,0,0,0.22),
-              rgba(0,0,0,0.22)
-          ), url("${themeImage}")`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-          backgroundColor: "var(--background)",
-      }
-    : undefined;
+    const themeBackgroundStyle = themeImage
+        ? {
+              backgroundImage: `linear-gradient(
+                  rgba(0,0,0,0.22),
+                  rgba(0,0,0,0.22)
+              ), url("${themeImage}")`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundRepeat: "no-repeat",
+              backgroundColor: "var(--background)",
+          }
+        : undefined;
 
     const [message, setMessage] =
         useState("");
@@ -883,14 +886,10 @@ const themeBackgroundStyle = themeImage
                 onProfileClick={
                     handleProfileClick
                 }
-
-          
                 onStartAudioCall={
                     onStartAudioCall
                 }
             />
-
-           
 
             <div
                 className="
@@ -1888,10 +1887,16 @@ function MessageBubble({
                     sm:max-w-[70%]
                     ${
                         isOwn
-                            ? "rounded-tr-sm bg-message-own"
-                            : "rounded-tl-sm bg-message-other"
+                            ? "rounded-tr-sm"
+                            : "rounded-tl-sm"
                     }
                 `}
+                style={{
+                    backgroundColor:
+                        isOwn
+                            ? MESSAGE_OWN_BACKGROUND
+                            : MESSAGE_OTHER_BACKGROUND,
+                }}
             >
                 {/* ==================================================
                     MESSAGE ACTIONS
@@ -1927,8 +1932,11 @@ function MessageBubble({
                             mb-1
                             text-xs
                             font-semibold
-                            text-secondary
                         "
+                        style={{
+                            color:
+                                MESSAGE_SENDER_COLOR,
+                        }}
                     >
                         {
                             senderDisplayName
@@ -1976,17 +1984,21 @@ function MessageBubble({
                             text-[14px]
                             leading-5
                             ${
-                                isDeleted
-                                    ? "italic text-muted"
-                                    : "text-foreground"
-                            }
-                            ${
                                 message?.attachmentUrl &&
                                 !isStatusReply
                                     ? "mt-2"
                                     : ""
                             }
                         `}
+                        style={{
+                            color: isDeleted
+                                ? MESSAGE_DELETED_COLOR
+                                : MESSAGE_TEXT_COLOR,
+                            fontStyle:
+                                isDeleted
+                                    ? "italic"
+                                    : "normal",
+                        }}
                     >
                         {isDeleted
                             ? "This message was deleted"
@@ -2013,8 +2025,11 @@ function MessageBubble({
                                 className="
                                     mr-1
                                     text-[10px]
-                                    text-muted
                                 "
+                                style={{
+                                    color:
+                                        MESSAGE_META_COLOR,
+                                }}
                             >
                                 edited
                             </span>
@@ -2023,8 +2038,11 @@ function MessageBubble({
                     <span
                         className="
                             text-[10px]
-                            text-muted
                         "
+                        style={{
+                            color:
+                                MESSAGE_META_COLOR,
+                        }}
                     >
                         {formatTime(
                             message?.createdAt
@@ -2349,8 +2367,11 @@ function StatusReplyPreview({
                                     break-words
                                     text-sm
                                     font-medium
-                                    text-foreground
                                 "
+                                style={{
+                                    color:
+                                        MESSAGE_TEXT_COLOR,
+                                }}
                             >
                                 {
                                     status.content
@@ -2362,8 +2383,11 @@ function StatusReplyPreview({
                             className="
                                 mt-2
                                 text-[10px]
-                                text-muted
                             "
+                            style={{
+                                color:
+                                    MESSAGE_META_COLOR,
+                            }}
                         >
                             {
                                 statusUserName
@@ -2389,8 +2413,11 @@ function StatusReplyPreview({
                                 line-clamp-2
                                 break-words
                                 text-xs
-                                text-foreground
                             "
+                            style={{
+                                color:
+                                    MESSAGE_TEXT_COLOR,
+                            }}
                         >
                             {
                                 status.content
@@ -2411,8 +2438,11 @@ function StatusReplyPreview({
                     className="
                         text-[10px]
                         font-medium
-                        text-muted
                     "
+                    style={{
+                        color:
+                            MESSAGE_META_COLOR,
+                    }}
                 >
                     Status reply
                 </p>
@@ -2563,8 +2593,11 @@ function MessageAttachment({
                     className="
                         truncate
                         text-sm
-                        text-foreground
                     "
+                    style={{
+                        color:
+                            MESSAGE_TEXT_COLOR,
+                    }}
                 >
                     {attachmentName ||
                         "Attached file"}
@@ -2575,8 +2608,11 @@ function MessageAttachment({
                         className="
                             mt-1
                             text-xs
-                            text-muted
                         "
+                        style={{
+                            color:
+                                MESSAGE_META_COLOR,
+                        }}
                     >
                         {formatFileSize(
                             attachmentSize
@@ -2588,8 +2624,11 @@ function MessageAttachment({
             <span
                 className="
                     shrink-0
-                    text-secondary
                 "
+                style={{
+                    color:
+                        MESSAGE_META_COLOR,
+                }}
             >
                 ↓
             </span>
@@ -2650,8 +2689,11 @@ function ReceiptTicks({
                 className="
                     text-[12px]
                     font-bold
-                    text-secondary
                 "
+                style={{
+                    color:
+                        MESSAGE_META_COLOR,
+                }}
                 title="Delivered"
             >
                 ✓✓
@@ -2678,8 +2720,11 @@ function ReceiptTicks({
                 className="
                     text-[12px]
                     font-bold
-                    text-secondary
                 "
+                style={{
+                    color:
+                        MESSAGE_META_COLOR,
+                }}
                 title="Delivered"
             >
                 ✓✓
@@ -2696,8 +2741,11 @@ function ReceiptTicks({
             className="
                 text-[12px]
                 font-bold
-                text-secondary
             "
+            style={{
+                color:
+                    MESSAGE_META_COLOR,
+            }}
             title="Sent"
         >
             ✓
