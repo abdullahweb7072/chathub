@@ -6,8 +6,6 @@ import {
     useState,
 } from "react";
 
-import { useRouter } from "next/navigation";
-
 import ChatHeader from "./ChatHeader";
 import MessageActions from "./MessageActions";
 
@@ -127,9 +125,13 @@ export default function ChatWindow({
     // ========================================================
 
     onStartAudioCall,
-}) {
-    const router = useRouter();
 
+    // ========================================================
+    // VIDEO CALL
+    // ========================================================
+
+    onStartVideoCall,
+}) {
     const [message, setMessage] =
         useState("");
 
@@ -195,16 +197,15 @@ export default function ChatWindow({
     // ========================================================
 
     useEffect(() => {
-        const handleChatClosed =
-            () => {
-                inputRef.current?.blur();
+        const handleChatClosed = () => {
+            inputRef.current?.blur();
 
-                setMessage("");
-                setShowReactionFor(null);
-                setShowEmojiPicker(false);
+            setMessage("");
+            setShowReactionFor(null);
+            setShowEmojiPicker(false);
 
-                removeSelectedFile();
-            };
+            removeSelectedFile();
+        };
 
         window.addEventListener(
             "chathub:chat-closed",
@@ -224,19 +225,20 @@ export default function ChatWindow({
     // ========================================================
 
     useEffect(() => {
-        const handleClickOutside =
-            (event) => {
-                if (
-                    emojiPickerRef.current &&
-                    !emojiPickerRef.current.contains(
-                        event.target
-                    )
-                ) {
-                    setShowEmojiPicker(
-                        false
-                    );
-                }
-            };
+        const handleClickOutside = (
+            event
+        ) => {
+            if (
+                emojiPickerRef.current &&
+                !emojiPickerRef.current.contains(
+                    event.target
+                )
+            ) {
+                setShowEmojiPicker(
+                    false
+                );
+            }
+        };
 
         document.addEventListener(
             "mousedown",
@@ -256,21 +258,20 @@ export default function ChatWindow({
     // ========================================================
 
     useEffect(() => {
-        const handleOutsideReactionClick =
-            (event) => {
-                if (
-                    !event.target.closest(
-                        "[data-reaction-picker]"
-                    ) &&
-                    !event.target.closest(
-                        "[data-message-bubble]"
-                    )
-                ) {
-                    setShowReactionFor(
-                        null
-                    );
-                }
-            };
+        const handleOutsideReactionClick = (
+            event
+        ) => {
+            if (
+                !event.target.closest(
+                    "[data-reaction-picker]"
+                ) &&
+                !event.target.closest(
+                    "[data-message-bubble]"
+                )
+            ) {
+                setShowReactionFor(null);
+            }
+        };
 
         document.addEventListener(
             "mousedown",
@@ -351,40 +352,6 @@ export default function ChatWindow({
     };
 
     // ========================================================
-    // PROFILE NAVIGATION
-    // ========================================================
-
-    const handleProfileClick = (
-        user
-    ) => {
-        const targetUserId =
-            user?.id ??
-            user?.userId;
-
-        if (!targetUserId) {
-            return;
-        }
-
-        const isOwnProfile =
-            Number(targetUserId) ===
-            Number(currentUserId);
-
-        if (isOwnProfile) {
-            router.push(
-                "/profile"
-            );
-
-            return;
-        }
-
-        router.push(
-            `/profile?userId=${encodeURIComponent(
-                targetUserId
-            )}`
-        );
-    };
-
-    // ========================================================
     // OPEN FILE SELECTOR
     // ========================================================
 
@@ -421,8 +388,7 @@ export default function ChatWindow({
                 "File size cannot exceed 25 MB."
             );
 
-            event.target.value =
-                "";
+            event.target.value = "";
 
             return;
         }
@@ -485,38 +451,39 @@ export default function ChatWindow({
     // GET ATTACHMENT TYPE
     // ========================================================
 
-    const getAttachmentType =
-        (file) => {
-            if (!file) {
-                return "TEXT";
-            }
+    const getAttachmentType = (
+        file
+    ) => {
+        if (!file) {
+            return "TEXT";
+        }
 
-            if (
-                file.type.startsWith(
-                    "image/"
-                )
-            ) {
-                return "IMAGE";
-            }
+        if (
+            file.type.startsWith(
+                "image/"
+            )
+        ) {
+            return "IMAGE";
+        }
 
-            if (
-                file.type.startsWith(
-                    "video/"
-                )
-            ) {
-                return "VIDEO";
-            }
+        if (
+            file.type.startsWith(
+                "video/"
+            )
+        ) {
+            return "VIDEO";
+        }
 
-            if (
-                file.type.startsWith(
-                    "audio/"
-                )
-            ) {
-                return "AUDIO";
-            }
+        if (
+            file.type.startsWith(
+                "audio/"
+            )
+        ) {
+            return "AUDIO";
+        }
 
-            return "FILE";
-        };
+        return "FILE";
+    };
 
     // ========================================================
     // SEND MESSAGE
@@ -720,26 +687,6 @@ export default function ChatWindow({
         getOtherUser();
 
     // ========================================================
-    // DISPLAY NAME
-    // ========================================================
-
-    const getDisplayName = (
-        user
-    ) => {
-        return (
-            user?.displayName?.trim() ||
-            user?.username?.trim() ||
-            user?.email?.trim() ||
-            "User"
-        );
-    };
-
-    const otherUserDisplayName =
-        getDisplayName(
-            otherUser
-        );
-
-    // ========================================================
     // ONLINE STATUS
     // ========================================================
 
@@ -802,37 +749,31 @@ export default function ChatWindow({
                 conversation={
                     conversation
                 }
+
                 currentUser={
                     currentUser
                 }
-                currentUserId={
-                    currentUserId
+
+                onlineUsers={
+                    onlineUsers
                 }
-                otherUser={
-                    otherUser
-                }
-                otherUserDisplayName={
-                    otherUserDisplayName
-                }
-                isOtherOnline={
-                    isOtherOnline
-                }
-                typingUsers={
-                    typingUsers
-                }
-                onClose={
-                    handleCloseChat
-                }
+
                 onBack={
                     onBack
                 }
-                onProfileClick={
-                    handleProfileClick
-                }
+
                 onStartAudioCall={
                     onStartAudioCall
                 }
+
+                onStartVideoCall={
+                    onStartVideoCall
+                }
             />
+
+            {/* ==================================================
+                MESSAGES AREA
+            ================================================== */}
 
             <div
                 className="
@@ -937,35 +878,45 @@ export default function ChatWindow({
                                     key={
                                         msg.id
                                     }
+
                                     message={
                                         msg
                                     }
+
                                     currentUserId={
                                         currentUserId
                                     }
+
                                     isRecipientOnline={
                                         Boolean(
                                             isOtherOnline
                                         )
                                     }
+
                                     showReactionFor={
                                         showReactionFor
                                     }
+
                                     setShowReactionFor={
                                         setShowReactionFor
                                     }
+
                                     reactionPosition={
                                         reactionPosition
                                     }
+
                                     setReactionPosition={
                                         setReactionPosition
                                     }
+
                                     onEditMessage={
                                         onEditMessage
                                     }
+
                                     onDeleteMessage={
                                         onDeleteMessage
                                     }
+
                                     onToggleReaction={
                                         onToggleReaction
                                     }

@@ -7,6 +7,12 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 
+import ChatThemePicker from "../ChatThemePickeer";
+
+// ============================================================
+// CHAT HEADER
+// ============================================================
+
 export default function ChatHeader({
     conversation,
     currentUser,
@@ -19,6 +25,13 @@ export default function ChatHeader({
 
     onStartAudioCall,
     onStartVideoCall,
+
+    // ============================================================
+    // CHAT THEME
+    // ============================================================
+
+    selectedTheme = "default",
+    onSelectTheme,
 }) {
     const router = useRouter();
 
@@ -31,6 +44,15 @@ export default function ChatHeader({
 
     const [loadingUser, setLoadingUser] =
         useState(false);
+
+    // ============================================================
+    // THEME PICKER STATE
+    // ============================================================
+
+    const [
+        showThemePicker,
+        setShowThemePicker,
+    ] = useState(false);
 
     // ============================================================
     // NO CONVERSATION
@@ -271,6 +293,7 @@ export default function ChatHeader({
             currentUserId
         ) {
             router.push("/profile");
+
             return;
         }
 
@@ -351,6 +374,40 @@ export default function ChatHeader({
         );
 
         onStartVideoCall(userId);
+    };
+
+    // ============================================================
+    // THEME BUTTON
+    // ============================================================
+
+    const handleThemeButtonClick = () => {
+        setShowThemePicker(
+            (previous) =>
+                !previous
+        );
+    };
+
+    // ============================================================
+    // SELECT THEME
+    // ============================================================
+
+    const handleSelectTheme = (
+        themeId
+    ) => {
+        if (
+            typeof onSelectTheme !==
+            "function"
+        ) {
+            return;
+        }
+
+        onSelectTheme(
+            themeId
+        );
+
+        setShowThemePicker(
+            false
+        );
     };
 
     // ============================================================
@@ -481,14 +538,20 @@ export default function ChatHeader({
                     {avatar ? (
                         <Image
                             src={avatar}
-                            alt={displayName}
+                            alt={
+                                displayName
+                            }
                             width={44}
                             height={44}
                             className="h-full w-full object-cover"
                         />
                     ) : (
                         <span className="text-base font-semibold text-text-primary">
-                            {displayName.charAt(0).toUpperCase()}
+                            {displayName
+                                .charAt(
+                                    0
+                                )
+                                .toUpperCase()}
                         </span>
                     )}
                 </button>
@@ -499,17 +562,40 @@ export default function ChatHeader({
 
                 <button
                     type="button"
-                    onClick={handleOpenProfile}
-                    disabled={
-                        !Number.isInteger(userId) || userId <= 0
+                    onClick={
+                        handleOpenProfile
                     }
-                    className="flex min-w-0 flex-col text-left focus:outline-none"
+                    disabled={
+                        !Number.isInteger(
+                            userId
+                        ) ||
+                        userId <= 0
+                    }
+                    className="
+                        flex
+                        min-w-0
+                        flex-col
+                        text-left
+                        focus:outline-none
+                    "
                 >
-                    <span className="truncate text-base font-medium text-text-primary">
+                    <span className="
+                        truncate
+                        text-base
+                        font-medium
+                        text-text-primary
+                    ">
                         {displayName}
                     </span>
-                    <span className="truncate text-xs text-text-secondary">
-                        {isOnline ? "Online" : formatLastSeen()}
+
+                    <span className="
+                        truncate
+                        text-xs
+                        text-text-secondary
+                    ">
+                        {isOnline
+                            ? "Online"
+                            : formatLastSeen()}
                     </span>
                 </button>
             </div>
@@ -518,29 +604,107 @@ export default function ChatHeader({
                 RIGHT SIDE / ACTION BUTTONS
             ================================================== */}
 
-            <div className="flex items-center gap-1">
-                {/* AUDIO CALL */}
+            <div
+                className="
+                    relative
+                    flex
+                    items-center
+                    gap-1
+                "
+            >
+                {/* ==================================================
+                    CHAT THEME
+                ================================================== */}
+
                 <button
                     type="button"
-                    onClick={handleStartAudioCall}
+                    onClick={
+                        handleThemeButtonClick
+                    }
                     className="
-                        flex h-10 w-10 items-center justify-center
-                        rounded-full text-text-secondary transition
-                        hover:bg-surface-tertiary hover:text-text-primary
+                        flex
+                        h-10
+                        w-10
+                        items-center
+                        justify-center
+                        rounded-full
+                        text-text-secondary
+                        transition
+                        hover:bg-surface-tertiary
+                        hover:text-text-primary
+                    "
+                    title="Chat Theme"
+                    aria-label="Chat Theme"
+                >
+                    🎨
+                </button>
+
+                {/* ==================================================
+                    THEME PICKER
+                ================================================== */}
+
+                {showThemePicker && (
+                    <ChatThemePicker
+                        selectedTheme={
+                            selectedTheme
+                        }
+                        onSelectTheme={
+                            handleSelectTheme
+                        }
+                        onClose={() =>
+                            setShowThemePicker(
+                                false
+                            )
+                        }
+                    />
+                )}
+
+                {/* ==================================================
+                    AUDIO CALL
+                ================================================== */}
+
+                <button
+                    type="button"
+                    onClick={
+                        handleStartAudioCall
+                    }
+                    className="
+                        flex
+                        h-10
+                        w-10
+                        items-center
+                        justify-center
+                        rounded-full
+                        text-text-secondary
+                        transition
+                        hover:bg-surface-tertiary
+                        hover:text-text-primary
                     "
                     title="Start Audio Call"
                 >
                     📞
                 </button>
 
-                {/* VIDEO CALL */}
+                {/* ==================================================
+                    VIDEO CALL
+                ================================================== */}
+
                 <button
                     type="button"
-                    onClick={handleStartVideoCall}
+                    onClick={
+                        handleStartVideoCall
+                    }
                     className="
-                        flex h-10 w-10 items-center justify-center
-                        rounded-full text-text-secondary transition
-                        hover:bg-surface-tertiary hover:text-text-primary
+                        flex
+                        h-10
+                        w-10
+                        items-center
+                        justify-center
+                        rounded-full
+                        text-text-secondary
+                        transition
+                        hover:bg-surface-tertiary
+                        hover:text-text-primary
                     "
                     title="Start Video Call"
                 >
