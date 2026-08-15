@@ -86,6 +86,78 @@ function updateConversationPreview(
     );
 }
 
+
+// ============================================================
+// FIND OPTIMISTIC MESSAGE MATCH
+// ============================================================
+
+function isOptimisticMessageMatch(
+    optimisticMessage,
+    serverMessage
+) {
+    if (!optimisticMessage || !serverMessage) {
+        return false;
+    }
+
+    if (!optimisticMessage.optimistic) {
+        return false;
+    }
+
+    if (
+        Number(optimisticMessage.conversationId) !==
+        Number(serverMessage.conversationId)
+    ) {
+        return false;
+    }
+
+    if (
+        Number(optimisticMessage.senderId) !==
+        Number(serverMessage.senderId)
+    ) {
+        return false;
+    }
+
+    if (
+        String(optimisticMessage.content || "") !==
+        String(serverMessage.content || "")
+    ) {
+        return false;
+    }
+
+    if (
+        String(optimisticMessage.type || "TEXT") !==
+        String(serverMessage.type || "TEXT")
+    ) {
+        return false;
+    }
+
+    if (
+        optimisticMessage.attachmentUrl &&
+        optimisticMessage.attachmentUrl !==
+            serverMessage.attachmentUrl
+    ) {
+        return false;
+    }
+
+    const optimisticTime = new Date(
+        optimisticMessage.createdAt
+    ).getTime();
+
+    const serverTime = new Date(
+        serverMessage.createdAt
+    ).getTime();
+
+    if (
+        Number.isFinite(optimisticTime) &&
+        Number.isFinite(serverTime) &&
+        Math.abs(serverTime - optimisticTime) > 30000
+    ) {
+        return false;
+    }
+
+    return true;
+}
+
 // ============================================================
 // UPDATE USER INSIDE CONVERSATIONS
 // ============================================================
@@ -2023,23 +2095,50 @@ export default function ChatLayout({
             ) {
                 setMessages(
                     (previous) => {
+                        // ------------------------------------------------
+                        // 1. Ignore the server event if the real message
+                        //    is already in the list.
+                        // ------------------------------------------------
                         const exists =
                             previous.some(
-                                (
-                                    item
-                                ) =>
-                                    Number(
-                                        item.id
-                                    ) ===
-                                    Number(
-                                        message.id
-                                    )
+                                (item) =>
+                                    !item.optimistic &&
+                                    Number(item.id) ===
+                                        Number(message.id)
                             );
 
                         if (exists) {
                             return previous;
                         }
 
+                        // ------------------------------------------------
+                        // 2. Replace our optimistic message with the
+                        //    database message returned by the server.
+                        // ------------------------------------------------
+                        const optimisticIndex =
+                            previous.findIndex(
+                                (item) =>
+                                    isOptimisticMessageMatch(
+                                        item,
+                                        message
+                                    )
+                            );
+
+                        if (optimisticIndex !== -1) {
+                            const updated = [
+                                ...previous,
+                            ];
+
+                            updated[optimisticIndex] =
+                                message;
+
+                            return updated;
+                        }
+
+                        // ------------------------------------------------
+                        // 3. This is a normal incoming message from
+                        //    another user. Append it normally.
+                        // ------------------------------------------------
                         return [
                             ...previous,
                             message,
@@ -2562,6 +2661,10 @@ export default function ChatLayout({
 
         stopTyping();
 
+        // ========================================================
+        // FILE MESSAGE
+        // ========================================================
+
         if (file) {
             try {
                 const formData =
@@ -2577,10 +2680,7 @@ export default function ChatLayout({
                         "/api/upload",
                         {
                             method: "POST",
-
-                            credentials:
-                                "include",
-
+                            credentials: "include",
                             body: formData,
                         }
                     );
@@ -2594,11 +2694,12 @@ export default function ChatLayout({
                 try {
                     uploadData =
                         rawText
-                            ? JSON.parse(
-                                  rawText
-                              )
+                            ? JSON.parse(rawText)
                             : null;
                 } catch {
+                    console.error(
+                        "❌ FILE UPLOAD returned invalid JSON"
+                    );
                     return;
                 }
 
@@ -2606,74 +2707,105 @@ export default function ChatLayout({
                     !uploadResponse.ok ||
                     !uploadData?.success
                 ) {
+                    console.error(
+                        "❌ FILE UPLOAD:",
+                        uploadData?.message ||
+                            `HTTP ${uploadResponse.status}`
+                    );
                     return;
                 }
 
                 const attachmentUrl =
                     uploadData?.url ||
-                    uploadData?.data
-                        ?.url;
+                    uploadData?.data?.url;
 
                 const uploadedName =
                     uploadData?.name ||
-                    uploadData?.data
-                        ?.name ||
+                    uploadData?.data?.name ||
                     file.name;
 
                 const uploadedSize =
                     uploadData?.size ??
-                    uploadData?.data
-                        ?.size ??
+                    uploadData?.data?.size ??
                     file.size;
 
                 const uploadedMimeType =
                     uploadData?.mimeType ||
-                    uploadData?.data
-                        ?.mimeType ||
+                    uploadData?.data?.mimeType ||
                     file.type;
 
                 const uploadedType =
                     uploadData?.type ||
-                    uploadData?.data
-                        ?.type ||
+                    uploadData?.data?.type ||
                     type;
 
-                if (
-                    !attachmentUrl
-                ) {
+                if (!attachmentUrl) {
+                    console.error(
+                        "❌ FILE UPLOAD: missing attachment URL"
+                    );
                     return;
                 }
+
+                // ----------------------------------------------------
+                // Show the uploaded file immediately in our UI.
+                // ----------------------------------------------------
+                const optimisticId =
+                    `optimistic-${Date.now()}-${Math.random()}`;
+
+                const optimisticMessage = {
+                    id: optimisticId,
+                    optimistic: true,
+                    conversationId: active.id,
+                    senderId: currentUserId,
+                    sender: currentUser,
+                    content: trimmedContent,
+                    type: uploadedType,
+                    attachmentUrl,
+                    attachmentName: uploadedName,
+                    attachmentSize: uploadedSize,
+                    attachmentMimeType: uploadedMimeType,
+                    createdAt: new Date().toISOString(),
+                    reactions: [],
+                    receipts: [],
+                };
+
+                setMessages((previous) => [
+                    ...previous,
+                    optimisticMessage,
+                ]);
+
+                setConversations((previous) =>
+                    updateConversationPreview(
+                        previous,
+                        optimisticMessage,
+                        currentUserId,
+                        active.id
+                    )
+                );
 
                 socket.emit(
                     "send_message",
                     {
-                        conversationId:
-                            active.id,
-
-                        content:
-                            trimmedContent,
-
-                        type:
-                            uploadedType,
-
+                        conversationId: active.id,
+                        content: trimmedContent,
+                        type: uploadedType,
                         attachmentUrl,
-
-                        attachmentName:
-                            uploadedName,
-
-                        attachmentSize:
-                            uploadedSize,
-
-                        attachmentMimeType:
-                            uploadedMimeType,
+                        attachmentName: uploadedName,
+                        attachmentSize: uploadedSize,
+                        attachmentMimeType: uploadedMimeType,
                     },
                     (response) => {
-                        if (
-                            !response?.success
-                        ) {
+                        if (!response?.success) {
                             console.error(
                                 "❌ SEND FILE MESSAGE:",
                                 response?.message
+                            );
+
+                            setMessages((previous) =>
+                                previous.filter(
+                                    (message) =>
+                                        message.id !== optimisticId
+                                )
                             );
                         }
                     }
@@ -2688,24 +2820,65 @@ export default function ChatLayout({
             return;
         }
 
+        // ========================================================
+        // TEXT MESSAGE - OPTIMISTIC UI
+        // ========================================================
+
+        const optimisticId =
+            `optimistic-${Date.now()}-${Math.random()}`;
+
+        const optimisticMessage = {
+            id: optimisticId,
+            optimistic: true,
+            conversationId: active.id,
+            senderId: currentUserId,
+            sender: currentUser,
+            content: trimmedContent,
+            type: "TEXT",
+            createdAt: new Date().toISOString(),
+            reactions: [],
+            receipts: [],
+        };
+
+        // --------------------------------------------------------
+        // THIS IS THE IMPORTANT PART:
+        // Add the message BEFORE waiting for Socket.IO/server.
+        // --------------------------------------------------------
+        setMessages((previous) => [
+            ...previous,
+            optimisticMessage,
+        ]);
+
+        // Keep the sidebar preview instant too.
+        setConversations((previous) =>
+            updateConversationPreview(
+                previous,
+                optimisticMessage,
+                currentUserId,
+                active.id
+            )
+        );
+
         socket.emit(
             "send_message",
             {
-                conversationId:
-                    active.id,
-
-                content:
-                    trimmedContent,
-
+                conversationId: active.id,
+                content: trimmedContent,
                 type: "TEXT",
             },
             (response) => {
-                if (
-                    !response?.success
-                ) {
+                if (!response?.success) {
                     console.error(
                         "❌ SEND MESSAGE:",
                         response?.message
+                    );
+
+                    // Remove optimistic message if server rejects it.
+                    setMessages((previous) =>
+                        previous.filter(
+                            (message) =>
+                                message.id !== optimisticId
+                        )
                     );
                 }
             }
