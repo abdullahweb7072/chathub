@@ -7,7 +7,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 
-import ChatThemePicker from "../ChatThemePickeer";
+import ChatThemePicker from "../ChatThemePicker";
 
 // ============================================================
 // CHAT HEADER
