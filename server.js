@@ -1089,8 +1089,7 @@ app.prepare()
                 // ====================================================
                 // ACCEPT CALL
                 // ====================================================
-
-               socket.on(
+socket.on(
     "call_accept",
     async (data) => {
         try {
@@ -1102,9 +1101,7 @@ app.prepare()
             const callId =
                 data?.callId;
 
-            if (
-                !callId
-            ) {
+            if (!callId) {
                 console.error(
                     "❌ call_accept: missing callId"
                 );
@@ -1156,7 +1153,10 @@ app.prepare()
                 call
             );
 
-            // Notify caller
+            // ----------------------------------------------------
+            // NOTIFY CALLER
+            // ----------------------------------------------------
+
             io.to(
                 getUserRoom(
                     call.callerId
@@ -1184,7 +1184,7 @@ app.prepare()
             );
         } catch (error) {
             console.error(
-                "❌ CALL_ACCEPT ERROR:",
+                "❌ CALL ACCEPT ERROR:",
                 error
             );
         }
@@ -1429,197 +1429,297 @@ app.prepare()
     }
 );
 
-                // ====================================================
-                // WEBRTC OFFER
-                // ====================================================
+// ============================================================
+// WEBRTC OFFER
+// ============================================================
 
-                socket.on(
-                    "webrtc_offer",
-                    async (data, callback) => {
-                        try {
-                            const currentUserId =
-                                Number(
-                                    socket.user.id
-                                );
-
-                            const {
-                                callId,
-                                offer,
-                            } = data || {};
-
-                            if (
-                                !callId ||
-                                !offer
-                            ) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "Call ID and offer are required",
-                                });
-                            }
-
-                            const call =
-                                activeCalls.get(
-                                    callId
-                                );
-
-                            if (!call) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "Call not found",
-                                });
-                            }
-
-                            const receiverId =
-                                getOtherCallParticipant(
-                                    call,
-                                    currentUserId
-                                );
-
-                            if (!receiverId) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "You are not part of this call",
-                                });
-                            }
-
-                            io.to(
-                                getUserRoom(
-                                    receiverId
-                                )
-                            ).emit(
-                                "webrtc_offer",
-                                {
-                                    callId,
-
-                                    offer,
-
-                                    fromUserId:
-                                        currentUserId,
-                                }
-                            );
-
-                            callback?.({
-                                success: true,
-                            });
-                        } catch (error) {
-                            console.error(
-                                "❌ WEBRTC OFFER ERROR:",
-                                error
-                            );
-
-                            callback?.({
-                                success: false,
-
-                                message:
-                                    "Failed to send WebRTC offer",
-                            });
-                        }
-                    }
+socket.on(
+    "webrtc_offer",
+    async (data, callback) => {
+        try {
+            const currentUserId =
+                Number(
+                    socket.user?.id
                 );
 
-                // ====================================================
-                // WEBRTC ANSWER
-                // ====================================================
+            const callId =
+                data?.callId;
 
-                socket.on(
-                    "webrtc_answer",
-                    async (data, callback) => {
-                        try {
-                            const currentUserId =
-                                Number(
-                                    socket.user.id
-                                );
+            const offer =
+                data?.offer;
 
-                            const {
-                                callId,
-                                answer,
-                            } = data || {};
+            if (
+                !callId ||
+                !offer
+            ) {
+                callback?.({
+                    success: false,
 
-                            if (
-                                !callId ||
-                                !answer
-                            ) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "Call ID and answer are required",
-                                });
-                            }
+                    message:
+                        "Call ID and offer are required.",
+                });
 
-                            const call =
-                                activeCalls.get(
-                                    callId
-                                );
+                return;
+            }
 
-                            if (!call) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "Call not found",
-                                });
-                            }
-
-                            const receiverId =
-                                getOtherCallParticipant(
-                                    call,
-                                    currentUserId
-                                );
-
-                            if (!receiverId) {
-                                return callback?.({
-                                    success: false,
-                                    message:
-                                        "You are not part of this call",
-                                });
-                            }
-
-                            io.to(
-                                getUserRoom(
-                                    receiverId
-                                )
-                            ).emit(
-                                "webrtc_answer",
-                                {
-                                    callId,
-
-                                    answer,
-
-                                    fromUserId:
-                                        currentUserId,
-                                }
-                            );
-
-                            callback?.({
-                                success: true,
-                            });
-                        } catch (error) {
-                            console.error(
-                                "❌ WEBRTC ANSWER ERROR:",
-                                error
-                            );
-
-                            callback?.({
-                                success: false,
-
-                                message:
-                                    "Failed to send WebRTC answer",
-                            });
-                        }
-                    }
+            const call =
+                activeCalls.get(
+                    callId
                 );
 
-                // ====================================================
-                // WEBRTC ICE CANDIDATE
-                // ====================================================
+            if (!call) {
+                callback?.({
+                    success: false,
 
-               socket.on(
+                    message:
+                        "Call not found.",
+                });
+
+                return;
+            }
+
+            // ----------------------------------------------------
+            // SECURITY
+            // ----------------------------------------------------
+
+            if (
+                currentUserId !==
+                    call.callerId &&
+                currentUserId !==
+                    call.receiverId
+            ) {
+                callback?.({
+                    success: false,
+
+                    message:
+                        "You are not part of this call.",
+                });
+
+                return;
+            }
+
+            // ----------------------------------------------------
+            // FIND OTHER USER
+            // ----------------------------------------------------
+
+            const receiverId =
+                currentUserId ===
+                call.callerId
+                    ? call.receiverId
+                    : call.callerId;
+
+            // ----------------------------------------------------
+            // FORWARD OFFER
+            // ----------------------------------------------------
+
+            io.to(
+                getUserRoom(
+                    receiverId
+                )
+            ).emit(
+                "webrtc_offer",
+                {
+                    callId,
+
+                    conversationId:
+                        call.conversationId,
+
+                    offer,
+
+                    // IMPORTANT
+                    fromUserId:
+                        currentUserId,
+
+                    // Compatibility
+                    senderId:
+                        currentUserId,
+
+                    callerId:
+                        currentUserId,
+
+                    receiverId,
+                }
+            );
+
+            console.log(
+                "📡 WebRTC OFFER forwarded:",
+                {
+                    callId,
+                    from:
+                        currentUserId,
+                    to:
+                        receiverId,
+                }
+            );
+
+            callback?.({
+                success: true,
+            });
+        } catch (error) {
+            console.error(
+                "❌ WEBRTC OFFER ERROR:",
+                error
+            );
+
+            callback?.({
+                success: false,
+
+                message:
+                    "Failed to send WebRTC offer.",
+            });
+        }
+    }
+);
+
+// ============================================================
+// WEBRTC ANSWER
+// ============================================================
+
+socket.on(
+    "webrtc_answer",
+    async (data, callback) => {
+        try {
+            const currentUserId =
+                Number(
+                    socket.user?.id
+                );
+
+            const callId =
+                data?.callId;
+
+            const answer =
+                data?.answer;
+
+            if (
+                !callId ||
+                !answer
+            ) {
+                callback?.({
+                    success: false,
+
+                    message:
+                        "Call ID and answer are required.",
+                });
+
+                return;
+            }
+
+            const call =
+                activeCalls.get(
+                    callId
+                );
+
+            if (!call) {
+                callback?.({
+                    success: false,
+
+                    message:
+                        "Call not found.",
+                });
+
+                return;
+            }
+
+            // ----------------------------------------------------
+            // SECURITY
+            // ----------------------------------------------------
+
+            if (
+                currentUserId !==
+                    call.callerId &&
+                currentUserId !==
+                    call.receiverId
+            ) {
+                callback?.({
+                    success: false,
+
+                    message:
+                        "You are not part of this call.",
+                });
+
+                return;
+            }
+
+            // ----------------------------------------------------
+            // FIND OTHER USER
+            // ----------------------------------------------------
+
+            const receiverId =
+                currentUserId ===
+                call.callerId
+                    ? call.receiverId
+                    : call.callerId;
+
+            // ----------------------------------------------------
+            // FORWARD ANSWER
+            // ----------------------------------------------------
+
+            io.to(
+                getUserRoom(
+                    receiverId
+                )
+            ).emit(
+                "webrtc_answer",
+                {
+                    callId,
+
+                    conversationId:
+                        call.conversationId,
+
+                    answer,
+
+                    fromUserId:
+                        currentUserId,
+
+                    senderId:
+                        currentUserId,
+
+                    callerId:
+                        currentUserId,
+
+                    receiverId,
+                }
+            );
+
+            console.log(
+                "📡 WebRTC ANSWER forwarded:",
+                {
+                    callId,
+                    from:
+                        currentUserId,
+                    to:
+                        receiverId,
+                }
+            );
+
+            callback?.({
+                success: true,
+            });
+        } catch (error) {
+            console.error(
+                "❌ WEBRTC ANSWER ERROR:",
+                error
+            );
+
+            callback?.({
+                success: false,
+
+                message:
+                    "Failed to send WebRTC answer.",
+            });
+        }
+    }
+);
+
+// ============================================================
+// ICE CANDIDATE
+// ============================================================
+
+socket.on(
     "ice_candidate",
     (data) => {
         try {
-            const userId =
+            const currentUserId =
                 Number(
                     socket.user?.id
                 );
@@ -1630,7 +1730,10 @@ app.prepare()
             const candidate =
                 data?.candidate;
 
-            if (!callId) {
+            if (
+                !callId ||
+                !candidate
+            ) {
                 return;
             }
 
@@ -1640,27 +1743,49 @@ app.prepare()
                 );
 
             if (!call) {
+                console.warn(
+                    "⚠️ ICE: call not found:",
+                    callId
+                );
+
                 return;
             }
+
+            // ----------------------------------------------------
+            // SECURITY
+            // ----------------------------------------------------
 
             if (
-                userId !==
+                currentUserId !==
                     call.callerId &&
-                userId !==
+                currentUserId !==
                     call.receiverId
             ) {
+                console.warn(
+                    "⚠️ ICE: unauthorized user:",
+                    currentUserId
+                );
+
                 return;
             }
 
-            const targetUserId =
-                userId ===
+            // ----------------------------------------------------
+            // FIND OTHER USER
+            // ----------------------------------------------------
+
+            const receiverId =
+                currentUserId ===
                 call.callerId
                     ? call.receiverId
                     : call.callerId;
 
+            // ----------------------------------------------------
+            // FORWARD ICE
+            // ----------------------------------------------------
+
             io.to(
                 getUserRoom(
-                    targetUserId
+                    receiverId
                 )
             ).emit(
                 "ice_candidate",
@@ -1670,13 +1795,19 @@ app.prepare()
                     conversationId:
                         call.conversationId,
 
+                    candidate,
+
+                    fromUserId:
+                        currentUserId,
+
+                    senderId:
+                        currentUserId,
+
                     callerId:
                         call.callerId,
 
                     receiverId:
                         call.receiverId,
-
-                    candidate,
                 }
             );
         } catch (error) {

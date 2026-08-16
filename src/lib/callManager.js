@@ -3,15 +3,9 @@
 import { socket } from "@/lib/socket";
 
 // ============================================================
-// WEBRTC CONFIGURATION
+// WEBRTC CONFIG
 // ============================================================
 
-// STUN servers help WebRTC discover the public network path
-// between the two users.
-//
-// This is enough for development/basic testing.
-//
-// For production reliability, we can later add a TURN server.
 const ICE_SERVERS = {
     iceServers: [
         {
@@ -29,22 +23,22 @@ const ICE_SERVERS = {
 
 class CallManager {
     constructor() {
-        // ========================================================
+        // --------------------------------------------------------
         // WEBRTC
-        // ========================================================
+        // --------------------------------------------------------
 
         this.peerConnection = null;
 
-        // ========================================================
-        // MEDIA STREAMS
-        // ========================================================
+        // --------------------------------------------------------
+        // MEDIA
+        // --------------------------------------------------------
 
         this.localStream = null;
         this.remoteStream = null;
 
-        // ========================================================
-        // CALL INFORMATION
-        // ========================================================
+        // --------------------------------------------------------
+        // CALL
+        // --------------------------------------------------------
 
         this.callId = null;
         this.conversationId = null;
@@ -54,9 +48,9 @@ class CallManager {
 
         this.callType = "audio";
 
-        // ========================================================
-        // CALL STATE
-        // ========================================================
+        // --------------------------------------------------------
+        // STATE
+        // --------------------------------------------------------
 
         this.isCallActive = false;
         this.isIncomingCall = false;
@@ -64,19 +58,27 @@ class CallManager {
         this.isMuted = false;
         this.isCameraOff = false;
 
-        // ========================================================
-        // ICE CANDIDATE QUEUE
-        // ========================================================
+        // --------------------------------------------------------
+        // ICE
+        // --------------------------------------------------------
 
-        // Sometimes ICE candidates arrive before the remote
-        // description has been applied.
-        //
-        // We keep them temporarily and add them later.
         this.pendingIceCandidates = [];
 
-        // ========================================================
+        // --------------------------------------------------------
+        // CALLER
+        // --------------------------------------------------------
+
+        this.caller = null;
+
+        // --------------------------------------------------------
+        // SOCKET
+        // --------------------------------------------------------
+
+        this.socketListenersRegistered = false;
+
+        // --------------------------------------------------------
         // CALLBACKS
-        // ========================================================
+        // --------------------------------------------------------
 
         this.callbacks = {
             onIncomingCall: null,
@@ -95,12 +97,6 @@ class CallManager {
             onMuteChanged: null,
             onCameraChanged: null,
         };
-
-        // ========================================================
-        // SOCKET LISTENERS
-        // ========================================================
-
-        this.socketListenersRegistered = false;
     }
 
     // ============================================================
@@ -110,16 +106,16 @@ class CallManager {
     initialize(userId) {
         this.currentUserId = Number(userId);
 
-        this.registerSocketListeners();
-
         console.log(
-            "📞 CallManager initialized for user:",
+            "📞 CallManager initialized:",
             this.currentUserId
         );
+
+        this.registerSocketListeners();
     }
 
     // ============================================================
-    // CALLBACK REGISTRATION
+    // CALLBACKS
     // ============================================================
 
     setCallbacks(callbacks = {}) {
@@ -140,7 +136,7 @@ class CallManager {
 
         if (!socket) {
             console.error(
-                "❌ CallManager: Socket is not available"
+                "❌ Socket is unavailable."
             );
 
             return;
@@ -148,15 +144,15 @@ class CallManager {
 
         this.socketListenersRegistered = true;
 
-        // ========================================================
+        // --------------------------------------------------------
         // INCOMING CALL
-        // ========================================================
+        // --------------------------------------------------------
 
         socket.on(
             "incoming_call",
             (data) => {
                 console.log(
-                    "📞 Incoming call:",
+                    "📞 INCOMING CALL:",
                     data
                 );
 
@@ -164,15 +160,15 @@ class CallManager {
             }
         );
 
-        // ========================================================
+        // --------------------------------------------------------
         // CALL ACCEPTED
-        // ========================================================
+        // --------------------------------------------------------
 
         socket.on(
             "call_accepted",
             async (data) => {
                 console.log(
-                    "✅ Call accepted:",
+                    "✅ CALL ACCEPTED:",
                     data
                 );
 
@@ -182,92 +178,88 @@ class CallManager {
             }
         );
 
-        // ========================================================
+        // --------------------------------------------------------
         // CALL REJECTED
-        // ========================================================
+        // --------------------------------------------------------
 
         socket.on(
             "call_rejected",
             (data) => {
                 console.log(
-                    "❌ Call rejected:",
+                    "❌ CALL REJECTED:",
                     data
                 );
 
-                this.handleCallRejected(
-                    data
-                );
+                this.handleCallRejected(data);
             }
         );
 
-        // ========================================================
+        // --------------------------------------------------------
         // WEBRTC OFFER
-        // ========================================================
+        // --------------------------------------------------------
 
         socket.on(
             "webrtc_offer",
             async (data) => {
                 console.log(
-                    "📡 WebRTC offer received"
-                );
-
-                await this.handleWebRTCOffer(
+                    "📡 WEBRTC OFFER RECEIVED:",
                     data
                 );
+
+                await this.handleWebRTCOffer(data);
             }
         );
 
-        // ========================================================
+        // --------------------------------------------------------
         // WEBRTC ANSWER
-        // ========================================================
+        // --------------------------------------------------------
 
         socket.on(
             "webrtc_answer",
             async (data) => {
                 console.log(
-                    "📡 WebRTC answer received"
-                );
-
-                await this.handleWebRTCAnswer(
+                    "📡 WEBRTC ANSWER RECEIVED:",
                     data
                 );
+
+                await this.handleWebRTCAnswer(data);
             }
         );
 
-        // ========================================================
-        // ICE CANDIDATE
-        // ========================================================
+        // --------------------------------------------------------
+        // ICE
+        // --------------------------------------------------------
 
         socket.on(
             "ice_candidate",
             async (data) => {
-                await this.handleIceCandidate(
-                    data
+                console.log(
+                    "🧊 ICE CANDIDATE RECEIVED"
                 );
+
+                await this.handleIceCandidate(data);
             }
         );
 
-        // ========================================================
-        // CALL ENDED
-        // ========================================================
+        // --------------------------------------------------------
+        // REMOTE END
+        // --------------------------------------------------------
 
         socket.on(
             "call_ended",
             (data) => {
                 console.log(
-                    "📴 Remote ended call:",
+                    "📴 REMOTE CALL ENDED:",
                     data
                 );
 
-                this.handleRemoteCallEnded(
-                    data
-                );
+                this.handleRemoteCallEnded(data);
             }
         );
     }
 
     // ============================================================
-    // START AUDIO CALL
+    // START AUDIO
     // ============================================================
 
     async startAudioCall(
@@ -282,7 +274,7 @@ class CallManager {
     }
 
     // ============================================================
-    // START VIDEO CALL
+    // START VIDEO
     // ============================================================
 
     async startVideoCall(
@@ -300,189 +292,153 @@ class CallManager {
     // START CALL
     // ============================================================
 
-async startCall({
-    conversationId,
-    receiverId,
-    callType = "audio",
-}) {
-    try {
-        // ========================================================
-        // VALIDATE
-        // ========================================================
+    async startCall({
+        conversationId,
+        receiverId,
+        callType = "audio",
+    }) {
+        try {
+            const parsedConversationId =
+                Number(conversationId);
 
-        const parsedConversationId =
-            Number(conversationId);
+            const parsedReceiverId =
+                Number(receiverId);
 
-        const parsedReceiverId =
-            Number(receiverId);
-
-        if (
-            !Number.isInteger(
-                parsedConversationId
-            ) ||
-            parsedConversationId <= 0
-        ) {
-            throw new Error(
-                "Invalid conversation ID."
-            );
-        }
-
-        if (
-            !Number.isInteger(
-                parsedReceiverId
-            ) ||
-            parsedReceiverId <= 0
-        ) {
-            throw new Error(
-                "Invalid receiver ID."
-            );
-        }
-
-        if (
-            callType !== "audio" &&
-            callType !== "video"
-        ) {
-            throw new Error(
-                "Invalid call type."
-            );
-        }
-
-        // ========================================================
-        // PREVENT DUPLICATE CALL
-        // ========================================================
-
-        if (
-            this.isCallActive ||
-            this.callId
-        ) {
-            throw new Error(
-                "A call is already in progress."
-            );
-        }
-
-        console.log(
-            "📞 Starting call:",
-            {
-                conversationId:
-                    parsedConversationId,
-
-                receiverId:
-                    parsedReceiverId,
-
-                callType,
+            if (
+                !Number.isInteger(
+                    parsedConversationId
+                ) ||
+                parsedConversationId <= 0
+            ) {
+                throw new Error(
+                    "Invalid conversation ID."
+                );
             }
-        );
 
-        // ========================================================
-        // RESET OLD STATE
-        // ========================================================
+            if (
+                !Number.isInteger(
+                    parsedReceiverId
+                ) ||
+                parsedReceiverId <= 0
+            ) {
+                throw new Error(
+                    "Invalid receiver ID."
+                );
+            }
 
-        this.resetCallState();
+            if (
+                callType !== "audio" &&
+                callType !== "video"
+            ) {
+                throw new Error(
+                    "Invalid call type."
+                );
+            }
 
-        this.conversationId =
-            parsedConversationId;
+            if (
+                this.callId ||
+                this.isCallActive
+            ) {
+                throw new Error(
+                    "A call is already in progress."
+                );
+            }
 
-        this.remoteUserId =
-            parsedReceiverId;
+            if (!socket.connected) {
+                throw new Error(
+                    "Socket is not connected."
+                );
+            }
 
-        this.callType =
-            callType;
+            // ----------------------------------------------------
+            // RESET
+            // ----------------------------------------------------
 
-        this.isIncomingCall = false;
+            this.resetCallState();
 
-        // ========================================================
-        // GET LOCAL MEDIA
-        // ========================================================
+            this.conversationId =
+                parsedConversationId;
 
-        await this.getLocalMedia(
-            callType
-        );
+            this.remoteUserId =
+                parsedReceiverId;
 
-        console.log(
-            "✅ Local media acquired"
-        );
+            this.callType =
+                callType;
 
-        // ========================================================
-        // ASK SERVER TO CREATE CALL
-        // ========================================================
+            this.isIncomingCall = false;
 
-        const response =
-            await new Promise(
-                (resolve) => {
-                    socket.emit(
-                        "call_user",
-                        {
-                            conversationId:
-                                parsedConversationId,
+            // ----------------------------------------------------
+            // CAMERA + MICROPHONE
+            // ----------------------------------------------------
 
-                            receiverId:
-                                parsedReceiverId,
-
-                            callType,
-                        },
-                        resolve
-                    );
-                }
+            await this.getLocalMedia(
+                callType
             );
 
-        console.log(
-            "📞 call_user response:",
-            response
-        );
+            // ----------------------------------------------------
+            // CREATE SERVER CALL
+            // ----------------------------------------------------
 
-        // ========================================================
-        // SERVER REJECTED CALL
-        // ========================================================
+            const response =
+                await new Promise(
+                    (resolve) => {
+                        socket.emit(
+                            "call_user",
+                            {
+                                conversationId:
+                                    parsedConversationId,
 
-        if (
-            !response ||
-            !response.success
-        ) {
-            throw new Error(
-                response?.message ||
-                    "Unable to start call."
+                                receiverId:
+                                    parsedReceiverId,
+
+                                callType,
+                            },
+                            resolve
+                        );
+                    }
+                );
+
+            console.log(
+                "📞 call_user:",
+                response
             );
-        }
 
-        // ========================================================
-        // VERY IMPORTANT
-        // USE SERVER-GENERATED CALL ID
-        // ========================================================
+            if (
+                !response?.success
+            ) {
+                throw new Error(
+                    response?.message ||
+                        "Unable to start call."
+                );
+            }
 
-        if (
-            !response.callId
-        ) {
-            throw new Error(
-                "Server did not return a call ID."
+            if (!response.callId) {
+                throw new Error(
+                    "Server did not return call ID."
+                );
+            }
+
+            // ----------------------------------------------------
+            // IMPORTANT
+            // USE SERVER CALL ID
+            // ----------------------------------------------------
+
+            this.callId =
+                response.callId;
+
+            this.isCallActive = true;
+
+            console.log(
+                "📞 CALL CREATED:",
+                this.callId
             );
-        }
 
-        this.callId =
-            response.callId;
+            // ----------------------------------------------------
+            // UPDATE UI
+            // ----------------------------------------------------
 
-        console.log(
-            "✅ Official call ID stored:",
-            this.callId
-        );
-
-        // ========================================================
-        // CALL IS NOW ACTIVE
-        // ========================================================
-
-        this.isCallActive = true;
-
-        // ========================================================
-        // NOTIFY UI
-        // ========================================================
-
-        if (
-            typeof this.callbacks
-                ?.onCallStarted ===
-            "function"
-        ) {
-            this.callbacks.onCallStarted({
-                direction:
-                    "outgoing",
+            this.callbacks.onCallStarted?.({
+                direction: "outgoing",
 
                 callId:
                     this.callId,
@@ -495,39 +451,40 @@ async startCall({
 
                 callType,
             });
-        }
 
-        return {
-            success: true,
+            return {
+                success: true,
 
-            callId:
-                this.callId,
+                callId:
+                    this.callId,
 
-            type:
+                type:
+                    callType,
+
                 callType,
-        };
-    } catch (error) {
-        console.error(
-            "❌ START CALL ERROR:",
-            error
-        );
+            };
+        } catch (error) {
+            console.error(
+                "❌ START CALL ERROR:",
+                error
+            );
 
-        this.handleCallError(
-            error?.message ||
-                "Unable to start call."
-        );
-
-        this.cleanup();
-
-        return {
-            success: false,
-
-            message:
+            this.handleCallError(
                 error?.message ||
-                "Unable to start call.",
-        };
+                    "Unable to start call."
+            );
+
+            this.cleanup();
+
+            return {
+                success: false,
+
+                message:
+                    error?.message ||
+                    "Unable to start call.",
+            };
+        }
     }
-}
 
     // ============================================================
     // GET LOCAL MEDIA
@@ -536,45 +493,52 @@ async startCall({
     async getLocalMedia(
         callType = "audio"
     ) {
-        try {
-            if (
-                typeof navigator ===
-                "undefined" ||
-                !navigator.mediaDevices ||
-                !navigator.mediaDevices
-                    .getUserMedia
-            ) {
-                throw new Error(
-                    "Your browser does not support microphone/camera access."
-                );
-            }
+        if (
+            typeof navigator ===
+            "undefined"
+        ) {
+            throw new Error(
+                "Browser environment required."
+            );
+        }
 
-            const constraints =
-                callType === "video"
-                    ? {
-                          audio: true,
+        if (
+            !navigator.mediaDevices ||
+            !navigator.mediaDevices
+                .getUserMedia
+        ) {
+            throw new Error(
+                "Your browser does not support camera/microphone access."
+            );
+        }
 
-                          video: {
-                              width: {
-                                  ideal: 1280,
-                              },
+        const constraints =
+            callType === "video"
+                ? {
+                      audio: true,
 
-                              height: {
-                                  ideal: 720,
-                              },
-
-                              facingMode:
-                                  "user",
+                      video: {
+                          width: {
+                              ideal: 1280,
                           },
-                      }
-                    : {
-                          audio: true,
 
-                          video: false,
-                      };
+                          height: {
+                              ideal: 720,
+                          },
 
+                          facingMode:
+                              "user",
+                      },
+                  }
+                : {
+                      audio: true,
+
+                      video: false,
+                  };
+
+        try {
             console.log(
-                "🎤 Requesting local media:",
+                "🎥 Requesting media:",
                 constraints
             );
 
@@ -586,22 +550,13 @@ async startCall({
             this.localStream =
                 stream;
 
-            // ====================================================
-            // LOCAL STREAM CALLBACK
-            // ====================================================
-
-            if (
-                this.callbacks
-                    .onLocalStream
-            ) {
-                this.callbacks
-                    .onLocalStream(
-                        stream
-                    );
-            }
+            this.callbacks.onLocalStream?.(
+                stream
+            );
 
             console.log(
-                "✅ Local media acquired"
+                "✅ LOCAL STREAM:",
+                stream
             );
 
             return stream;
@@ -619,25 +574,25 @@ async startCall({
                 "NotAllowedError"
             ) {
                 message =
-                    "Microphone/camera permission was denied. Please allow access in your browser.";
+                    "Camera/microphone permission was denied.";
             } else if (
                 error?.name ===
                 "NotFoundError"
             ) {
                 message =
-                    "No microphone or camera was found on this device.";
+                    "No camera or microphone was found.";
             } else if (
                 error?.name ===
                 "NotReadableError"
             ) {
                 message =
-                    "Your microphone or camera is already being used by another application.";
+                    "Camera or microphone is already being used.";
             } else if (
                 error?.name ===
                 "SecurityError"
             ) {
                 message =
-                    "Microphone/camera access is blocked by browser security settings.";
+                    "Camera/microphone access is blocked.";
             }
 
             this.handleCallError(
@@ -671,64 +626,56 @@ async startCall({
         this.peerConnection =
             peerConnection;
 
-        // ========================================================
-        // ADD LOCAL TRACKS
-        // ========================================================
+        // --------------------------------------------------------
+        // LOCAL TRACKS
+        // --------------------------------------------------------
 
         if (this.localStream) {
             this.localStream
                 .getTracks()
-                .forEach((track) => {
-                    peerConnection.addTrack(
-                        track,
-                        this.localStream
-                    );
-                });
+                .forEach(
+                    (track) => {
+                        peerConnection.addTrack(
+                            track,
+                            this.localStream
+                        );
+                    }
+                );
         }
 
-        // ========================================================
-        // REMOTE TRACK
-        // ========================================================
+        // --------------------------------------------------------
+        // REMOTE STREAM
+        // --------------------------------------------------------
+
+        this.remoteStream =
+            new MediaStream();
 
         peerConnection.ontrack =
             (event) => {
                 console.log(
-                    "🔊 Remote track received"
+                    "📺 REMOTE TRACK:",
+                    event.track.kind
                 );
 
                 if (
-                    event.streams &&
-                    event.streams[0]
+                    event.streams?.[0]
                 ) {
                     this.remoteStream =
                         event.streams[0];
                 } else {
-                    if (
-                        !this.remoteStream
-                    ) {
-                        this.remoteStream =
-                            new MediaStream();
-                    }
-
                     this.remoteStream.addTrack(
                         event.track
                     );
                 }
 
-                if (
-                    this.callbacks
-                        .onRemoteStream
-                ) {
-                    this.callbacks
-                        .onRemoteStream(
-                            this.remoteStream
-                        );
-                }
+                this.callbacks.onRemoteStream?.(
+                    this.remoteStream
+                );
             };
 
-        // ========================================================
+        // --------------------------------------------------------
         // ICE CANDIDATE
-        // ========================================================
+        // --------------------------------------------------------
 
         peerConnection.onicecandidate =
             (event) => {
@@ -739,15 +686,15 @@ async startCall({
                 }
 
                 if (
-                    !this.remoteUserId ||
-                    !this.callId
+                    !this.callId ||
+                    !this.remoteUserId
                 ) {
+                    console.warn(
+                        "⚠️ Cannot send ICE yet."
+                    );
+
                     return;
                 }
-
-                console.log(
-                    "🧊 Sending ICE candidate"
-                );
 
                 socket.emit(
                     "ice_candidate",
@@ -755,11 +702,11 @@ async startCall({
                         callId:
                             this.callId,
 
-                        receiverId:
-                            this.remoteUserId,
-
                         conversationId:
                             this.conversationId,
+
+                        receiverId:
+                            this.remoteUserId,
 
                         candidate:
                             event.candidate,
@@ -767,9 +714,9 @@ async startCall({
                 );
             };
 
-        // ========================================================
+        // --------------------------------------------------------
         // CONNECTION STATE
-        // ========================================================
+        // --------------------------------------------------------
 
         peerConnection.onconnectionstatechange =
             () => {
@@ -777,7 +724,7 @@ async startCall({
                     peerConnection.connectionState;
 
                 console.log(
-                    "🔗 WebRTC connection state:",
+                    "🔗 WEBRTC CONNECTION:",
                     state
                 );
 
@@ -788,46 +735,46 @@ async startCall({
                     this.isCallActive =
                         true;
 
-                    if (
-                        this.callbacks
-                            .onCallConnected
-                    ) {
-                        this.callbacks
-                            .onCallConnected({
-                                callId:
-                                    this.callId,
+                    this.callbacks.onCallConnected?.({
+                        callId:
+                            this.callId,
 
-                                callType:
-                                    this.callType,
-                            });
-                    }
+                        callType:
+                            this.callType,
+                    });
                 }
 
                 if (
                     state ===
                         "failed" ||
                     state ===
-                        "disconnected" ||
+                        "disconnected"
+                ) {
+                    console.warn(
+                        "⚠️ WEBRTC CONNECTION LOST:",
+                        state
+                    );
+                }
+
+                if (
                     state ===
-                        "closed"
+                    "closed"
                 ) {
                     console.log(
-                        "⚠️ WebRTC connection ended:",
-                        state
+                        "📴 WEBRTC CLOSED"
                     );
                 }
             };
 
-        // ========================================================
-        // ICE CONNECTION STATE
-        // ========================================================
+        // --------------------------------------------------------
+        // ICE STATE
+        // --------------------------------------------------------
 
         peerConnection.oniceconnectionstatechange =
             () => {
                 console.log(
-                    "🧊 ICE connection state:",
-                    peerConnection
-                        .iceConnectionState
+                    "🧊 ICE STATE:",
+                    peerConnection.iceConnectionState
                 );
             };
 
@@ -835,372 +782,244 @@ async startCall({
     }
 
     // ============================================================
+    // INCOMING CALL
+    // ============================================================
 
+    handleIncomingCall(data) {
+        if (!data) {
+            return;
+        }
 
-handleIncomingCall(data) {
-    console.log(
-        "📞 Incoming call:",
-        data
-    );
+        const callId =
+            data.callId;
 
-    if (!data) {
-        console.error(
-            "❌ Incoming call data missing"
-        );
+        const conversationId =
+            Number(
+                data.conversationId
+            );
 
-        return;
-    }
+        const callerId =
+            Number(
+                data.callerId ??
+                    data.caller?.id
+            );
 
-    const callId =
-        data.callId;
+        const receiverId =
+            Number(
+                data.receiverId
+            );
 
-    const conversationId =
-        Number(
-            data.conversationId
-        );
+        const callType =
+            data.callType ===
+            "video"
+                ? "video"
+                : "audio";
 
-    const callerId =
-        Number(
-            data.callerId ??
-                data.caller?.id
-        );
+        if (!callId) {
+            console.error(
+                "❌ Incoming call has no callId."
+            );
 
-    const receiverId =
-        Number(
-            data.receiverId
-        );
+            return;
+        }
 
-    const callType =
-        data.callType === "video"
-            ? "video"
-            : "audio";
+        if (
+            !Number.isInteger(
+                conversationId
+            )
+        ) {
+            return;
+        }
 
-    // ========================================================
-    // VALIDATE
-    // ========================================================
+        if (
+            !Number.isInteger(
+                callerId
+            )
+        ) {
+            return;
+        }
 
-    if (!callId) {
-        console.error(
-            "❌ Incoming call has no callId"
-        );
+        // --------------------------------------------------------
+        // BUSY
+        // --------------------------------------------------------
 
-        return;
-    }
+        if (
+            this.callId ||
+            this.isCallActive
+        ) {
+            socket.emit(
+                "call_reject",
+                {
+                    callId,
 
-    if (
-        !Number.isInteger(
-            conversationId
-        ) ||
-        conversationId <= 0
-    ) {
-        console.error(
-            "❌ Invalid conversationId:",
-            data
-        );
+                    conversationId,
 
-        return;
-    }
+                    reason: "busy",
+                }
+            );
 
-    if (
-        !Number.isInteger(
-            callerId
-        ) ||
-        callerId <= 0
-    ) {
-        console.error(
-            "❌ Invalid callerId:",
-            data
-        );
+            return;
+        }
 
-        return;
-    }
+        // --------------------------------------------------------
+        // STORE
+        // --------------------------------------------------------
 
-    // ========================================================
-    // IF WE ARE ALREADY IN A CALL
-    // ========================================================
+        this.callId =
+            callId;
 
-    if (
-        this.isCallActive ||
-        this.callId
-    ) {
-        console.warn(
-            "⚠️ Already in a call. Ignoring incoming call:",
-            callId
-        );
+        this.conversationId =
+            conversationId;
 
-        socket.emit(
-            "call_reject",
+        this.remoteUserId =
+            callerId;
+
+        this.callType =
+            callType;
+
+        this.isIncomingCall =
+            true;
+
+        this.isCallActive =
+            false;
+
+        this.caller =
+            data.caller || {
+                id:
+                    callerId,
+            };
+
+        console.log(
+            "📞 INCOMING CALL STORED:",
             {
                 callId,
-
                 conversationId,
-
-                reason: "busy",
+                callerId,
+                callType,
             }
         );
 
-        return;
-    }
+        this.callbacks.onIncomingCall?.({
+            callId,
 
-    // ========================================================
-    // STORE THE EXACT SERVER CALL ID
-    // ========================================================
+            conversationId,
 
-    this.callId =
-        callId;
-
-    this.conversationId =
-        conversationId;
-
-    this.remoteUserId =
-        callerId;
-
-    this.callType =
-        callType;
-
-    this.isIncomingCall =
-        true;
-
-    this.isCallActive =
-        false;
-
-    // ========================================================
-    // STORE CALLER
-    // ========================================================
-
-    this.caller =
-        data.caller || {
-            id:
-                callerId,
-        };
-
-    console.log(
-        "📞 Incoming call stored:",
-        {
-            callId:
-                this.callId,
-
-            conversationId:
-                this.conversationId,
-
-            callerId:
-                this.remoteUserId,
-
-            callType:
-                this.callType,
-        }
-    );
-
-    // ========================================================
-    // NOTIFY UI
-    // ========================================================
-
-    if (
-        typeof this.callbacks
-            ?.onIncomingCall ===
-        "function"
-    ) {
-        this.callbacks.onIncomingCall({
-            callId:
-                this.callId,
-
-            conversationId:
-                this.conversationId,
-
-            callerId:
-                this.remoteUserId,
+            callerId,
 
             receiverId,
 
-            callType:
-                this.callType,
+            callType,
 
             caller:
                 this.caller,
         });
     }
-}
 
     // ============================================================
-    // ACCEPT INCOMING CALL
+    // ACCEPT CALL
     // ============================================================
 
- async acceptCall() {
-    try {
-        if (!this.callId) {
-            throw new Error(
-                "No incoming call to accept."
-            );
-        }
-
-        if (
-            !this.conversationId
-        ) {
-            throw new Error(
-                "Missing conversation ID."
-            );
-        }
-
-        const callId =
-            this.callId;
-
-        const conversationId =
-            this.conversationId;
-
-        const callType =
-            this.callType === "video"
-                ? "video"
-                : "audio";
-
-        console.log(
-            "📞 Accepting call:",
-            {
-                callId,
-                conversationId,
-                callType,
+    async acceptCall() {
+        try {
+            if (!this.callId) {
+                throw new Error(
+                    "No incoming call."
+                );
             }
-        );
 
-        // ========================================================
-        // GET LOCAL MEDIA
-        // ========================================================
+            const callId =
+                this.callId;
 
-        await this.getLocalMedia(
-            callType
-        );
+            const conversationId =
+                this.conversationId;
 
-        // ========================================================
-        // TELL SERVER
-        // ========================================================
+            const callType =
+                this.callType ===
+                "video"
+                    ? "video"
+                    : "audio";
 
-        socket.emit(
-            "call_accept",
-            {
-                callId,
+            // ----------------------------------------------------
+            // GET CAMERA + MICROPHONE
+            // ----------------------------------------------------
 
-                conversationId,
+            await this.getLocalMedia(
+                callType
+            );
 
-                callType,
-            }
-        );
+            // ----------------------------------------------------
+            // CREATE PEER CONNECTION NOW
+            // ----------------------------------------------------
+            //
+            // The offer may arrive very quickly after
+            // call_accept. Creating the peer here makes
+            // the receiver ready.
+            // ----------------------------------------------------
 
-        // ========================================================
-        // CALL ACTIVE
-        // ========================================================
+            this.createPeerConnection();
 
-        this.isCallActive =
-            true;
+            // ----------------------------------------------------
+            // ACCEPT SERVER CALL
+            // ----------------------------------------------------
 
-        this.isIncomingCall =
-            false;
+            socket.emit(
+                "call_accept",
+                {
+                    callId,
 
-        // ========================================================
-        // UI CALLBACK
-        // ========================================================
+                    conversationId,
 
-        if (
-            typeof this.callbacks
-                ?.onCallAccepted ===
-            "function"
-        ) {
-            this.callbacks.onCallAccepted({
+                    callType,
+                }
+            );
+
+            this.isIncomingCall =
+                false;
+
+            this.isCallActive =
+                true;
+
+            this.callbacks.onCallAccepted?.({
                 callId,
 
                 conversationId,
 
                 callType,
             });
-        }
 
-        console.log(
-            "✅ Call accepted:",
-            callId
-        );
+            console.log(
+                "✅ CALL ACCEPTED:",
+                callId
+            );
 
-        return {
-            success: true,
+            return {
+                success: true,
 
-            callId,
-        };
-    } catch (error) {
-        console.error(
-            "❌ ACCEPT CALL ERROR:",
-            error
-        );
+                callId,
+            };
+        } catch (error) {
+            console.error(
+                "❌ ACCEPT CALL ERROR:",
+                error
+            );
 
-        this.handleCallError(
-            error?.message ||
-                "Unable to accept call."
-        );
-
-        return {
-            success: false,
-
-            message:
+            this.handleCallError(
                 error?.message ||
-                "Unable to accept call.",
-        };
-    }
-}
+                    "Unable to accept call."
+            );
 
-rejectCall(reason = "rejected") {
-    if (!this.callId) {
-        console.warn(
-            "⚠️ No call to reject."
-        );
+            return {
+                success: false,
 
-        return;
-    }
-
-    const callId =
-        this.callId;
-
-    const conversationId =
-        this.conversationId;
-
-    console.log(
-        "📞 Rejecting call:",
-        {
-            callId,
-            conversationId,
-            reason,
+                message:
+                    error?.message ||
+                    "Unable to accept call.",
+            };
         }
-    );
-
-    socket.emit(
-        "call_reject",
-        {
-            callId,
-
-            conversationId,
-
-            reason,
-        }
-    );
-
-    // ========================================================
-    // CLEAN LOCAL STATE
-    // ========================================================
-
-    this.cleanup();
-
-    if (
-        typeof this.callbacks
-            ?.onCallRejected ===
-        "function"
-    ) {
-        this.callbacks.onCallRejected({
-            callId,
-
-            conversationId,
-
-            reason,
-        });
     }
-}
 
     // ============================================================
-    // HANDLE CALL ACCEPTED
+    // CALL ACCEPTED BY RECEIVER
     // ============================================================
 
     async handleCallAccepted(
@@ -1213,14 +1032,10 @@ rejectCall(reason = "rejected") {
                 return;
             }
 
-            // ====================================================
-            // ONLY HANDLE OUR CURRENT CALL
-            // ====================================================
-
             if (
                 this.callId &&
-                this.callId !==
-                    data.callId
+                data.callId !==
+                    this.callId
             ) {
                 return;
             }
@@ -1238,31 +1053,62 @@ rejectCall(reason = "rejected") {
                     data.receiverId
                 );
 
-            // ====================================================
-            // CREATE PEER CONNECTION
-            // ====================================================
+            this.callType =
+                data.callType ===
+                "video"
+                    ? "video"
+                    : "audio";
+
+            this.isCallActive =
+                true;
+
+            this.isIncomingCall =
+                false;
+
+            // ----------------------------------------------------
+            // MAKE SURE LOCAL MEDIA EXISTS
+            // ----------------------------------------------------
+
+            if (
+                !this.localStream
+            ) {
+                await this.getLocalMedia(
+                    this.callType
+                );
+            }
+
+            // ----------------------------------------------------
+            // CREATE PEER
+            // ----------------------------------------------------
 
             const peerConnection =
                 this.createPeerConnection();
 
-            // ====================================================
+            // ----------------------------------------------------
             // CREATE OFFER
-            // ====================================================
+            // ----------------------------------------------------
 
             console.log(
-                "📡 Creating WebRTC offer"
+                "📡 Creating WebRTC offer..."
             );
 
             const offer =
-                await peerConnection.createOffer();
+                await peerConnection.createOffer({
+                    offerToReceiveAudio:
+                        true,
+
+                    offerToReceiveVideo:
+                        this.callType ===
+                        "video",
+                });
 
             await peerConnection.setLocalDescription(
                 offer
             );
 
-            // ====================================================
+            // ----------------------------------------------------
             // SEND OFFER
-            // ====================================================
+            // ----------------------------------------------------
 
             socket.emit(
                 "webrtc_offer",
@@ -1270,11 +1116,11 @@ rejectCall(reason = "rejected") {
                     callId:
                         this.callId,
 
-                    receiverId:
-                        this.remoteUserId,
-
                     conversationId:
                         this.conversationId,
+
+                    receiverId:
+                        this.remoteUserId,
 
                     offer,
                 },
@@ -1284,14 +1130,14 @@ rejectCall(reason = "rejected") {
                     ) {
                         this.handleCallError(
                             response?.message ||
-                                "Failed to send WebRTC offer."
+                                "Failed to send offer."
                         );
                     }
                 }
             );
         } catch (error) {
             console.error(
-                "❌ HANDLE CALL ACCEPTED ERROR:",
+                "❌ HANDLE ACCEPTED ERROR:",
                 error
             );
 
@@ -1303,28 +1149,27 @@ rejectCall(reason = "rejected") {
     }
 
     // ============================================================
-    // HANDLE WEBRTC OFFER
+    // HANDLE OFFER
     // ============================================================
 
-    async handleWebRTCOffer(
-        data
-    ) {
+    async handleWebRTCOffer(data) {
         try {
             if (
-                !data?.offer
+                !data?.offer ||
+                !data?.callId
             ) {
                 return;
             }
-
-            // ====================================================
-            // ONLY HANDLE CURRENT CALL
-            // ====================================================
 
             if (
                 this.callId &&
                 data.callId !==
                     this.callId
             ) {
+                console.warn(
+                    "⚠️ Ignoring offer for another call."
+                );
+
                 return;
             }
 
@@ -1336,21 +1181,53 @@ rejectCall(reason = "rejected") {
                     data.conversationId
                 );
 
+            // ====================================================
+            // IMPORTANT FIX
+            //
+            // Server identifies sender as fromUserId.
+            // senderId is retained as fallback.
+            // ====================================================
+
             this.remoteUserId =
                 Number(
-                    data.senderId
+                    data.fromUserId ??
+                        data.senderId ??
+                        data.callerId
                 );
 
-            // ====================================================
-            // CREATE PEER CONNECTION
-            // ====================================================
+            if (
+                !Number.isInteger(
+                    this.remoteUserId
+                ) ||
+                this.remoteUserId <= 0
+            ) {
+                throw new Error(
+                    "Invalid sender ID in WebRTC offer."
+                );
+            }
+
+            // ----------------------------------------------------
+            // CREATE LOCAL MEDIA IF NEEDED
+            // ----------------------------------------------------
+
+            if (
+                !this.localStream
+            ) {
+                await this.getLocalMedia(
+                    this.callType
+                );
+            }
+
+            // ----------------------------------------------------
+            // PEER
+            // ----------------------------------------------------
 
             const peerConnection =
                 this.createPeerConnection();
 
-            // ====================================================
-            // SET REMOTE DESCRIPTION
-            // ====================================================
+            // ----------------------------------------------------
+            // REMOTE DESCRIPTION
+            // ----------------------------------------------------
 
             await peerConnection.setRemoteDescription(
                 new RTCSessionDescription(
@@ -1358,15 +1235,15 @@ rejectCall(reason = "rejected") {
                 )
             );
 
-            // ====================================================
-            // ADD QUEUED ICE CANDIDATES
-            // ====================================================
+            // ----------------------------------------------------
+            // QUEUED ICE
+            // ----------------------------------------------------
 
             await this.flushPendingIceCandidates();
 
-            // ====================================================
-            // CREATE ANSWER
-            // ====================================================
+            // ----------------------------------------------------
+            // ANSWER
+            // ----------------------------------------------------
 
             const answer =
                 await peerConnection.createAnswer();
@@ -1375,9 +1252,9 @@ rejectCall(reason = "rejected") {
                 answer
             );
 
-            // ====================================================
+            // ----------------------------------------------------
             // SEND ANSWER
-            // ====================================================
+            // ----------------------------------------------------
 
             socket.emit(
                 "webrtc_answer",
@@ -1385,11 +1262,11 @@ rejectCall(reason = "rejected") {
                     callId:
                         this.callId,
 
-                    receiverId:
-                        this.remoteUserId,
-
                     conversationId:
                         this.conversationId,
+
+                    receiverId:
+                        this.remoteUserId,
 
                     answer,
                 },
@@ -1399,33 +1276,33 @@ rejectCall(reason = "rejected") {
                     ) {
                         this.handleCallError(
                             response?.message ||
-                                "Failed to send WebRTC answer."
+                                "Failed to send answer."
                         );
                     }
                 }
             );
         } catch (error) {
             console.error(
-                "❌ HANDLE WEBRTC OFFER ERROR:",
+                "❌ HANDLE OFFER ERROR:",
                 error
             );
 
             this.handleCallError(
-                "Failed to process WebRTC offer."
+                error?.message ||
+                    "Failed to process video call offer."
             );
         }
     }
 
     // ============================================================
-    // HANDLE WEBRTC ANSWER
+    // HANDLE ANSWER
     // ============================================================
 
-    async handleWebRTCAnswer(
-        data
-    ) {
+    async handleWebRTCAnswer(data) {
         try {
             if (
-                !data?.answer
+                !data?.answer ||
+                !data?.callId
             ) {
                 return;
             }
@@ -1442,15 +1319,11 @@ rejectCall(reason = "rejected") {
                 !this.peerConnection
             ) {
                 console.error(
-                    "❌ Cannot process answer without peer connection"
+                    "❌ No peer connection for answer."
                 );
 
                 return;
             }
-
-            console.log(
-                "📡 Setting remote WebRTC answer"
-            );
 
             await this.peerConnection.setRemoteDescription(
                 new RTCSessionDescription(
@@ -1459,9 +1332,13 @@ rejectCall(reason = "rejected") {
             );
 
             await this.flushPendingIceCandidates();
+
+            console.log(
+                "✅ Remote answer applied."
+            );
         } catch (error) {
             console.error(
-                "❌ HANDLE WEBRTC ANSWER ERROR:",
+                "❌ HANDLE ANSWER ERROR:",
                 error
             );
 
@@ -1472,15 +1349,14 @@ rejectCall(reason = "rejected") {
     }
 
     // ============================================================
-    // HANDLE ICE CANDIDATE
+    // HANDLE ICE
     // ============================================================
 
-    async handleIceCandidate(
-        data
-    ) {
+    async handleIceCandidate(data) {
         try {
             if (
-                !data?.candidate
+                !data?.candidate ||
+                !data?.callId
             ) {
                 return;
             }
@@ -1493,9 +1369,9 @@ rejectCall(reason = "rejected") {
                 return;
             }
 
-            // ====================================================
-            // IF REMOTE DESCRIPTION IS NOT READY
-            // ====================================================
+            // ----------------------------------------------------
+            // ICE ARRIVED BEFORE REMOTE DESCRIPTION
+            // ----------------------------------------------------
 
             if (
                 !this.peerConnection ||
@@ -1509,10 +1385,6 @@ rejectCall(reason = "rejected") {
                 return;
             }
 
-            // ====================================================
-            // ADD CANDIDATE
-            // ====================================================
-
             await this.peerConnection.addIceCandidate(
                 new RTCIceCandidate(
                     data.candidate
@@ -1520,14 +1392,14 @@ rejectCall(reason = "rejected") {
             );
         } catch (error) {
             console.error(
-                "❌ HANDLE ICE CANDIDATE ERROR:",
+                "❌ ICE ERROR:",
                 error
             );
         }
     }
 
     // ============================================================
-    // FLUSH ICE CANDIDATES
+    // FLUSH ICE
     // ============================================================
 
     async flushPendingIceCandidates() {
@@ -1540,8 +1412,8 @@ rejectCall(reason = "rejected") {
         }
 
         if (
-            this.pendingIceCandidates
-                .length === 0
+            !this.pendingIceCandidates
+                .length
         ) {
             return;
         }
@@ -1550,7 +1422,8 @@ rejectCall(reason = "rejected") {
             ...this.pendingIceCandidates,
         ];
 
-        this.pendingIceCandidates = [];
+        this.pendingIceCandidates =
+            [];
 
         for (
             const candidate of candidates
@@ -1563,7 +1436,7 @@ rejectCall(reason = "rejected") {
                 );
             } catch (error) {
                 console.error(
-                    "❌ FAILED TO ADD QUEUED ICE CANDIDATE:",
+                    "❌ QUEUED ICE ERROR:",
                     error
                 );
             }
@@ -1571,20 +1444,14 @@ rejectCall(reason = "rejected") {
     }
 
     // ============================================================
-    // END CALL
+    // REJECT
     // ============================================================
-async endCall(reason = "ended") {
-    try {
+
+    rejectCall(
+        reason = "rejected"
+    ) {
         if (!this.callId) {
-            console.warn(
-                "⚠️ No active call to end."
-            );
-
-            this.cleanup();
-
-            return {
-                success: true,
-            };
+            return;
         }
 
         const callId =
@@ -1593,21 +1460,8 @@ async endCall(reason = "ended") {
         const conversationId =
             this.conversationId;
 
-        console.log(
-            "📞 Ending call:",
-            {
-                callId,
-                conversationId,
-                reason,
-            }
-        );
-
-        // ========================================================
-        // TELL SERVER
-        // ========================================================
-
         socket.emit(
-            "call_end",
+            "call_reject",
             {
                 callId,
 
@@ -1617,42 +1471,41 @@ async endCall(reason = "ended") {
             }
         );
 
-        // ========================================================
-        // CLEANUP
-        // ========================================================
-
         this.cleanup();
-
-        return {
-            success: true,
-
-            callId,
-        };
-    } catch (error) {
-        console.error(
-            "❌ END CALL ERROR:",
-            error
-        );
-
-        this.cleanup();
-
-        return {
-            success: false,
-
-            message:
-                error?.message ||
-                "Unable to end call.",
-        };
     }
-}
 
     // ============================================================
-    // HANDLE REMOTE CALL ENDED
+    // END CALL
     // ============================================================
 
-    handleRemoteCallEnded(
-        data
+    endCall(
+        reason = "ended"
     ) {
+        const callId =
+            this.callId;
+
+        if (callId) {
+            socket.emit(
+                "call_end",
+                {
+                    callId,
+
+                    conversationId:
+                        this.conversationId,
+
+                    reason,
+                }
+            );
+        }
+
+        this.cleanup();
+    }
+
+    // ============================================================
+    // REMOTE END
+    // ============================================================
+
+    handleRemoteCallEnded(data) {
         if (
             this.callId &&
             data?.callId &&
@@ -1662,112 +1515,36 @@ async endCall(reason = "ended") {
             return;
         }
 
-        console.log(
-            "📴 Remote call ended:",
-            data?.reason
+        this.callbacks.onCallEnded?.(
+            data
         );
-
-        if (
-            this.callbacks
-                .onCallEnded
-        ) {
-            this.callbacks
-                .onCallEnded(
-                    data
-                );
-        }
 
         this.cleanup();
     }
 
     // ============================================================
-    // HANDLE CALL REJECTED
+    // REJECTED
     // ============================================================
 
-  // ============================================================
-// HANDLE CALL REJECTED
-// ============================================================
+    handleCallRejected(data) {
+        if (
+            this.callId &&
+            data?.callId &&
+            data.callId !==
+                this.callId
+        ) {
+            return;
+        }
 
-// ============================================================
-// HANDLE CALL REJECTED
-// ============================================================
-
-handleCallRejected(data) {
-    if (!data?.callId) {
-        return;
-    }
-
-    // ========================================================
-    // IGNORE REJECTION FOR ANOTHER CALL
-    // ========================================================
-
-    if (
-        this.callId &&
-        data.callId !== this.callId
-    ) {
-        console.log(
-            "⚠️ Ignoring rejection for another call:",
-            {
-                currentCallId: this.callId,
-                rejectedCallId: data.callId,
-            }
+        this.callbacks.onCallRejected?.(
+            data
         );
 
-        return;
+        this.cleanup();
     }
-
-    console.log(
-        "❌ Call rejected by receiver:",
-        data
-    );
-
-    // ========================================================
-    // SAVE IMPORTANT INFORMATION BEFORE CLEANUP
-    // ========================================================
-
-    const rejectionData = {
-        ...data,
-
-        callId: data.callId,
-
-        conversationId:
-            data.conversationId ??
-            this.conversationId,
-
-        callType:
-            data.callType ??
-            this.callType,
-
-        reason:
-            data.reason || "rejected",
-
-        remoteUserId:
-            this.remoteUserId,
-    };
-
-    // ========================================================
-    // NOTIFY UI FIRST
-    // ========================================================
-
-    if (
-        typeof this.callbacks
-            ?.onCallRejected ===
-        "function"
-    ) {
-        this.callbacks.onCallRejected(
-            rejectionData
-        );
-    }
-
-    // ========================================================
-    // CLEAN CALL RESOURCES
-    // ========================================================
-
-    this.cleanup();
-}
 
     // ============================================================
-    // MUTE / UNMUTE MICROPHONE
+    // MUTE
     // ============================================================
 
     toggleMute() {
@@ -1777,47 +1554,32 @@ handleCallRejected(data) {
             return false;
         }
 
-        const audioTracks =
+        const tracks =
             this.localStream.getAudioTracks();
 
-        if (
-            audioTracks.length ===
-            0
-        ) {
+        if (!tracks.length) {
             return false;
         }
 
         this.isMuted =
             !this.isMuted;
 
-        audioTracks.forEach(
+        tracks.forEach(
             (track) => {
                 track.enabled =
                     !this.isMuted;
             }
         );
 
-        console.log(
+        this.callbacks.onMuteChanged?.(
             this.isMuted
-                ? "🔇 Microphone muted"
-                : "🎤 Microphone unmuted"
         );
-
-        if (
-            this.callbacks
-                .onMuteChanged
-        ) {
-            this.callbacks
-                .onMuteChanged(
-                    this.isMuted
-                );
-        }
 
         return this.isMuted;
     }
 
     // ============================================================
-    // CAMERA ON / OFF
+    // CAMERA
     // ============================================================
 
     toggleCamera() {
@@ -1827,66 +1589,43 @@ handleCallRejected(data) {
             return false;
         }
 
-        const videoTracks =
+        const tracks =
             this.localStream.getVideoTracks();
 
-        if (
-            videoTracks.length ===
-            0
-        ) {
+        if (!tracks.length) {
             return false;
         }
 
         this.isCameraOff =
             !this.isCameraOff;
 
-        videoTracks.forEach(
+        tracks.forEach(
             (track) => {
                 track.enabled =
                     !this.isCameraOff;
             }
         );
 
-        console.log(
+        this.callbacks.onCameraChanged?.(
             this.isCameraOff
-                ? "📹 Camera turned off"
-                : "📹 Camera turned on"
         );
-
-        if (
-            this.callbacks
-                .onCameraChanged
-        ) {
-            this.callbacks
-                .onCameraChanged(
-                    this.isCameraOff
-                );
-        }
 
         return this.isCameraOff;
     }
 
     // ============================================================
-    // HANDLE CALL ERROR
+    // CALL ERROR
     // ============================================================
 
-    handleCallError(
-        message
-    ) {
+    handleCallError(message) {
         console.error(
-            "❌ CALL ERROR:",
+            "📞 CALL ERROR:",
             message
         );
 
-        if (
-            this.callbacks
-                .onCallError
-        ) {
-            this.callbacks
-                .onCallError(
-                    message
-                );
-        }
+        this.callbacks.onCallError?.(
+            message
+        );
     }
 
     // ============================================================
@@ -1895,12 +1634,12 @@ handleCallRejected(data) {
 
     cleanup() {
         console.log(
-            "🧹 Cleaning up call resources"
+            "🧹 Cleaning up call."
         );
 
-        // ========================================================
+        // --------------------------------------------------------
         // STOP LOCAL MEDIA
-        // ========================================================
+        // --------------------------------------------------------
 
         if (
             this.localStream
@@ -1909,7 +1648,9 @@ handleCallRejected(data) {
                 .getTracks()
                 .forEach(
                     (track) => {
-                        track.stop();
+                        try {
+                            track.stop();
+                        } catch {}
                     }
                 );
 
@@ -1917,9 +1658,9 @@ handleCallRejected(data) {
                 null;
         }
 
-        // ========================================================
+        // --------------------------------------------------------
         // STOP REMOTE MEDIA
-        // ========================================================
+        // --------------------------------------------------------
 
         if (
             this.remoteStream
@@ -1928,7 +1669,9 @@ handleCallRejected(data) {
                 .getTracks()
                 .forEach(
                     (track) => {
-                        track.stop();
+                        try {
+                            track.stop();
+                        } catch {}
                     }
                 );
 
@@ -1936,9 +1679,9 @@ handleCallRejected(data) {
                 null;
         }
 
-        // ========================================================
-        // CLOSE PEER CONNECTION
-        // ========================================================
+        // --------------------------------------------------------
+        // CLOSE PEER
+        // --------------------------------------------------------
 
         if (
             this.peerConnection
@@ -1968,9 +1711,9 @@ handleCallRejected(data) {
                 null;
         }
 
-        // ========================================================
-        // RESET STATE
-        // ========================================================
+        // --------------------------------------------------------
+        // RESET
+        // --------------------------------------------------------
 
         this.callId = null;
 
@@ -1997,10 +1740,24 @@ handleCallRejected(data) {
 
         this.pendingIceCandidates =
             [];
+
+        this.caller = null;
+
+        // --------------------------------------------------------
+        // CLEAR UI STREAMS
+        // --------------------------------------------------------
+
+        this.callbacks.onLocalStream?.(
+            null
+        );
+
+        this.callbacks.onRemoteStream?.(
+            null
+        );
     }
 
     // ============================================================
-    // RESET CALL STATE
+    // RESET STATE
     // ============================================================
 
     resetCallState() {
@@ -2029,6 +1786,8 @@ handleCallRejected(data) {
 
         this.pendingIceCandidates =
             [];
+
+        this.caller = null;
     }
 
     // ============================================================
@@ -2077,24 +1836,6 @@ handleCallRejected(data) {
 
         this.socketListenersRegistered =
             false;
-
-        this.callbacks = {
-            onIncomingCall: null,
-            onCallAccepted: null,
-            onCallRejected: null,
-            onCallEnded: null,
-
-            onLocalStream: null,
-            onRemoteStream: null,
-
-            onCallStarted: null,
-            onCallConnected: null,
-
-            onCallError: null,
-
-            onMuteChanged: null,
-            onCameraChanged: null,
-        };
     }
 }
 
