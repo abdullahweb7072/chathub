@@ -15,7 +15,7 @@ export default function CreateStatusModal({
 
     const [content, setContent] = useState("");
     const [backgroundColor, setBackgroundColor] =
-        useState("#1f2937");
+        useState("#111827");
 
     const [selectedFile, setSelectedFile] =
         useState(null);
@@ -34,14 +34,14 @@ export default function CreateStatusModal({
     // ============================================================
 
     const backgroundColors = [
-        "#1f2937",
-        "#7c3aed",
-        "#db2777",
-        "#dc2626",
-        "#ea580c",
-        "#ca8a04",
-        "#059669",
-        "#0891b2",
+        "#111827",
+        "#4c1d95",
+        "#9d174d",
+        "#991b1b",
+        "#9a3412",
+        "#854d0e",
+        "#065f46",
+        "#155e75",
     ];
 
     // ============================================================
@@ -59,7 +59,7 @@ export default function CreateStatusModal({
             setPreviewUrl(null);
             setError("");
             setLoading(false);
-            setBackgroundColor("#1f2937");
+            setBackgroundColor("#111827");
 
             if (fileInputRef.current) {
                 fileInputRef.current.value = "";
@@ -355,9 +355,17 @@ export default function CreateStatusModal({
         };
     }, [open, loading]);
 
+    // ============================================================
+    // CLOSED
+    // ============================================================
+
     if (!open) {
         return null;
     }
+
+    // ============================================================
+    // DERIVED VALUES
+    // ============================================================
 
     const isVideo =
         selectedFile?.type?.startsWith(
@@ -371,6 +379,10 @@ export default function CreateStatusModal({
         content.trim() ||
         selectedFile;
 
+    // ============================================================
+    // UI
+    // ============================================================
+
     return (
         <div
             className="
@@ -380,10 +392,10 @@ export default function CreateStatusModal({
                 flex
                 items-center
                 justify-center
-                bg-black/75
+                bg-black/85
                 px-4
                 py-6
-                backdrop-blur-md
+                backdrop-blur-sm
             "
             onMouseDown={(event) => {
                 if (
@@ -409,17 +421,17 @@ export default function CreateStatusModal({
                     overflow-hidden
                     rounded-[28px]
                     border
-                    shadow-2xl
+                    shadow-[0_25px_80px_rgba(0,0,0,0.55)]
                 "
                 style={{
-                    background:
+                    backgroundColor:
                         "var(--chat-bg-secondary)",
                     borderColor:
                         "var(--chat-border)",
                 }}
             >
                 {/* ==================================================
-                    DECORATIVE GLOW
+                    SUBTLE DECORATIVE GLOW
                 ================================================== */}
 
                 <div
@@ -428,15 +440,15 @@ export default function CreateStatusModal({
                         absolute
                         -right-24
                         -top-24
-                        h-56
-                        w-56
+                        h-48
+                        w-48
                         rounded-full
                         blur-3xl
                     "
                     style={{
                         background:
-                            "var(--chat-accent-soft)",
-                        opacity: 0.45,
+                            "var(--chat-accent)",
+                        opacity: 0.08,
                     }}
                 />
 
@@ -457,6 +469,8 @@ export default function CreateStatusModal({
                         sm:px-6
                     "
                     style={{
+                        backgroundColor:
+                            "var(--chat-bg-secondary)",
                         borderColor:
                             "var(--chat-border)",
                     }}
@@ -559,14 +573,17 @@ export default function CreateStatusModal({
                             justify-center
                             rounded-full
                             border
-                            transition
+                            transition-all
+                            duration-200
                             hover:scale-105
+                            hover:bg-red-500/10
+                            hover:text-red-400
                             active:scale-95
                             disabled:cursor-not-allowed
                             disabled:opacity-50
                         "
                         style={{
-                            background:
+                            backgroundColor:
                                 "var(--chat-bg-tertiary)",
                             borderColor:
                                 "var(--chat-border)",
@@ -606,56 +623,28 @@ export default function CreateStatusModal({
                     "
                 >
                     {/* ==================================================
-                        TEXT STATUS PREVIEW
+                        TEXT STATUS
                     ================================================== */}
 
                     {!selectedFile && (
                         <div>
+                            {/* PREVIEW */}
+
                             <div
                                 className="
                                     relative
                                     overflow-hidden
                                     rounded-[24px]
                                     border
-                                    shadow-xl
+                                    shadow-[0_15px_40px_rgba(0,0,0,0.25)]
                                 "
                                 style={{
                                     backgroundColor:
                                         backgroundColor,
                                     borderColor:
-                                        "rgba(255,255,255,0.12)",
+                                        "rgba(255,255,255,0.18)",
                                 }}
                             >
-                                {/* Decorative circles */}
-
-                                <div
-                                    className="
-                                        pointer-events-none
-                                        absolute
-                                        -right-16
-                                        -top-16
-                                        h-40
-                                        w-40
-                                        rounded-full
-                                        bg-white/10
-                                        blur-2xl
-                                    "
-                                />
-
-                                <div
-                                    className="
-                                        pointer-events-none
-                                        absolute
-                                        -bottom-20
-                                        -left-10
-                                        h-44
-                                        w-44
-                                        rounded-full
-                                        bg-black/10
-                                        blur-2xl
-                                    "
-                                />
-
                                 <div
                                     className="
                                         relative
@@ -698,9 +687,13 @@ export default function CreateStatusModal({
                                             leading-relaxed
                                             text-white
                                             outline-none
-                                            placeholder:text-white/55
+                                            placeholder:text-white/65
                                             disabled:cursor-not-allowed
                                         "
+                                        style={{
+                                            textShadow:
+                                                "0 2px 8px rgba(0,0,0,0.18)",
+                                        }}
                                     />
 
                                     <div
@@ -715,14 +708,14 @@ export default function CreateStatusModal({
                                         <span
                                             className="
                                                 rounded-full
-                                                bg-black/10
+                                                bg-black/25
                                                 px-3
                                                 py-1
                                                 text-[10px]
-                                                font-medium
+                                                font-semibold
                                                 uppercase
                                                 tracking-wider
-                                                text-white/70
+                                                text-white/85
                                             "
                                         >
                                             Text Status
@@ -731,8 +724,8 @@ export default function CreateStatusModal({
                                         <span
                                             className="
                                                 text-xs
-                                                font-medium
-                                                text-white/60
+                                                font-semibold
+                                                text-white/80
                                             "
                                         >
                                             {
@@ -784,6 +777,7 @@ export default function CreateStatusModal({
                                             w-7
                                             rounded-full
                                             border-2
+                                            shadow-sm
                                         "
                                         style={{
                                             backgroundColor:
@@ -827,7 +821,7 @@ export default function CreateStatusModal({
                                                         w-10
                                                         rounded-full
                                                         border-2
-                                                        transition
+                                                        transition-all
                                                         duration-200
                                                         hover:scale-110
                                                         active:scale-95
@@ -847,8 +841,8 @@ export default function CreateStatusModal({
                                                                 : "transparent",
                                                         boxShadow:
                                                             selected
-                                                                ? `0 0 0 2px ${color}`
-                                                                : "none",
+                                                                ? `0 0 0 2px ${color}, 0 4px 12px rgba(0,0,0,0.25)`
+                                                                : "0 2px 8px rgba(0,0,0,0.15)",
                                                     }}
                                                     aria-label={`Select ${color} background`}
                                                 >
@@ -891,6 +885,8 @@ export default function CreateStatusModal({
 
                     {selectedFile && (
                         <div>
+                            {/* MEDIA */}
+
                             <div
                                 className="
                                     group
@@ -899,7 +895,7 @@ export default function CreateStatusModal({
                                     rounded-[24px]
                                     border
                                     bg-black
-                                    shadow-xl
+                                    shadow-[0_15px_40px_rgba(0,0,0,0.3)]
                                 "
                                 style={{
                                     borderColor:
@@ -945,13 +941,13 @@ export default function CreateStatusModal({
                                         items-center
                                         gap-2
                                         rounded-full
-                                        bg-black/60
+                                        bg-black/75
                                         px-3
                                         py-1.5
                                         text-xs
-                                        font-medium
+                                        font-semibold
                                         text-white
-                                        backdrop-blur-md
+                                        backdrop-blur-sm
                                     "
                                 >
                                     {isVideo ? (
@@ -1025,10 +1021,11 @@ export default function CreateStatusModal({
                                         items-center
                                         justify-center
                                         rounded-full
-                                        bg-black/60
+                                        bg-black/75
                                         text-white
-                                        backdrop-blur-md
-                                        transition
+                                        backdrop-blur-sm
+                                        transition-all
+                                        duration-200
                                         hover:scale-105
                                         hover:bg-red-500
                                         active:scale-95
@@ -1053,7 +1050,9 @@ export default function CreateStatusModal({
                                 </button>
                             </div>
 
-                            {/* FILE INFO */}
+                            {/* ==================================================
+                                FILE INFO
+                            ================================================== */}
 
                             <div
                                 className="
@@ -1068,7 +1067,7 @@ export default function CreateStatusModal({
                                     py-3
                                 "
                                 style={{
-                                    background:
+                                    backgroundColor:
                                         "var(--chat-bg-tertiary)",
                                     borderColor:
                                         "var(--chat-border)",
@@ -1079,7 +1078,7 @@ export default function CreateStatusModal({
                                         className="
                                             truncate
                                             text-xs
-                                            font-medium
+                                            font-semibold
                                         "
                                         style={{
                                             color:
@@ -1126,9 +1125,9 @@ export default function CreateStatusModal({
                                         px-3
                                         py-1.5
                                         text-xs
-                                        font-semibold
+                                        font-bold
                                         transition
-                                        hover:opacity-80
+                                        hover:bg-[var(--chat-accent-soft)]
                                         disabled:opacity-50
                                     "
                                     style={{
@@ -1140,7 +1139,9 @@ export default function CreateStatusModal({
                                 </button>
                             </div>
 
-                            {/* CAPTION */}
+                            {/* ==================================================
+                                CAPTION
+                            ================================================== */}
 
                             <div className="mt-5">
                                 <div className="mb-2 flex items-center justify-between">
@@ -1160,6 +1161,7 @@ export default function CreateStatusModal({
                                     <span
                                         className="
                                             text-xs
+                                            font-medium
                                         "
                                         style={{
                                             color:
@@ -1208,7 +1210,7 @@ export default function CreateStatusModal({
                                         focus:ring-2
                                     "
                                     style={{
-                                        background:
+                                        backgroundColor:
                                             "var(--chat-bg-primary)",
                                         borderColor:
                                             "var(--chat-border)",
@@ -1223,7 +1225,7 @@ export default function CreateStatusModal({
                     )}
 
                     {/* ==================================================
-                        ADD MEDIA
+                        FILE INPUT
                     ================================================== */}
 
                     <input
@@ -1235,6 +1237,10 @@ export default function CreateStatusModal({
                         }
                         className="hidden"
                     />
+
+                    {/* ==================================================
+                        ADD MEDIA
+                    ================================================== */}
 
                     <button
                         type="button"
@@ -1254,14 +1260,15 @@ export default function CreateStatusModal({
                             px-4
                             py-4
                             text-left
-                            transition
+                            transition-all
+                            duration-200
                             hover:-translate-y-0.5
                             hover:shadow-lg
                             disabled:cursor-not-allowed
                             disabled:opacity-50
                         "
                         style={{
-                            background:
+                            backgroundColor:
                                 "var(--chat-bg-tertiary)",
                             borderColor:
                                 "var(--chat-border)",
@@ -1342,7 +1349,9 @@ export default function CreateStatusModal({
                                         "var(--chat-text-muted)",
                                 }}
                             >
-                                JPG, PNG, GIF, WEBP or video • Max 25 MB
+                                JPG, PNG, GIF, WEBP or video
+                                {" • "}
+                                Max 25 MB
                             </p>
                         </div>
 
@@ -1447,7 +1456,7 @@ export default function CreateStatusModal({
                         sm:px-6
                     "
                     style={{
-                        background:
+                        backgroundColor:
                             "var(--chat-bg-secondary)",
                         borderColor:
                             "var(--chat-border)",
@@ -1471,7 +1480,8 @@ export default function CreateStatusModal({
                                 border
                                 text-sm
                                 font-semibold
-                                transition
+                                transition-all
+                                duration-200
                                 hover:-translate-y-0.5
                                 hover:shadow-md
                                 active:translate-y-0
@@ -1479,7 +1489,7 @@ export default function CreateStatusModal({
                                 disabled:opacity-50
                             "
                             style={{
-                                background:
+                                backgroundColor:
                                     "var(--chat-bg-tertiary)",
                                 borderColor:
                                     "var(--chat-border)",
@@ -1510,7 +1520,8 @@ export default function CreateStatusModal({
                                 font-bold
                                 text-white
                                 shadow-lg
-                                transition
+                                transition-all
+                                duration-200
                                 hover:-translate-y-0.5
                                 hover:shadow-xl
                                 active:translate-y-0
@@ -1576,7 +1587,8 @@ export default function CreateStatusModal({
                                 "var(--chat-text-muted)",
                         }}
                     >
-                        Your status will be visible to your ChatHub contacts for 24 hours.
+                        Your status will be visible to your
+                        ChatHub contacts for 24 hours.
                     </p>
                 </div>
             </div>
