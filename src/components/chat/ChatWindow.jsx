@@ -166,20 +166,23 @@ export default function ChatWindow({
     };
 
     const themeImage =
-        CHAT_THEME_IMAGES[selectedTheme] || null;
+        CHAT_THEME_IMAGES[selectedTheme] ||
+        null;
 
-    const themeBackgroundStyle = themeImage
-        ? {
-              backgroundImage: `linear-gradient(
-                  rgba(0,0,0,0.22),
-                  rgba(0,0,0,0.22)
-              ), url("${themeImage}")`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-              backgroundColor: "var(--background)",
-          }
-        : undefined;
+    const themeBackgroundStyle =
+        themeImage
+            ? {
+                  backgroundImage: `linear-gradient(
+                      rgba(0,0,0,0.22),
+                      rgba(0,0,0,0.22)
+                  ), url("${themeImage}")`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  backgroundRepeat: "no-repeat",
+                  backgroundColor:
+                      "var(--background)",
+              }
+            : undefined;
 
     const [message, setMessage] =
         useState("");
@@ -230,11 +233,19 @@ export default function ChatWindow({
 
     // ========================================================
     // AUTO SCROLL
+    //
+    // IMPORTANT:
+    // Use "auto" instead of "smooth".
+    //
+    // When ChatLayout optimistically adds a message to the
+    // messages array, this makes the new message appear
+    // immediately without waiting for a smooth scroll.
     // ========================================================
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({
-            behavior: "smooth",
+            behavior: "auto",
+            block: "end",
         });
     }, [
         messages?.length,
@@ -246,16 +257,15 @@ export default function ChatWindow({
     // ========================================================
 
     useEffect(() => {
-        const handleChatClosed =
-            () => {
-                inputRef.current?.blur();
+        const handleChatClosed = () => {
+            inputRef.current?.blur();
 
-                setMessage("");
-                setShowReactionFor(null);
-                setShowEmojiPicker(false);
+            setMessage("");
+            setShowReactionFor(null);
+            setShowEmojiPicker(false);
 
-                removeSelectedFile();
-            };
+            removeSelectedFile();
+        };
 
         window.addEventListener(
             "chathub:chat-closed",
@@ -370,17 +380,13 @@ export default function ChatWindow({
 
     useEffect(() => {
         return () => {
-            if (
-                attachmentPreview
-            ) {
+            if (attachmentPreview) {
                 URL.revokeObjectURL(
                     attachmentPreview
                 );
             }
         };
-    }, [
-        attachmentPreview,
-    ]);
+    }, [attachmentPreview]);
 
     // ========================================================
     // INPUT CHANGE
@@ -421,10 +427,7 @@ export default function ChatWindow({
             Number(currentUserId);
 
         if (isOwnProfile) {
-            router.push(
-                "/profile"
-            );
-
+            router.push("/profile");
             return;
         }
 
@@ -441,9 +444,7 @@ export default function ChatWindow({
 
     const handleAttachmentClick =
         () => {
-            if (
-                !socketConnected
-            ) {
+            if (!socketConnected) {
                 return;
             }
 
@@ -472,24 +473,19 @@ export default function ChatWindow({
                 "File size cannot exceed 25 MB."
             );
 
-            event.target.value =
-                "";
+            event.target.value = "";
 
             return;
         }
 
-        if (
-            attachmentPreview
-        ) {
+        if (attachmentPreview) {
             URL.revokeObjectURL(
                 attachmentPreview
             );
         }
 
         const previewUrl =
-            URL.createObjectURL(
-                file
-            );
+            URL.createObjectURL(file);
 
         setSelectedFile(file);
 
@@ -497,9 +493,7 @@ export default function ChatWindow({
             previewUrl
         );
 
-        setShowEmojiPicker(
-            false
-        );
+        setShowEmojiPicker(false);
 
         inputRef.current?.focus();
     };
@@ -510,9 +504,7 @@ export default function ChatWindow({
 
     const removeSelectedFile =
         () => {
-            if (
-                attachmentPreview
-            ) {
+            if (attachmentPreview) {
                 URL.revokeObjectURL(
                     attachmentPreview
                 );
@@ -520,9 +512,7 @@ export default function ChatWindow({
 
             setSelectedFile(null);
 
-            setAttachmentPreview(
-                null
-            );
+            setAttachmentPreview(null);
 
             if (
                 fileInputRef.current
@@ -536,41 +526,51 @@ export default function ChatWindow({
     // GET ATTACHMENT TYPE
     // ========================================================
 
-    const getAttachmentType =
-        (file) => {
-            if (!file) {
-                return "TEXT";
-            }
+    const getAttachmentType = (
+        file
+    ) => {
+        if (!file) {
+            return "TEXT";
+        }
 
-            if (
-                file.type.startsWith(
-                    "image/"
-                )
-            ) {
-                return "IMAGE";
-            }
+        if (
+            file.type.startsWith(
+                "image/"
+            )
+        ) {
+            return "IMAGE";
+        }
 
-            if (
-                file.type.startsWith(
-                    "video/"
-                )
-            ) {
-                return "VIDEO";
-            }
+        if (
+            file.type.startsWith(
+                "video/"
+            )
+        ) {
+            return "VIDEO";
+        }
 
-            if (
-                file.type.startsWith(
-                    "audio/"
-                )
-            ) {
-                return "AUDIO";
-            }
+        if (
+            file.type.startsWith(
+                "audio/"
+            )
+        ) {
+            return "AUDIO";
+        }
 
-            return "FILE";
-        };
+        return "FILE";
+    };
 
     // ========================================================
     // SEND MESSAGE
+    //
+    // IMPORTANT:
+    // ChatWindow does NOT wait for the server.
+    //
+    // It immediately passes the message data to
+    // ChatLayout through onSendMessage().
+    //
+    // ChatLayout is responsible for adding the optimistic
+    // message immediately.
     // ========================================================
 
     const handleSubmit = () => {
@@ -584,9 +584,7 @@ export default function ChatWindow({
             return;
         }
 
-        if (
-            !socketConnected
-        ) {
+        if (!socketConnected) {
             return;
         }
 
@@ -606,8 +604,7 @@ export default function ChatWindow({
                         selectedFile
                     ),
 
-                file:
-                    selectedFile,
+                file: selectedFile,
 
                 attachmentName:
                     selectedFile.name,
@@ -620,19 +617,19 @@ export default function ChatWindow({
             });
         }
 
+        // Clear input immediately.
         setMessage("");
 
         onStopTyping?.();
 
-        setShowEmojiPicker(
-            false
-        );
+        setShowEmojiPicker(false);
 
         removeSelectedFile();
 
-        setTimeout(() => {
+        // Restore focus immediately.
+        requestAnimationFrame(() => {
             inputRef.current?.focus();
-        }, 0);
+        });
     };
 
     // ========================================================
@@ -665,13 +662,11 @@ export default function ChatWindow({
                 previous + emoji
         );
 
-        setShowEmojiPicker(
-            false
-        );
+        setShowEmojiPicker(false);
 
-        setTimeout(() => {
+        requestAnimationFrame(() => {
             inputRef.current?.focus();
-        }, 0);
+        });
     };
 
     // ========================================================
@@ -816,13 +811,9 @@ export default function ChatWindow({
 
             setMessage("");
 
-            setShowEmojiPicker(
-                false
-            );
+            setShowEmojiPicker(false);
 
-            setShowReactionFor(
-                null
-            );
+            setShowReactionFor(null);
 
             onBack?.();
         };
@@ -843,7 +834,9 @@ export default function ChatWindow({
                 transition-colors
                 duration-200
             "
-            style={themeBackgroundStyle}
+            style={
+                themeBackgroundStyle
+            }
         >
             {/* ==================================================
                 CHAT HEADER
@@ -891,6 +884,10 @@ export default function ChatWindow({
                 }
             />
 
+            {/* ==================================================
+                MESSAGE AREA
+            ================================================== */}
+
             <div
                 className="
                     relative
@@ -900,7 +897,9 @@ export default function ChatWindow({
                     py-5
                     sm:px-6
                 "
-                style={themeBackgroundStyle}
+                style={
+                    themeBackgroundStyle
+                }
             >
                 <div
                     className="
@@ -1140,7 +1139,6 @@ export default function ChatWindow({
                 "
             >
                 <div className="mx-auto max-w-5xl">
-
                     {selectedFile && (
                         <AttachmentPreview
                             file={
@@ -1156,7 +1154,6 @@ export default function ChatWindow({
                     )}
 
                     <div className="flex items-end gap-2">
-
                         <input
                             ref={
                                 fileInputRef
@@ -1581,7 +1578,9 @@ function MessageBubble({
         Number(
             message?.senderId
         ) ===
-        Number(currentUserId);
+        Number(
+            currentUserId
+        );
 
     const isDeleted =
         Boolean(
@@ -1646,14 +1645,9 @@ function MessageBubble({
         const rect =
             element.getBoundingClientRect();
 
-        const pickerWidth =
-            260;
-
-        const pickerHeight =
-            52;
-
-        const edgePadding =
-            8;
+        const pickerWidth = 260;
+        const pickerHeight = 52;
+        const edgePadding = 8;
 
         let left =
             rect.left +
@@ -1806,17 +1800,18 @@ function MessageBubble({
     // REACTION
     // ========================================================
 
-    const handleReactionButton =
-        (emoji) => {
-            onToggleReaction?.(
-                message,
-                emoji
-            );
+    const handleReactionButton = (
+        emoji
+    ) => {
+        onToggleReaction?.(
+            message,
+            emoji
+        );
 
-            setShowReactionFor(
-                null
-            );
-        };
+        setShowReactionFor(
+            null
+        );
+    };
 
     // ========================================================
     // SENDER NAME

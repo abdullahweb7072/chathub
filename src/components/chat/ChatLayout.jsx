@@ -182,6 +182,80 @@ function updateActiveConversationMember(
 }
 
 // ============================================================
+// CREATE OPTIMISTIC MESSAGE
+// ============================================================
+
+function createOptimisticMessage({
+    conversationId,
+    currentUser,
+    currentUserId,
+    content,
+    type = "TEXT",
+    file = null,
+}) {
+    const tempId =
+        `temp-${currentUserId}-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 10)}`;
+
+    const createdAt =
+        new Date().toISOString();
+
+    return {
+        id: tempId,
+
+        conversationId:
+            Number(conversationId),
+
+        senderId:
+            Number(currentUserId),
+
+        content:
+            content || "",
+
+        type,
+
+        createdAt,
+
+        updatedAt:
+            createdAt,
+
+        deletedAt: null,
+
+        pending: true,
+
+        sending: true,
+
+        failed: false,
+
+        // Keep the current user available
+        // for components that expect sender/user data.
+        sender:
+            currentUser || null,
+
+        user:
+            currentUser || null,
+
+        // File metadata
+        attachmentUrl:
+            file?.url || null,
+
+        attachmentName:
+            file?.name || null,
+
+        attachmentSize:
+            file?.size || null,
+
+        attachmentMimeType:
+            file?.type || null,
+
+        reactions: [],
+
+        receipts: [],
+    };
+}
+
+// ============================================================
 // CHAT LAYOUT
 // ============================================================
 
@@ -237,8 +311,10 @@ export default function ChatLayout({
     // CHAT THEME STATE
     // ========================================================
 
-    const [chatThemes, setChatThemes] = useState({});
-
+    const [
+        chatThemes,
+        setChatThemes,
+    ] = useState({});
 
     // ========================================================
     // MOBILE VIEW STATE
@@ -253,26 +329,40 @@ export default function ChatLayout({
     // CALL STATE
     // ========================================================
 
-    const [callState, setCallState] =
-        useState("idle");
+    const [
+        callState,
+        setCallState,
+    ] = useState("idle");
 
-    const [incomingCall, setIncomingCall] =
-        useState(null);
+    const [
+        incomingCall,
+        setIncomingCall,
+    ] = useState(null);
 
-    const [localStream, setLocalStream] =
-        useState(null);
+    const [
+        localStream,
+        setLocalStream,
+    ] = useState(null);
 
-    const [remoteStream, setRemoteStream] =
-        useState(null);
+    const [
+        remoteStream,
+        setRemoteStream,
+    ] = useState(null);
 
-    const [isMuted, setIsMuted] =
-        useState(false);
+    const [
+        isMuted,
+        setIsMuted,
+    ] = useState(false);
 
-    const [isCameraOff, setIsCameraOff] =
-        useState(false);
+    const [
+        isCameraOff,
+        setIsCameraOff,
+    ] = useState(false);
 
-    const [callError, setCallError] =
-        useState(null);
+    const [
+        callError,
+        setCallError,
+    ] = useState(null);
 
     // ========================================================
     // REFS
@@ -319,10 +409,17 @@ export default function ChatLayout({
                 );
 
             if (stored) {
-                const parsed = JSON.parse(stored);
+                const parsed =
+                    JSON.parse(stored);
 
-                if (parsed && typeof parsed === "object") {
-                    setChatThemes(parsed);
+                if (
+                    parsed &&
+                    typeof parsed ===
+                        "object"
+                ) {
+                    setChatThemes(
+                        parsed
+                    );
                 }
             }
         } catch (error) {
@@ -337,76 +434,125 @@ export default function ChatLayout({
     // SELECT CHAT THEME
     // ========================================================
 
-    const handleSelectTheme = useCallback(
-        (themeId) => {
-            const conversationId = Number(
-                activeConversationRef.current?.id
-            );
-
-            if (!Number.isInteger(conversationId) || !themeId) {
-                return;
-            }
-
-            setChatThemes((previous) => {
-                const updated = {
-                    ...previous,
-                    [conversationId]: themeId,
-                };
-
-                try {
-                    window.localStorage.setItem(
-                        "chathub:conversation-themes",
-                        JSON.stringify(updated)
+    const handleSelectTheme =
+        useCallback(
+            (themeId) => {
+                const conversationId =
+                    Number(
+                        activeConversationRef
+                            .current?.id
                     );
-                } catch (error) {
-                    console.error(
-                        "❌ Failed to save chat theme:",
-                        error
-                    );
+
+                if (
+                    !Number.isInteger(
+                        conversationId
+                    ) ||
+                    !themeId
+                ) {
+                    return;
                 }
 
-                return updated;
-            });
-        },
-        []
-    );
+                setChatThemes(
+                    (previous) => {
+                        const updated = {
+                            ...previous,
+                            [conversationId]:
+                                themeId,
+                        };
 
-    // Keep the theme available on the active conversation object.
+                        try {
+                            window.localStorage.setItem(
+                                "chathub:conversation-themes",
+                                JSON.stringify(
+                                    updated
+                                )
+                            );
+                        } catch (
+                            error
+                        ) {
+                            console.error(
+                                "❌ Failed to save chat theme:",
+                                error
+                            );
+                        }
+
+                        return updated;
+                    }
+                );
+            },
+            []
+        );
+
+    // ========================================================
+    // KEEP THEME AVAILABLE
+    // ========================================================
+
     useEffect(() => {
-        const conversationId = Number(activeConversation?.id);
+        const conversationId =
+            Number(
+                activeConversation?.id
+            );
 
-        if (!Number.isInteger(conversationId)) {
+        if (
+            !Number.isInteger(
+                conversationId
+            )
+        ) {
             return;
         }
 
         const theme =
-            chatThemes[conversationId] ||
+            chatThemes[
+                conversationId
+            ] ||
             activeConversation?.theme ||
             "default";
 
-        setActiveConversation((previous) => {
-            if (!previous || Number(previous.id) !== conversationId) {
-                return previous;
+        setActiveConversation(
+            (previous) => {
+                if (
+                    !previous ||
+                    Number(
+                        previous.id
+                    ) !==
+                        conversationId
+                ) {
+                    return previous;
+                }
+
+                if (
+                    previous.theme ===
+                    theme
+                ) {
+                    return previous;
+                }
+
+                return {
+                    ...previous,
+                    theme,
+                };
             }
-
-            if (previous.theme === theme) {
-                return previous;
-            }
-
-            return {
-                ...previous,
-                theme,
-            };
-        });
-
-        setConversations((previous) =>
-            previous.map((conversation) =>
-                Number(conversation.id) === conversationId
-                    ? { ...conversation, theme }
-                    : conversation
-            )
         );
-    }, [chatThemes, activeConversation?.id]);
+
+        setConversations(
+            (previous) =>
+                previous.map(
+                    (conversation) =>
+                        Number(
+                            conversation.id
+                        ) ===
+                        conversationId
+                            ? {
+                                  ...conversation,
+                                  theme,
+                              }
+                            : conversation
+                )
+        );
+    }, [
+        chatThemes,
+        activeConversation?.id,
+    ]);
 
     // ========================================================
     // SOCKET CONNECTION
@@ -427,7 +573,9 @@ export default function ChatLayout({
                 socket.id
             );
 
-            setSocketConnected(true);
+            setSocketConnected(
+                true
+            );
         };
 
         // ----------------------------------------------------
@@ -442,7 +590,9 @@ export default function ChatLayout({
                 reason
             );
 
-            setSocketConnected(false);
+            setSocketConnected(
+                false
+            );
         };
 
         // ----------------------------------------------------
@@ -457,7 +607,9 @@ export default function ChatLayout({
                 error?.message
             );
 
-            setSocketConnected(false);
+            setSocketConnected(
+                false
+            );
         };
 
         // ----------------------------------------------------
@@ -475,9 +627,10 @@ export default function ChatLayout({
                     Number.isFinite
                 );
 
-            setOnlineUsers(users);
+            setOnlineUsers(
+                users
+            );
 
-            // Keep conversation member state synchronized with initial presence while preserving privacy settings
             setConversations(
                 (previous) =>
                     previous.map(
@@ -521,8 +674,16 @@ export default function ChatLayout({
                                             ...(member.user ||
                                                 {}),
                                             isOnline,
-                                            showOnlineStatus: member.user?.showOnlineStatus ?? true,
-                                            showLastSeen: member.user?.showLastSeen ?? true,
+                                            showOnlineStatus:
+                                                member
+                                                    .user
+                                                    ?.showOnlineStatus ??
+                                                true,
+                                            showLastSeen:
+                                                member
+                                                    .user
+                                                    ?.showLastSeen ??
+                                                true,
                                         },
                                     };
                                 }
@@ -541,31 +702,70 @@ export default function ChatLayout({
             showOnlineStatus,
             showLastSeen,
         }) => {
-            const id = Number(userId);
+            const id =
+                Number(userId);
 
-            if (!Number.isFinite(id)) {
+            if (
+                !Number.isFinite(
+                    id
+                )
+            ) {
                 return;
             }
 
-            setOnlineUsers((previous) => {
-                if (previous.includes(id)) {
-                    return previous;
+            setOnlineUsers(
+                (previous) => {
+                    if (
+                        previous.includes(
+                            id
+                        )
+                    ) {
+                        return previous;
+                    }
+
+                    return [
+                        ...previous,
+                        id,
+                    ];
                 }
-                return [...previous, id];
-            });
+            );
 
             const updates = {
                 isOnline: true,
-                ...(showOnlineStatus !== undefined && { showOnlineStatus: Boolean(showOnlineStatus) }),
-                ...(showLastSeen !== undefined && { showLastSeen: Boolean(showLastSeen) }),
+
+                ...(showOnlineStatus !==
+                    undefined && {
+                    showOnlineStatus:
+                        Boolean(
+                            showOnlineStatus
+                        ),
+                }),
+
+                ...(showLastSeen !==
+                    undefined && {
+                    showLastSeen:
+                        Boolean(
+                            showLastSeen
+                        ),
+                }),
             };
 
-            setConversations((previous) =>
-                updateConversationMembers(previous, id, updates)
+            setConversations(
+                (previous) =>
+                    updateConversationMembers(
+                        previous,
+                        id,
+                        updates
+                    )
             );
 
-            setActiveConversation((previous) =>
-                updateActiveConversationMember(previous, id, updates)
+            setActiveConversation(
+                (previous) =>
+                    updateActiveConversationMember(
+                        previous,
+                        id,
+                        updates
+                    )
             );
         };
 
@@ -580,39 +780,77 @@ export default function ChatLayout({
             showLastSeen,
             privacyHidden,
         }) => {
-            const id = Number(userId);
+            const id =
+                Number(userId);
 
-            if (!Number.isFinite(id)) {
+            if (
+                !Number.isFinite(
+                    id
+                )
+            ) {
                 return;
             }
 
-            setOnlineUsers((previous) =>
-                previous.filter((existingId) => Number(existingId) !== id)
+            setOnlineUsers(
+                (previous) =>
+                    previous.filter(
+                        (existingId) =>
+                            Number(
+                                existingId
+                            ) !== id
+                    )
             );
 
-            const isLastSeenVisible = privacyHidden
-                ? false
-                : showLastSeen !== undefined
-                ? Boolean(showLastSeen)
-                : true;
+            const isLastSeenVisible =
+                privacyHidden
+                    ? false
+                    : showLastSeen !==
+                      undefined
+                    ? Boolean(
+                          showLastSeen
+                      )
+                    : true;
 
-            const updatedLastSeen = isLastSeenVisible
-                ? lastSeen || new Date().toISOString()
-                : null;
+            const updatedLastSeen =
+                isLastSeenVisible
+                    ? lastSeen ||
+                      new Date().toISOString()
+                    : null;
 
             const updates = {
                 isOnline: false,
-                lastSeen: updatedLastSeen,
-                ...(showOnlineStatus !== undefined && { showOnlineStatus: Boolean(showOnlineStatus) }),
-                showLastSeen: isLastSeenVisible,
+
+                lastSeen:
+                    updatedLastSeen,
+
+                ...(showOnlineStatus !==
+                    undefined && {
+                    showOnlineStatus:
+                        Boolean(
+                            showOnlineStatus
+                        ),
+                }),
+
+                showLastSeen:
+                    isLastSeenVisible,
             };
 
-            setConversations((previous) =>
-                updateConversationMembers(previous, id, updates)
+            setConversations(
+                (previous) =>
+                    updateConversationMembers(
+                        previous,
+                        id,
+                        updates
+                    )
             );
 
-            setActiveConversation((previous) =>
-                updateActiveConversationMember(previous, id, updates)
+            setActiveConversation(
+                (previous) =>
+                    updateActiveConversationMember(
+                        previous,
+                        id,
+                        updates
+                    )
             );
         };
 
@@ -625,36 +863,49 @@ export default function ChatLayout({
             lastSeen,
             privacyHidden,
         }) => {
-            const id = Number(userId);
+            const id =
+                Number(userId);
 
-            if (!Number.isFinite(id)) {
+            if (
+                !Number.isFinite(
+                    id
+                )
+            ) {
                 return;
             }
 
-            const updatedLastSeen = privacyHidden
-                ? null
-                : lastSeen || new Date().toISOString();
+            const updatedLastSeen =
+                privacyHidden
+                    ? null
+                    : lastSeen ||
+                      new Date().toISOString();
 
-            setConversations((previous) =>
-                updateConversationMembers(
-                    previous,
-                    id,
-                    {
-                        lastSeen: updatedLastSeen,
-                        showLastSeen: !privacyHidden,
-                    }
-                )
+            setConversations(
+                (previous) =>
+                    updateConversationMembers(
+                        previous,
+                        id,
+                        {
+                            lastSeen:
+                                updatedLastSeen,
+                            showLastSeen:
+                                !privacyHidden,
+                        }
+                    )
             );
 
-            setActiveConversation((previous) =>
-                updateActiveConversationMember(
-                    previous,
-                    id,
-                    {
-                        lastSeen: updatedLastSeen,
-                        showLastSeen: !privacyHidden,
-                    }
-                )
+            setActiveConversation(
+                (previous) =>
+                    updateActiveConversationMember(
+                        previous,
+                        id,
+                        {
+                            lastSeen:
+                                updatedLastSeen,
+                            showLastSeen:
+                                !privacyHidden,
+                        }
+                    )
             );
         };
 
@@ -666,36 +917,64 @@ export default function ChatLayout({
             userId,
             privacy,
         }) => {
-            const id = Number(userId);
+            const id =
+                Number(userId);
 
-            if (!Number.isFinite(id)) {
+            if (
+                !Number.isFinite(
+                    id
+                )
+            ) {
                 return;
             }
 
-            const isLastSeenAllowed = Boolean(privacy?.lastSeen);
+            const isLastSeenAllowed =
+                Boolean(
+                    privacy?.lastSeen
+                );
 
-            setConversations((previous) =>
-                updateConversationMembers(
-                    previous,
-                    id,
-                    {
-                        showOnlineStatus: Boolean(privacy?.onlineStatus),
-                        showLastSeen: isLastSeenAllowed,
-                        lastSeen: isLastSeenAllowed ? undefined : null,
-                    }
-                )
+            setConversations(
+                (previous) =>
+                    updateConversationMembers(
+                        previous,
+                        id,
+                        {
+                            showOnlineStatus:
+                                Boolean(
+                                    privacy?.onlineStatus
+                                ),
+
+                            showLastSeen:
+                                isLastSeenAllowed,
+
+                            lastSeen:
+                                isLastSeenAllowed
+                                    ? undefined
+                                    : null,
+                        }
+                    )
             );
 
-            setActiveConversation((previous) =>
-                updateActiveConversationMember(
-                    previous,
-                    id,
-                    {
-                        showOnlineStatus: Boolean(privacy?.onlineStatus),
-                        showLastSeen: isLastSeenAllowed,
-                        lastSeen: isLastSeenAllowed ? undefined : null,
-                    }
-                )
+            setActiveConversation(
+                (previous) =>
+                    updateActiveConversationMember(
+                        previous,
+                        id,
+                        {
+                            showOnlineStatus:
+                                Boolean(
+                                    privacy?.onlineStatus
+                                ),
+
+                            showLastSeen:
+                                isLastSeenAllowed,
+
+                            lastSeen:
+                                isLastSeenAllowed
+                                    ? undefined
+                                    : null,
+                        }
+                    )
             );
         };
 
@@ -796,7 +1075,9 @@ export default function ChatLayout({
 
     useEffect(() => {
         if (
-            !Number.isInteger(currentUserId) ||
+            !Number.isInteger(
+                currentUserId
+            ) ||
             currentUserId <= 0
         ) {
             return;
@@ -809,21 +1090,30 @@ export default function ChatLayout({
             const conversation =
                 conversationsRef.current.find(
                     (item) =>
-                        Number(item?.id) ===
-                        Number(conversationId)
+                        Number(
+                            item?.id
+                        ) ===
+                        Number(
+                            conversationId
+                        )
                 );
 
             const member = (
-                conversation?.members || []
+                conversation?.members ||
+                []
             ).find(
                 (item) =>
                     Number(
                         item?.userId ??
                             item?.user?.id
-                    ) === Number(callerId)
+                    ) ===
+                    Number(callerId)
             );
 
-            return member?.user || null;
+            return (
+                member?.user ||
+                null
+            );
         };
 
         callManager.initialize(
@@ -831,86 +1121,176 @@ export default function ChatLayout({
         );
 
         callManager.setCallbacks({
-            onIncomingCall: (data) => {
-                const caller =
-                    getCallerFromConversation(
-                        data?.conversationId,
-                        data?.callerId
+            onIncomingCall:
+                (data) => {
+                    const caller =
+                        getCallerFromConversation(
+                            data?.conversationId,
+                            data?.callerId
+                        );
+
+                    setIncomingCall({
+                        ...data,
+                        caller,
+                    });
+
+                    setCallError(
+                        null
                     );
 
-                setIncomingCall({
-                    ...data,
-                    caller,
-                });
+                    setCallState(
+                        "incoming"
+                    );
+                },
 
-                setCallError(null);
-                setCallState("incoming");
-            },
+            onCallStarted:
+                () => {
+                    setIncomingCall(
+                        null
+                    );
 
-            onCallStarted: () => {
-                setIncomingCall(null);
-                setCallError(null);
-                setCallState("outgoing");
-            },
+                    setCallError(
+                        null
+                    );
 
-            onCallAccepted: () => {
-                setIncomingCall(null);
-                setCallError(null);
-                setCallState("connecting");
-            },
+                    setCallState(
+                        "outgoing"
+                    );
+                },
 
-            onCallConnected: () => {
-                setIncomingCall(null);
-                setCallError(null);
-                setCallState("connected");
-            },
+            onCallAccepted:
+                () => {
+                    setIncomingCall(
+                        null
+                    );
 
-            onLocalStream: (stream) => {
-                setLocalStream(stream || null);
-            },
+                    setCallError(
+                        null
+                    );
 
-            onRemoteStream: (stream) => {
-                setRemoteStream(stream || null);
-            },
+                    setCallState(
+                        "connecting"
+                    );
+                },
 
-            onCallRejected: () => {
-                setIncomingCall(null);
-                setLocalStream(null);
-                setRemoteStream(null);
-                setIsMuted(false);
-                setIsCameraOff(false);
-                setCallState("idle");
-            },
+            onCallConnected:
+                () => {
+                    setIncomingCall(
+                        null
+                    );
 
-            onCallEnded: () => {
-                setIncomingCall(null);
-                setLocalStream(null);
-                setRemoteStream(null);
-                setIsMuted(false);
-                setIsCameraOff(false);
-                setCallState("idle");
-            },
+                    setCallError(
+                        null
+                    );
 
-            onMuteChanged: (muted) => {
-                setIsMuted(Boolean(muted));
-            },
+                    setCallState(
+                        "connected"
+                    );
+                },
 
-            onCameraChanged: (cameraOff) => {
-                setIsCameraOff(Boolean(cameraOff));
-            },
+            onLocalStream:
+                (stream) => {
+                    setLocalStream(
+                        stream ||
+                            null
+                    );
+                },
 
-            onCallError: (message) => {
-                setCallError(
-                    message ||
-                        "Unable to establish the call."
-                );
-            },
+            onRemoteStream:
+                (stream) => {
+                    setRemoteStream(
+                        stream ||
+                            null
+                    );
+                },
+
+            onCallRejected:
+                () => {
+                    setIncomingCall(
+                        null
+                    );
+
+                    setLocalStream(
+                        null
+                    );
+
+                    setRemoteStream(
+                        null
+                    );
+
+                    setIsMuted(
+                        false
+                    );
+
+                    setIsCameraOff(
+                        false
+                    );
+
+                    setCallState(
+                        "idle"
+                    );
+                },
+
+            onCallEnded:
+                () => {
+                    setIncomingCall(
+                        null
+                    );
+
+                    setLocalStream(
+                        null
+                    );
+
+                    setRemoteStream(
+                        null
+                    );
+
+                    setIsMuted(
+                        false
+                    );
+
+                    setIsCameraOff(
+                        false
+                    );
+
+                    setCallState(
+                        "idle"
+                    );
+                },
+
+            onMuteChanged:
+                (muted) => {
+                    setIsMuted(
+                        Boolean(
+                            muted
+                        )
+                    );
+                },
+
+            onCameraChanged:
+                (cameraOff) => {
+                    setIsCameraOff(
+                        Boolean(
+                            cameraOff
+                        )
+                    );
+                },
+
+            onCallError:
+                (message) => {
+                    setCallError(
+                        message ||
+                            "Unable to establish the call."
+                    );
+                },
         });
 
         return () => {
             callManager.destroy();
         };
-    }, [currentUserId]);
+    }, [
+        currentUserId,
+    ]);
 
     // ============================================================
     // NEW CONVERSATION CREATED
@@ -1065,7 +1445,9 @@ export default function ChatLayout({
             async (
                 conversationId
             ) => {
-                if (!conversationId) {
+                if (
+                    !conversationId
+                ) {
                     return;
                 }
 
@@ -1078,17 +1460,22 @@ export default function ChatLayout({
                         await fetch(
                             `/api/conversations/${conversationId}/messages`,
                             {
-                                method: "GET",
+                                method:
+                                    "GET",
+
                                 credentials:
                                     "include",
-                                cache: "no-store",
+
+                                cache:
+                                    "no-store",
                             }
                         );
 
                     const rawText =
                         await response.text();
 
-                    let data = null;
+                    let data =
+                        null;
 
                     try {
                         data =
@@ -1148,7 +1535,9 @@ export default function ChatLayout({
                             );
                         }
                     }
-                } catch (error) {
+                } catch (
+                    error
+                ) {
                     console.error(
                         "❌ LOAD MESSAGES ERROR:",
                         error
@@ -1202,7 +1591,8 @@ export default function ChatLayout({
                                     ? {
                                           ...conversation,
 
-                                          unreadCount: 0,
+                                          unreadCount:
+                                              0,
 
                                           lastReadAt:
                                               new Date().toISOString(),
@@ -1276,9 +1666,13 @@ export default function ChatLayout({
                     conversation
                 );
 
-                setTypingUsers([]);
+                setTypingUsers(
+                    []
+                );
 
-                setMessages([]);
+                setMessages(
+                    []
+                );
 
                 if (
                     socket.connected
@@ -1323,7 +1717,8 @@ export default function ChatLayout({
                                 conversationId
                                     ? {
                                           ...item,
-                                          unreadCount: 0,
+                                          unreadCount:
+                                              0,
                                       }
                                     : item
                         )
@@ -1340,161 +1735,243 @@ export default function ChatLayout({
     // ============================================================
 
     const getOtherConversationMember =
-        useCallback(() => {
-            const active =
-                activeConversationRef.current;
+        useCallback(
+            () => {
+                const active =
+                    activeConversationRef.current;
 
-            if (!active) {
-                return null;
-            }
+                if (!active) {
+                    return null;
+                }
 
-            return (active.members || []).find(
-                (member) =>
-                    Number(
-                        member?.userId ??
-                            member?.user?.id
-                    ) !== currentUserId
-            ) || null;
-        }, [currentUserId]);
+                return (
+                    active.members ||
+                    []
+                ).find(
+                    (member) =>
+                        Number(
+                            member?.userId ??
+                                member
+                                    ?.user
+                                    ?.id
+                        ) !==
+                        currentUserId
+                ) || null;
+            },
+            [currentUserId]
+        );
 
     const startAudioCall =
-        useCallback(async () => {
-            const active =
-                activeConversationRef.current;
-            const member =
-                getOtherConversationMember();
-            const receiverId = Number(
-                member?.userId ??
-                    member?.user?.id
-            );
+        useCallback(
+            async () => {
+                const active =
+                    activeConversationRef.current;
 
-            if (
-                !active?.id ||
-                !Number.isInteger(receiverId) ||
-                receiverId <= 0
-            ) {
+                const member =
+                    getOtherConversationMember();
+
+                const receiverId =
+                    Number(
+                        member?.userId ??
+                            member
+                                ?.user
+                                ?.id
+                    );
+
+                if (
+                    !active?.id ||
+                    !Number.isInteger(
+                        receiverId
+                    ) ||
+                    receiverId <= 0
+                ) {
+                    setCallError(
+                        "Unable to find the other user for this call."
+                    );
+
+                    return {
+                        success:
+                            false,
+                    };
+                }
+
                 setCallError(
-                    "Unable to find the other user for this call."
+                    null
                 );
-                return { success: false };
-            }
 
-            setCallError(null);
-
-            return callManager.startAudioCall(
-                Number(active.id),
-                receiverId
-            );
-        }, [getOtherConversationMember]);
+                return callManager.startAudioCall(
+                    Number(
+                        active.id
+                    ),
+                    receiverId
+                );
+            },
+            [
+                getOtherConversationMember,
+            ]
+        );
 
     const startVideoCall =
-        useCallback(async () => {
-            const active =
-                activeConversationRef.current;
-            const member =
-                getOtherConversationMember();
-            const receiverId = Number(
-                member?.userId ??
-                    member?.user?.id
-            );
+        useCallback(
+            async () => {
+                const active =
+                    activeConversationRef.current;
 
-            if (
-                !active?.id ||
-                !Number.isInteger(receiverId) ||
-                receiverId <= 0
-            ) {
+                const member =
+                    getOtherConversationMember();
+
+                const receiverId =
+                    Number(
+                        member?.userId ??
+                            member
+                                ?.user
+                                ?.id
+                    );
+
+                if (
+                    !active?.id ||
+                    !Number.isInteger(
+                        receiverId
+                    ) ||
+                    receiverId <= 0
+                ) {
+                    setCallError(
+                        "Unable to find the other user for this call."
+                    );
+
+                    return {
+                        success:
+                            false,
+                    };
+                }
+
                 setCallError(
-                    "Unable to find the other user for this call."
+                    null
                 );
-                return { success: false };
-            }
 
-            setCallError(null);
-
-            return callManager.startVideoCall(
-                Number(active.id),
-                receiverId
-            );
-        }, [getOtherConversationMember]);
+                return callManager.startVideoCall(
+                    Number(
+                        active.id
+                    ),
+                    receiverId
+                );
+            },
+            [
+                getOtherConversationMember,
+            ]
+        );
 
     const acceptIncomingCall =
-        useCallback(async () => {
-            setCallError(null);
-            return callManager.acceptCall();
-        }, []);
+        useCallback(
+            async () => {
+                setCallError(
+                    null
+                );
+
+                return callManager.acceptCall();
+            },
+            []
+        );
 
     const rejectIncomingCall =
-        useCallback((reason = "rejected") => {
-            callManager.rejectCall(reason);
-        }, []);
+        useCallback(
+            (
+                reason = "rejected"
+            ) => {
+                callManager.rejectCall(
+                    reason
+                );
+            },
+            []
+        );
 
     const endCurrentCall =
-        useCallback((reason = "ended") => {
-            callManager.endCall(reason);
-        }, []);
+        useCallback(
+            (
+                reason = "ended"
+            ) => {
+                callManager.endCall(
+                    reason
+                );
+            },
+            []
+        );
 
     const toggleCallMute =
-        useCallback(() => {
-            return callManager.toggleMute();
-        }, []);
+        useCallback(
+            () => {
+                return callManager.toggleMute();
+            },
+            []
+        );
 
     const toggleCallCamera =
-        useCallback(() => {
-            return callManager.toggleCamera();
-        }, []);
+        useCallback(
+            () => {
+                return callManager.toggleCamera();
+            },
+            []
+        );
 
     // ============================================================
     // BACK TO CONVERSATIONS
     // ============================================================
 
     const handleBackToConversations =
-        useCallback(() => {
-            if (
-                typingTimeoutRef.current
-            ) {
-                clearTimeout(
+        useCallback(
+            () => {
+                if (
                     typingTimeoutRef.current
-                );
+                ) {
+                    clearTimeout(
+                        typingTimeoutRef.current
+                    );
 
-                typingTimeoutRef.current =
+                    typingTimeoutRef.current =
+                        null;
+                }
+
+                const active =
+                    activeConversationRef.current;
+
+                if (
+                    socket.connected &&
+                    active?.id
+                ) {
+                    socket.emit(
+                        "typing_stop",
+                        {
+                            conversationId:
+                                active.id,
+                        }
+                    );
+                }
+
+                activeConversationRef.current =
                     null;
-            }
 
-            const active =
-                activeConversationRef.current;
-
-            if (
-                socket.connected &&
-                active?.id
-            ) {
-                socket.emit(
-                    "typing_stop",
-                    {
-                        conversationId:
-                            active.id,
-                    }
+                setActiveConversation(
+                    null
                 );
-            }
 
-            activeConversationRef.current =
-                null;
+                setMessages(
+                    []
+                );
 
-            setActiveConversation(
-                null
-            );
+                setTypingUsers(
+                    []
+                );
 
-            setMessages([]);
+                setLoadingMessages(
+                    false
+                );
 
-            setTypingUsers([]);
-
-            setLoadingMessages(
-                false
-            );
-
-            setMobileChatOpen(
-                false
-            );
-        }, []);
+                setMobileChatOpen(
+                    false
+                );
+            },
+            []
+        );
 
     // ============================================================
     // OPEN INITIAL CONVERSATION
@@ -1507,7 +1984,9 @@ export default function ChatLayout({
             return;
         }
 
-        if (!initialConversationId) {
+        if (
+            !initialConversationId
+        ) {
             return;
         }
 
@@ -1527,7 +2006,9 @@ export default function ChatLayout({
         const conversation =
             conversations.find(
                 (item) =>
-                    Number(item.id) ===
+                    Number(
+                        item.id
+                    ) ===
                     conversationId
             );
 
@@ -1569,8 +2050,150 @@ export default function ChatLayout({
 
             const isActiveConversation =
                 active &&
-                Number(active.id) ===
+                Number(
+                    active.id
+                ) ===
                     conversationId;
+
+            // ------------------------------------------------
+            // IMPORTANT:
+            // If this message already exists locally
+            // because of optimistic UI / ACK, don't add
+            // another copy.
+            // ------------------------------------------------
+
+            setMessages(
+                (previous) => {
+                    const existing =
+                        previous.find(
+                            (
+                                item
+                            ) =>
+                                Number(
+                                    item.id
+                                ) ===
+                                Number(
+                                    message.id
+                                )
+                        );
+
+                    if (
+                        existing
+                    ) {
+                        return previous.map(
+                            (
+                                item
+                            ) =>
+                                Number(
+                                    item.id
+                                ) ===
+                                Number(
+                                    message.id
+                                )
+                                    ? {
+                                          ...item,
+                                          ...message,
+                                          pending:
+                                              false,
+                                          sending:
+                                              false,
+                                          failed:
+                                              false,
+                                      }
+                                    : item
+                        );
+                    }
+
+                    // ------------------------------------------------
+                    // Replace optimistic message when the server
+                    // sends the real message.
+                    //
+                    // We match by:
+                    // sender + conversation + content + nearby
+                    // createdAt.
+                    // ------------------------------------------------
+
+                    if (
+                        Number(
+                            message.senderId
+                        ) ===
+                            currentUserId
+                    ) {
+                        const optimisticIndex =
+                            previous.findIndex(
+                                (
+                                    item
+                                ) =>
+                                    item?.pending ===
+                                        true &&
+                                    Number(
+                                        item.senderId
+                                    ) ===
+                                        currentUserId &&
+                                    Number(
+                                        item.conversationId
+                                    ) ===
+                                        conversationId &&
+                                    String(
+                                        item.content ||
+                                            ""
+                                    ) ===
+                                        String(
+                                            message.content ||
+                                                ""
+                                        ) &&
+                                    Math.abs(
+                                        new Date(
+                                            message.createdAt
+                                        ).getTime() -
+                                            new Date(
+                                                item.createdAt
+                                            ).getTime()
+                                    ) <
+                                        30000
+                            );
+
+                        if (
+                            optimisticIndex !==
+                            -1
+                        ) {
+                            const updated =
+                                [
+                                    ...previous,
+                                ];
+
+                            updated[
+                                optimisticIndex
+                            ] = {
+                                ...message,
+                                pending:
+                                    false,
+                                sending:
+                                    false,
+                                failed:
+                                    false,
+                            };
+
+                            return updated;
+                        }
+                    }
+
+                    if (
+                        !isActiveConversation
+                    ) {
+                        return previous;
+                    }
+
+                    return [
+                        ...previous,
+                        message,
+                    ];
+                }
+            );
+
+            // ------------------------------------------------
+            // Conversation sidebar preview
+            // ------------------------------------------------
 
             setConversations(
                 (previous) =>
@@ -1584,51 +2207,30 @@ export default function ChatLayout({
                     )
             );
 
+            // ------------------------------------------------
+            // Incoming message delivery
+            // ------------------------------------------------
+
             if (
-                isActiveConversation
+                isActiveConversation &&
+                Number(
+                    message.senderId
+                ) !==
+                    currentUserId
             ) {
-                setMessages(
-                    (previous) => {
-                        const exists =
-                            previous.some(
-                                (
-                                    item
-                                ) =>
-                                    Number(
-                                        item.id
-                                    ) ===
-                                    Number(
-                                        message.id
-                                    )
-                            );
-
-                        if (exists) {
-                            return previous;
-                        }
-
-                        return [
-                            ...previous,
-                            message,
-                        ];
-                    }
+                deliverMessage(
+                    message.id
                 );
 
-                if (
-                    Number(
-                        message.senderId
-                    ) !==
-                    currentUserId
-                ) {
-                    deliverMessage(
-                        message.id
-                    );
-
-                    markConversationRead(
-                        conversationId
-                    );
-                }
+                markConversationRead(
+                    conversationId
+                );
             }
         };
+
+        // ====================================================
+        // RECEIPT UPDATED
+        // ====================================================
 
         const onReceiptUpdated = (
             receipt
@@ -1710,6 +2312,10 @@ export default function ChatLayout({
             );
         };
 
+        // ====================================================
+        // MESSAGE UPDATED
+        // ====================================================
+
         const onMessageUpdated = (
             updatedMessage
         ) => {
@@ -1750,6 +2356,10 @@ export default function ChatLayout({
                     )
             );
         };
+
+        // ====================================================
+        // MESSAGE DELETED
+        // ====================================================
 
         const onMessageDeleted = (
             deletedMessage
@@ -1801,6 +2411,10 @@ export default function ChatLayout({
                     )
             );
         };
+
+        // ====================================================
+        // REACTION ADDED
+        // ====================================================
 
         const onReactionAdded = (
             reaction
@@ -1862,6 +2476,10 @@ export default function ChatLayout({
             );
         };
 
+        // ====================================================
+        // REACTION REMOVED
+        // ====================================================
+
         const onReactionRemoved = (
             reaction
         ) => {
@@ -1904,18 +2522,24 @@ export default function ChatLayout({
             );
         };
 
+        // ====================================================
+        // USER TYPING
+        // ====================================================
+
         const onUserTyping = ({
             userId,
             username,
             conversationId,
         }) => {
-            const id = Number(
-                userId
-            );
+            const id =
+                Number(userId);
 
             if (
-                !Number.isFinite(id) ||
-                id === currentUserId
+                !Number.isFinite(
+                    id
+                ) ||
+                id ===
+                    currentUserId
             ) {
                 return;
             }
@@ -1925,7 +2549,9 @@ export default function ChatLayout({
 
             if (
                 !active ||
-                Number(active.id) !==
+                Number(
+                    active.id
+                ) !==
                     Number(
                         conversationId
                     )
@@ -1937,10 +2563,13 @@ export default function ChatLayout({
                 (previous) => {
                     const exists =
                         previous.some(
-                            (user) =>
+                            (
+                                user
+                            ) =>
                                 Number(
                                     user.userId
-                                ) === id
+                                ) ===
+                                id
                         );
 
                     if (exists) {
@@ -1950,7 +2579,8 @@ export default function ChatLayout({
                     return [
                         ...previous,
                         {
-                            userId: id,
+                            userId:
+                                id,
 
                             username:
                                 username ||
@@ -1961,20 +2591,25 @@ export default function ChatLayout({
             );
         };
 
+        // ====================================================
+        // USER STOPPED TYPING
+        // ====================================================
+
         const onUserStoppedTyping = ({
             userId,
             conversationId,
         }) => {
-            const id = Number(
-                userId
-            );
+            const id =
+                Number(userId);
 
             const active =
                 activeConversationRef.current;
 
             if (
                 !active ||
-                Number(active.id) !==
+                Number(
+                    active.id
+                ) !==
                     Number(
                         conversationId
                     )
@@ -1992,6 +2627,10 @@ export default function ChatLayout({
                     )
             );
         };
+
+        // ====================================================
+        // REGISTER
+        // ====================================================
 
         socket.on(
             "new_message",
@@ -2032,6 +2671,10 @@ export default function ChatLayout({
             "user_stopped_typing",
             onUserStoppedTyping
         );
+
+        // ====================================================
+        // CLEANUP
+        // ====================================================
 
         return () => {
             socket.off(
@@ -2084,46 +2727,269 @@ export default function ChatLayout({
     // SEND MESSAGE
     // ============================================================
 
-    const sendMessage = async (
-        messageData
-    ) => {
-        if (!messageData) {
-            return;
-        }
+    const sendMessage =
+        async (
+            messageData
+        ) => {
+            if (!messageData) {
+                return;
+            }
 
-        const active =
-            activeConversationRef.current;
+            const active =
+                activeConversationRef.current;
 
-        if (!active) {
-            return;
-        }
+            if (!active) {
+                return;
+            }
 
-        if (!socket.connected) {
-            return;
-        }
+            if (
+                !socket.connected
+            ) {
+                return;
+            }
 
-        const {
-            content = "",
-            type = "TEXT",
-            file = null,
-        } = messageData;
+            const {
+                content = "",
+                type = "TEXT",
+                file = null,
+            } = messageData;
 
-        const trimmedContent =
-            typeof content ===
-            "string"
-                ? content.trim()
-                : "";
+            const trimmedContent =
+                typeof content ===
+                "string"
+                    ? content.trim()
+                    : "";
 
-        if (
-            !trimmedContent &&
-            !file
-        ) {
-            return;
-        }
+            if (
+                !trimmedContent &&
+                !file
+            ) {
+                return;
+            }
 
-        stopTyping();
+            stopTyping();
 
-        if (file) {
+            // ====================================================
+            // TEXT MESSAGE - OPTIMISTIC UI
+            // ====================================================
+
+            if (!file) {
+                const optimisticMessage =
+                    createOptimisticMessage(
+                        {
+                            conversationId:
+                                active.id,
+
+                            currentUser,
+
+                            currentUserId,
+
+                            content:
+                                trimmedContent,
+
+                            type:
+                                "TEXT",
+                        }
+                    );
+
+                // ------------------------------------------------
+                // DISPLAY IMMEDIATELY
+                // ------------------------------------------------
+
+                setMessages(
+                    (previous) => [
+                        ...previous,
+                        optimisticMessage,
+                    ]
+                );
+
+                // ------------------------------------------------
+                // UPDATE SIDEBAR IMMEDIATELY
+                // ------------------------------------------------
+
+                setConversations(
+                    (previous) =>
+                        updateConversationPreview(
+                            previous,
+                            optimisticMessage,
+                            currentUserId,
+                            active.id
+                        )
+                );
+
+                // ------------------------------------------------
+                // SEND TO SERVER
+                // ------------------------------------------------
+
+                socket.emit(
+                    "send_message",
+                    {
+                        conversationId:
+                            active.id,
+
+                        content:
+                            trimmedContent,
+
+                        type:
+                            "TEXT",
+                    },
+                    (
+                        response
+                    ) => {
+                        // =================================================
+                        // SERVER ACK
+                        // =================================================
+
+                        if (
+                            !response?.success
+                        ) {
+                            console.error(
+                                "❌ SEND MESSAGE:",
+                                response?.message
+                            );
+
+                            // ---------------------------------------------
+                            // Mark optimistic message as failed
+                            // ---------------------------------------------
+
+                            setMessages(
+                                (previous) =>
+                                    previous.map(
+                                        (
+                                            message
+                                        ) =>
+                                            message.id ===
+                                            optimisticMessage.id
+                                                ? {
+                                                      ...message,
+
+                                                      pending:
+                                                          false,
+
+                                                      sending:
+                                                          false,
+
+                                                      failed:
+                                                          true,
+                                                  }
+                                                : message
+                                    )
+                            );
+
+                            return;
+                        }
+
+                        // ------------------------------------------------
+                        // Your server returns the created message.
+                        // Support common response shapes.
+                        // ------------------------------------------------
+
+                        const serverMessage =
+                            response?.message ||
+                            response?.data?.message ||
+                            response?.data;
+
+                        if (
+                            !serverMessage?.id
+                        ) {
+                            console.warn(
+                                "⚠️ SEND MESSAGE succeeded but server message was not returned."
+                            );
+
+                            return;
+                        }
+
+                        // ------------------------------------------------
+                        // Replace optimistic message with real DB message
+                        // ------------------------------------------------
+
+                        setMessages(
+                            (previous) =>
+                                previous.map(
+                                    (
+                                        message
+                                    ) =>
+                                        message.id ===
+                                        optimisticMessage.id
+                                            ? {
+                                                  ...serverMessage,
+
+                                                  pending:
+                                                      false,
+
+                                                  sending:
+                                                      false,
+
+                                                  failed:
+                                                      false,
+                                              }
+                                            : message
+                                )
+                        );
+
+                        // ------------------------------------------------
+                        // Update sidebar using real server message
+                        // ------------------------------------------------
+
+                        setConversations(
+                            (previous) =>
+                                updateConversationPreview(
+                                    previous,
+                                    serverMessage,
+                                    currentUserId,
+                                    active.id
+                                )
+                        );
+                    }
+                );
+
+                return;
+            }
+
+            // ====================================================
+            // FILE MESSAGE
+            // ====================================================
+
+            let optimisticFileMessage =
+                createOptimisticMessage(
+                    {
+                        conversationId:
+                            active.id,
+
+                        currentUser,
+
+                        currentUserId,
+
+                        content:
+                            trimmedContent,
+
+                        type,
+
+                        file,
+                    }
+                );
+
+            // ------------------------------------------------
+            // SHOW FILE MESSAGE IMMEDIATELY
+            // ------------------------------------------------
+
+            setMessages(
+                (previous) => [
+                    ...previous,
+                    optimisticFileMessage,
+                ]
+            );
+
+            setConversations(
+                (previous) =>
+                    updateConversationPreview(
+                        previous,
+                        optimisticFileMessage,
+                        currentUserId,
+                        active.id
+                    )
+            );
+
             try {
                 const formData =
                     new FormData();
@@ -2137,12 +3003,14 @@ export default function ChatLayout({
                     await fetch(
                         "/api/upload",
                         {
-                            method: "POST",
+                            method:
+                                "POST",
 
                             credentials:
                                 "include",
 
-                            body: formData,
+                            body:
+                                formData,
                         }
                     );
 
@@ -2160,6 +3028,34 @@ export default function ChatLayout({
                               )
                             : null;
                 } catch {
+                    console.error(
+                        "❌ FILE UPLOAD returned invalid JSON."
+                    );
+
+                    setMessages(
+                        (previous) =>
+                            previous.map(
+                                (
+                                    message
+                                ) =>
+                                    message.id ===
+                                    optimisticFileMessage.id
+                                        ? {
+                                              ...message,
+
+                                              pending:
+                                                  false,
+
+                                              sending:
+                                                  false,
+
+                                              failed:
+                                                  true,
+                                          }
+                                        : message
+                            )
+                    );
+
                     return;
                 }
 
@@ -2167,6 +3063,36 @@ export default function ChatLayout({
                     !uploadResponse.ok ||
                     !uploadData?.success
                 ) {
+                    console.error(
+                        "❌ FILE UPLOAD:",
+                        uploadData?.message ||
+                            `HTTP ${uploadResponse.status}`
+                    );
+
+                    setMessages(
+                        (previous) =>
+                            previous.map(
+                                (
+                                    message
+                                ) =>
+                                    message.id ===
+                                    optimisticFileMessage.id
+                                        ? {
+                                              ...message,
+
+                                              pending:
+                                                  false,
+
+                                              sending:
+                                                  false,
+
+                                              failed:
+                                                  true,
+                                          }
+                                        : message
+                            )
+                    );
+
                     return;
                 }
 
@@ -2202,8 +3128,73 @@ export default function ChatLayout({
                 if (
                     !attachmentUrl
                 ) {
+                    console.error(
+                        "❌ FILE UPLOAD succeeded but no URL was returned."
+                    );
+
+                    setMessages(
+                        (previous) =>
+                            previous.map(
+                                (
+                                    message
+                                ) =>
+                                    message.id ===
+                                    optimisticFileMessage.id
+                                        ? {
+                                              ...message,
+
+                                              pending:
+                                                  false,
+
+                                              sending:
+                                                  false,
+
+                                              failed:
+                                                  true,
+                                          }
+                                        : message
+                            )
+                    );
+
                     return;
                 }
+
+                // ====================================================
+                // UPDATE OPTIMISTIC FILE MESSAGE WITH UPLOAD DATA
+                // ====================================================
+
+                setMessages(
+                    (previous) =>
+                        previous.map(
+                            (
+                                message
+                            ) =>
+                                message.id ===
+                                optimisticFileMessage.id
+                                    ? {
+                                          ...message,
+
+                                          attachmentUrl,
+
+                                          attachmentName:
+                                              uploadedName,
+
+                                          attachmentSize:
+                                              uploadedSize,
+
+                                          attachmentMimeType:
+                                              uploadedMimeType,
+
+                                          type:
+                                              uploadedType,
+                                      }
+                                    : message
+                        )
+                );
+
+                // ====================================================
+                // SEND FILE MESSAGE TO SERVER
+                // ====================================================
 
                 socket.emit(
                     "send_message",
@@ -2228,7 +3219,9 @@ export default function ChatLayout({
                         attachmentMimeType:
                             uploadedMimeType,
                     },
-                    (response) => {
+                    (
+                        response
+                    ) => {
                         if (
                             !response?.success
                         ) {
@@ -2236,317 +3229,409 @@ export default function ChatLayout({
                                 "❌ SEND FILE MESSAGE:",
                                 response?.message
                             );
+
+                            setMessages(
+                                (previous) =>
+                                    previous.map(
+                                        (
+                                            message
+                                        ) =>
+                                            message.id ===
+                                            optimisticFileMessage.id
+                                                ? {
+                                                      ...message,
+
+                                                      pending:
+                                                          false,
+
+                                                      sending:
+                                                          false,
+
+                                                      failed:
+                                                          true,
+                                                  }
+                                                : message
+                                    )
+                            );
+
+                            return;
                         }
+
+                        const serverMessage =
+                            response?.message ||
+                            response?.data?.message ||
+                            response?.data;
+
+                        if (
+                            !serverMessage?.id
+                        ) {
+                            return;
+                        }
+
+                        setMessages(
+                            (previous) =>
+                                previous.map(
+                                    (
+                                        message
+                                    ) =>
+                                        message.id ===
+                                        optimisticFileMessage.id
+                                            ? {
+                                                  ...serverMessage,
+
+                                                  pending:
+                                                      false,
+
+                                                  sending:
+                                                      false,
+
+                                                  failed:
+                                                      false,
+                                              }
+                                            : message
+                                )
+                        );
+
+                        setConversations(
+                            (previous) =>
+                                updateConversationPreview(
+                                    previous,
+                                    serverMessage,
+                                    currentUserId,
+                                    active.id
+                                )
+                        );
                     }
                 );
-            } catch (error) {
+            } catch (
+                error
+            ) {
                 console.error(
                     "❌ FILE UPLOAD ERROR:",
                     error
                 );
+
+                setMessages(
+                    (previous) =>
+                        previous.map(
+                            (
+                                message
+                            ) =>
+                                message.id ===
+                                optimisticFileMessage.id
+                                    ? {
+                                          ...message,
+
+                                          pending:
+                                              false,
+
+                                          sending:
+                                              false,
+
+                                          failed:
+                                              true,
+                                      }
+                                    : message
+                        )
+                );
             }
-
-            return;
-        }
-
-        socket.emit(
-            "send_message",
-            {
-                conversationId:
-                    active.id,
-
-                content:
-                    trimmedContent,
-
-                type: "TEXT",
-            },
-            (response) => {
-                if (
-                    !response?.success
-                ) {
-                    console.error(
-                        "❌ SEND MESSAGE:",
-                        response?.message
-                    );
-                }
-            }
-        );
-    };
+        };
 
     // ============================================================
     // START TYPING
     // ============================================================
 
-    const startTyping = () => {
-        const active =
-            activeConversationRef.current;
+    const startTyping =
+        () => {
+            const active =
+                activeConversationRef.current;
 
-        if (
-            !socket.connected ||
-            !active
-        ) {
-            return;
-        }
-
-        socket.emit(
-            "typing_start",
-            {
-                conversationId:
-                    active.id,
+            if (
+                !socket.connected ||
+                !active
+            ) {
+                return;
             }
-        );
 
-        if (
-            typingTimeoutRef.current
-        ) {
-            clearTimeout(
-                typingTimeoutRef.current
+            socket.emit(
+                "typing_start",
+                {
+                    conversationId:
+                        active.id,
+                }
             );
-        }
 
-        typingTimeoutRef.current =
-            setTimeout(() => {
-                stopTyping();
-            }, 1500);
-    };
+            if (
+                typingTimeoutRef.current
+            ) {
+                clearTimeout(
+                    typingTimeoutRef.current
+                );
+            }
+
+            typingTimeoutRef.current =
+                setTimeout(() => {
+                    stopTyping();
+                }, 1500);
+        };
 
     // ============================================================
     // STOP TYPING
     // ============================================================
 
-    const stopTyping = () => {
-        const active =
-            activeConversationRef.current;
+    const stopTyping =
+        () => {
+            const active =
+                activeConversationRef.current;
 
-        if (
-            !socket.connected ||
-            !active
-        ) {
-            return;
-        }
-
-        socket.emit(
-            "typing_stop",
-            {
-                conversationId:
-                    active.id,
+            if (
+                !socket.connected ||
+                !active
+            ) {
+                return;
             }
-        );
 
-        if (
-            typingTimeoutRef.current
-        ) {
-            clearTimeout(
-                typingTimeoutRef.current
+            socket.emit(
+                "typing_stop",
+                {
+                    conversationId:
+                        active.id,
+                }
             );
 
-            typingTimeoutRef.current =
-                null;
-        }
-    };
+            if (
+                typingTimeoutRef.current
+            ) {
+                clearTimeout(
+                    typingTimeoutRef.current
+                );
+
+                typingTimeoutRef.current =
+                    null;
+            }
+        };
 
     // ============================================================
     // EDIT MESSAGE
     // ============================================================
 
-    const editMessage = (
-        message
-    ) => {
-        if (!message) {
-            return;
-        }
-
-        if (
-            Number(
-                message.senderId
-            ) !== currentUserId
-        ) {
-            return;
-        }
-
-        if (message.deletedAt) {
-            return;
-        }
-
-        const newContent =
-            window.prompt(
-                "Edit message",
-                message.content || ""
-            );
-
-        if (
-            newContent === null
-        ) {
-            return;
-        }
-
-        const trimmed =
-            newContent.trim();
-
-        if (!trimmed) {
-            return;
-        }
-
-        if (!socket.connected) {
-            return;
-        }
-
-        socket.emit(
-            "edit_message",
-            {
-                messageId:
-                    message.id,
-
-                content:
-                    trimmed,
-            },
-            (response) => {
-                if (
-                    response &&
-                    !response.success
-                ) {
-                    console.error(
-                        "❌ EDIT MESSAGE:",
-                        response.message
-                    );
-                }
+    const editMessage =
+        (message) => {
+            if (!message) {
+                return;
             }
-        );
-    };
+
+            if (
+                Number(
+                    message.senderId
+                ) !==
+                currentUserId
+            ) {
+                return;
+            }
+
+            if (
+                message.deletedAt
+            ) {
+                return;
+            }
+
+            const newContent =
+                window.prompt(
+                    "Edit message",
+                    message.content ||
+                        ""
+                );
+
+            if (
+                newContent ===
+                null
+            ) {
+                return;
+            }
+
+            const trimmed =
+                newContent.trim();
+
+            if (!trimmed) {
+                return;
+            }
+
+            if (
+                !socket.connected
+            ) {
+                return;
+            }
+
+            socket.emit(
+                "edit_message",
+                {
+                    messageId:
+                        message.id,
+
+                    content:
+                        trimmed,
+                },
+                (
+                    response
+                ) => {
+                    if (
+                        response &&
+                        !response.success
+                    ) {
+                        console.error(
+                            "❌ EDIT MESSAGE:",
+                            response.message
+                        );
+                    }
+                }
+            );
+        };
 
     // ============================================================
     // DELETE MESSAGE
     // ============================================================
 
-    const deleteMessage = (
-        message
-    ) => {
-        if (!message) {
-            return;
-        }
-
-        if (
-            Number(
-                message.senderId
-            ) !== currentUserId
-        ) {
-            return;
-        }
-
-        if (message.deletedAt) {
-            return;
-        }
-
-        const confirmed =
-            window.confirm(
-                "Delete message?"
-            );
-
-        if (!confirmed) {
-            return;
-        }
-
-        if (!socket.connected) {
-            return;
-        }
-
-        socket.emit(
-            "delete_message",
-            {
-                messageId:
-                    message.id,
-            },
-            (response) => {
-                if (
-                    response &&
-                    !response.success
-                ) {
-                    console.error(
-                        "❌ DELETE MESSAGE:",
-                        response.message
-                    );
-                }
+    const deleteMessage =
+        (message) => {
+            if (!message) {
+                return;
             }
-        );
-    };
+
+            if (
+                Number(
+                    message.senderId
+                ) !==
+                currentUserId
+            ) {
+                return;
+            }
+
+            if (
+                message.deletedAt
+            ) {
+                return;
+            }
+
+            const confirmed =
+                window.confirm(
+                    "Delete message?"
+                );
+
+            if (!confirmed) {
+                return;
+            }
+
+            if (
+                !socket.connected
+            ) {
+                return;
+            }
+
+            socket.emit(
+                "delete_message",
+                {
+                    messageId:
+                        message.id,
+                },
+                (
+                    response
+                ) => {
+                    if (
+                        response &&
+                        !response.success
+                    ) {
+                        console.error(
+                            "❌ DELETE MESSAGE:",
+                            response.message
+                        );
+                    }
+                }
+            );
+        };
 
     // ============================================================
     // TOGGLE REACTION
     // ============================================================
 
-    const toggleReaction = (
-        message,
-        emoji
-    ) => {
-        if (
-            !socket.connected ||
-            !message ||
-            message.deletedAt ||
-            !emoji
-        ) {
-            return;
-        }
+    const toggleReaction =
+        (
+            message,
+            emoji
+        ) => {
+            if (
+                !socket.connected ||
+                !message ||
+                message.deletedAt ||
+                !emoji
+            ) {
+                return;
+            }
 
-        const existing =
-            (
-                message.reactions ||
-                []
-            ).find(
-                (reaction) =>
-                    Number(
-                        reaction.userId
-                    ) ===
-                        currentUserId &&
-                    reaction.emoji ===
-                        emoji
-            );
+            const existing =
+                (
+                    message.reactions ||
+                    []
+                ).find(
+                    (reaction) =>
+                        Number(
+                            reaction.userId
+                        ) ===
+                            currentUserId &&
+                        reaction.emoji ===
+                            emoji
+                );
 
-        if (existing) {
+            if (existing) {
+                socket.emit(
+                    "remove_reaction",
+                    {
+                        messageId:
+                            message.id,
+
+                        emoji,
+                    },
+                    (
+                        response
+                    ) => {
+                        if (
+                            response &&
+                            !response.success
+                        ) {
+                            console.error(
+                                "❌ REMOVE REACTION:",
+                                response.message
+                            );
+                        }
+                    }
+                );
+
+                return;
+            }
+
             socket.emit(
-                "remove_reaction",
+                "add_reaction",
                 {
                     messageId:
                         message.id,
 
                     emoji,
                 },
-                (response) => {
+                (
+                    response
+                ) => {
                     if (
                         response &&
                         !response.success
                     ) {
                         console.error(
-                            "❌ REMOVE REACTION:",
+                            "❌ ADD REACTION:",
                             response.message
                         );
                     }
                 }
             );
-
-            return;
-        }
-
-        socket.emit(
-            "add_reaction",
-            {
-                messageId:
-                    message.id,
-
-                emoji,
-            },
-            (response) => {
-                if (
-                    response &&
-                    !response.success
-                ) {
-                    console.error(
-                        "❌ ADD REACTION:",
-                        response.message
-                    );
-                }
-            }
-        );
-    };
+        };
 
     // ============================================================
     // CLEANUP TYPING TIMER
@@ -2651,7 +3736,11 @@ export default function ChatLayout({
                     }
 
                     selectedTheme={
-                        chatThemes[Number(activeConversation?.id)] ||
+                        chatThemes[
+                            Number(
+                                activeConversation?.id
+                            )
+                        ] ||
                         activeConversation?.theme ||
                         "default"
                     }
