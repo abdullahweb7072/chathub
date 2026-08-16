@@ -334,71 +334,129 @@ export default function ChatHeader({
     // AUDIO CALL
     // ============================================================
 
-    const handleStartAudioCall = () => {
-        if (
-            !Number.isInteger(
-                userId
-            ) ||
-            userId <= 0
-        ) {
-            console.error(
-                "❌ Cannot start audio call: invalid user ID"
-            );
-            return;
-        }
+const handleStartAudioCall = () => {
+    const conversationId =
+        Number(conversation?.id);
 
-        if (
-            typeof onStartAudioCall !==
-            "function"
-        ) {
-            console.error(
-                "❌ onStartAudioCall callback is not available"
-            );
-            return;
-        }
+    const receiverId =
+        Number(userId);
 
-        console.log(
-            "📞 Starting audio call with:",
+    if (
+        !Number.isInteger(
+            conversationId
+        ) ||
+        conversationId <= 0
+    ) {
+        console.error(
+            "❌ Cannot start audio call: invalid conversation ID",
+            conversation?.id
+        );
+
+        return;
+    }
+
+    if (
+        !Number.isInteger(
+            receiverId
+        ) ||
+        receiverId <= 0
+    ) {
+        console.error(
+            "❌ Cannot start audio call: invalid receiver ID",
             userId
         );
 
-        onStartAudioCall(userId);
-    };
+        return;
+    }
+
+    if (
+        typeof onStartAudioCall !==
+        "function"
+    ) {
+        console.error(
+            "❌ onStartAudioCall callback is not available"
+        );
+
+        return;
+    }
+
+    console.log(
+        "📞 Starting audio call:",
+        {
+            conversationId,
+            receiverId,
+        }
+    );
+
+    onStartAudioCall(
+        conversationId,
+        receiverId
+    );
+};
 
     // ============================================================
     // VIDEO CALL
     // ============================================================
 
-    const handleStartVideoCall = () => {
-        if (
-            !Number.isInteger(
-                userId
-            ) ||
-            userId <= 0
-        ) {
-            console.error(
-                "❌ Cannot start video call: invalid user ID"
-            );
-            return;
-        }
+  const handleStartVideoCall = () => {
+    const conversationId =
+        Number(conversation?.id);
 
-        if (
-            typeof onStartVideoCall !==
-            "function"
-        ) {
-            console.error(
-                "❌ onStartVideoCall callback is not available"
-            );
-            return;
-        }
+    const receiverId =
+        Number(userId);
 
-        console.log(
-            "🎥 Starting video call with:",
+    if (
+        !Number.isInteger(
+            conversationId
+        ) ||
+        conversationId <= 0
+    ) {
+        console.error(
+            "❌ Cannot start video call: invalid conversation ID",
+            conversation?.id
+        );
+
+        return;
+    }
+
+    if (
+        !Number.isInteger(
+            receiverId
+        ) ||
+        receiverId <= 0
+    ) {
+        console.error(
+            "❌ Cannot start video call: invalid receiver ID",
             userId
         );
 
-        onStartVideoCall(userId);
-    };
+        return;
+    }
+
+    if (
+        typeof onStartVideoCall !==
+        "function"
+    ) {
+        console.error(
+            "❌ onStartVideoCall callback is not available"
+        );
+
+        return;
+    }
+
+    console.log(
+        "🎥 Starting video call:",
+        {
+            conversationId,
+            receiverId,
+        }
+    );
+
+    onStartVideoCall(
+        conversationId,
+        receiverId
+    );
+};
 
     // ============================================================
     // THEME
