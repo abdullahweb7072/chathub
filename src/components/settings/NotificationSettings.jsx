@@ -40,7 +40,7 @@ export default function NotificationSettings() {
             if (!response.ok || !data?.success) {
                 throw new Error(
                     data?.error ||
-                        "Failed to load settings."
+                        "Failed to load notification settings."
                 );
             }
 
@@ -81,7 +81,7 @@ export default function NotificationSettings() {
     // ============================================================
 
     async function updateSetting(key) {
-        if (!settings) {
+        if (!settings || savingKey) {
             return;
         }
 
@@ -91,11 +91,13 @@ export default function NotificationSettings() {
 
         try {
             setSavingKey(key);
+
             setError("");
+
             setSuccess("");
 
             // ----------------------------------------------------
-            // UPDATE UI IMMEDIATELY
+            // OPTIMISTIC UI
             // ----------------------------------------------------
 
             setSettings((previous) => ({
@@ -104,7 +106,7 @@ export default function NotificationSettings() {
             }));
 
             // ----------------------------------------------------
-            // SAVE TO DATABASE
+            // SAVE
             // ----------------------------------------------------
 
             const response = await fetch("/api/settings", {
@@ -126,12 +128,12 @@ export default function NotificationSettings() {
             if (!response.ok || !data?.success) {
                 throw new Error(
                     data?.error ||
-                        "Failed to save setting."
+                        "Failed to save notification setting."
                 );
             }
 
             // ----------------------------------------------------
-            // USE SERVER RESPONSE
+            // SERVER RESPONSE
             // ----------------------------------------------------
 
             setSettings({
@@ -152,11 +154,11 @@ export default function NotificationSettings() {
                     false,
             });
 
-            setSuccess("Settings saved.");
+            setSuccess("Notification preference updated.");
 
             setTimeout(() => {
                 setSuccess("");
-            }, 2000);
+            }, 2200);
         } catch (error) {
             console.error(
                 "❌ SAVE NOTIFICATION SETTING ERROR:",
@@ -174,7 +176,7 @@ export default function NotificationSettings() {
 
             setError(
                 error?.message ||
-                    "Failed to save setting."
+                    "Failed to save notification setting."
             );
         } finally {
             setSavingKey("");
@@ -187,26 +189,49 @@ export default function NotificationSettings() {
 
     if (loading) {
         return (
-            <div>
+            <div
+                style={{
+                    color: "var(--chat-text-primary)",
+                }}
+            >
                 {/* HEADER */}
 
                 <div
                     className="
                         border-b
-                        border-[var(--chat-border)]
                         px-5
-                        py-5
+                        py-6
                         sm:px-8
                     "
+                    style={{
+                        borderColor:
+                            "var(--chat-border)",
+                    }}
                 >
                     <div className="animate-pulse">
                         <div
                             className="
-                                h-6
-                                w-48
-                                rounded
-                                bg-[var(--chat-hover-bg)]
+                                h-11
+                                w-11
+                                rounded-2xl
                             "
+                            style={{
+                                background:
+                                    "var(--chat-bg-tertiary)",
+                            }}
+                        />
+
+                        <div
+                            className="
+                                mt-4
+                                h-6
+                                w-52
+                                rounded-lg
+                            "
+                            style={{
+                                background:
+                                    "var(--chat-bg-tertiary)",
+                            }}
                         />
 
                         <div
@@ -215,57 +240,96 @@ export default function NotificationSettings() {
                                 h-4
                                 w-72
                                 rounded
-                                bg-[var(--chat-hover-bg)]
                             "
+                            style={{
+                                background:
+                                    "var(--chat-bg-tertiary)",
+                            }}
                         />
                     </div>
                 </div>
 
-                {/* LOADING CONTENT */}
+                {/* CONTENT */}
 
                 <div className="p-5 sm:p-8">
                     <div
                         className="
                             animate-pulse
-                            overflow-hidden
-                            rounded-2xl
-                            border
-                            border-[var(--chat-border)]
+                            space-y-3
                         "
                     >
-                        <div
-                            className="
-                                h-20
-                                border-b
-                                border-[var(--chat-border)]
-                                bg-[var(--chat-hover-bg)]
-                            "
-                        />
+                        {[1, 2, 3, 4].map((item) => (
+                            <div
+                                key={item}
+                                className="
+                                    flex
+                                    items-center
+                                    gap-4
+                                    rounded-2xl
+                                    border
+                                    p-5
+                                "
+                                style={{
+                                    borderColor:
+                                        "var(--chat-border)",
+                                    background:
+                                        "var(--chat-bg-secondary)",
+                                }}
+                            >
+                                <div
+                                    className="
+                                        h-11
+                                        w-11
+                                        shrink-0
+                                        rounded-xl
+                                    "
+                                    style={{
+                                        background:
+                                            "var(--chat-bg-tertiary)",
+                                    }}
+                                />
 
-                        <div
-                            className="
-                                h-20
-                                border-b
-                                border-[var(--chat-border)]
-                                bg-[var(--chat-hover-bg)]
-                            "
-                        />
+                                <div className="flex-1">
+                                    <div
+                                        className="
+                                            h-4
+                                            w-40
+                                            rounded
+                                        "
+                                        style={{
+                                            background:
+                                                "var(--chat-bg-tertiary)",
+                                        }}
+                                    />
 
-                        <div
-                            className="
-                                h-20
-                                border-b
-                                border-[var(--chat-border)]
-                                bg-[var(--chat-hover-bg)]
-                            "
-                        />
+                                    <div
+                                        className="
+                                            mt-2
+                                            h-3
+                                            w-64
+                                            max-w-full
+                                            rounded
+                                        "
+                                        style={{
+                                            background:
+                                                "var(--chat-bg-tertiary)",
+                                        }}
+                                    />
+                                </div>
 
-                        <div
-                            className="
-                                h-20
-                                bg-[var(--chat-hover-bg)]
-                            "
-                        />
+                                <div
+                                    className="
+                                        h-6
+                                        w-11
+                                        rounded-full
+                                    "
+                                    style={{
+                                        background:
+                                            "var(--chat-bg-tertiary)",
+                                    }}
+                                />
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>
@@ -273,7 +337,7 @@ export default function NotificationSettings() {
     }
 
     // ============================================================
-    // ERROR
+    // ERROR / NO SETTINGS
     // ============================================================
 
     if (!settings) {
@@ -281,18 +345,68 @@ export default function NotificationSettings() {
             <div className="p-5 sm:p-8">
                 <div
                     className="
-                        rounded-xl
+                        rounded-2xl
                         border
-                        border-red-500/20
-                        bg-red-500/10
-                        px-4
-                        py-3
-                        text-sm
-                        text-red-400
+                        px-5
+                        py-5
                     "
+                    style={{
+                        borderColor:
+                            "var(--chat-danger-border)",
+                        background:
+                            "var(--chat-danger-bg)",
+                    }}
                 >
-                    {error ||
-                        "Unable to load notification settings."}
+                    <div className="flex gap-3">
+                        <div
+                            className="
+                                flex
+                                h-10
+                                w-10
+                                shrink-0
+                                items-center
+                                justify-center
+                                rounded-xl
+                            "
+                            style={{
+                                background:
+                                    "var(--chat-danger-bg)",
+                                color:
+                                    "var(--chat-danger)",
+                            }}
+                        >
+                            <AlertIcon />
+                        </div>
+
+                        <div>
+                            <p
+                                className="
+                                    text-sm
+                                    font-semibold
+                                "
+                                style={{
+                                    color:
+                                        "var(--chat-danger)",
+                                }}
+                            >
+                                Unable to load settings
+                            </p>
+
+                            <p
+                                className="
+                                    mt-1
+                                    text-xs
+                                "
+                                style={{
+                                    color:
+                                        "var(--chat-text-secondary)",
+                                }}
+                            >
+                                {error ||
+                                    "Something went wrong while loading your notification preferences."}
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
                 <button
@@ -301,15 +415,19 @@ export default function NotificationSettings() {
                     className="
                         mt-4
                         rounded-xl
-                        bg-[var(--chat-accent)]
-                        px-4
+                        px-5
                         py-2.5
                         text-sm
                         font-semibold
-                        text-[var(--chat-accent-text)]
+                        text-white
                         transition
                         hover:opacity-90
+                        active:scale-[0.98]
                     "
+                    style={{
+                        background:
+                            "var(--chat-accent)",
+                    }}
                 >
                     Try Again
                 </button>
@@ -322,40 +440,108 @@ export default function NotificationSettings() {
     // ============================================================
 
     return (
-        <div>
+        <div
+            style={{
+                color:
+                    "var(--chat-text-primary)",
+            }}
+        >
             {/* =====================================================
                 HEADER
             ===================================================== */}
 
             <div
                 className="
+                    relative
+                    overflow-hidden
                     border-b
-                    border-[var(--chat-border)]
                     px-5
-                    py-5
+                    py-6
                     sm:px-8
                 "
+                style={{
+                    borderColor:
+                        "var(--chat-border)",
+                }}
             >
-                <h2
-                    className="
-                        text-lg
-                        font-semibold
-                        text-[var(--chat-text-primary)]
-                    "
-                >
-                    Notification Settings
-                </h2>
+                {/* DECORATIVE BACKGROUND */}
 
-                <p
+                <div
                     className="
-                        mt-1
-                        text-sm
-                        text-[var(--chat-text-secondary)]
+                        pointer-events-none
+                        absolute
+                        -right-16
+                        -top-16
+                        h-40
+                        w-40
+                        rounded-full
+                        opacity-30
+                        blur-3xl
                     "
-                >
-                    Choose how ChatHub should notify you.
-                </p>
+                    style={{
+                        background:
+                            "var(--chat-accent)",
+                    }}
+                />
+
+                <div className="relative">
+                    <div
+                        className="
+                            flex
+                            h-12
+                            w-12
+                            items-center
+                            justify-center
+                            rounded-2xl
+                        "
+                        style={{
+                            background:
+                                "var(--chat-accent-soft)",
+                            color:
+                                "var(--chat-accent)",
+                        }}
+                    >
+                        <BellIcon />
+                    </div>
+
+                    <div className="mt-4">
+                        <h2
+                            className="
+                                text-xl
+                                font-bold
+                                tracking-tight
+                            "
+                            style={{
+                                color:
+                                    "var(--chat-text-primary)",
+                            }}
+                        >
+                            Notification Settings
+                        </h2>
+
+                        <p
+                            className="
+                                mt-1.5
+                                max-w-xl
+                                text-sm
+                                leading-6
+                            "
+                            style={{
+                                color:
+                                    "var(--chat-text-secondary)",
+                            }}
+                        >
+                            Choose how ChatHub keeps you
+                            informed about messages,
+                            requests, sounds, and previews.
+                        </p>
+                    </div>
+                </div>
             </div>
+
+            {/* =====================================================
+                CONTENT
+            ===================================================== */}
 
             <div className="p-5 sm:p-8">
                 {/* =================================================
@@ -363,21 +549,10 @@ export default function NotificationSettings() {
                 ================================================= */}
 
                 {error && (
-                    <div
-                        className="
-                            mb-5
-                            rounded-xl
-                            border
-                            border-red-500/20
-                            bg-red-500/10
-                            px-4
-                            py-3
-                            text-sm
-                            text-red-400
-                        "
-                    >
-                        {error}
-                    </div>
+                    <StatusMessage
+                        type="error"
+                        message={error}
+                    />
                 )}
 
                 {/* =================================================
@@ -385,50 +560,149 @@ export default function NotificationSettings() {
                 ================================================= */}
 
                 {success && (
+                    <StatusMessage
+                        type="success"
+                        message={success}
+                    />
+                )}
+
+                {/* =================================================
+                    QUICK STATUS
+                ================================================= */}
+
+                <div
+                    className="
+                        mb-5
+                        flex
+                        flex-col
+                        gap-4
+                        rounded-2xl
+                        border
+                        p-5
+                        sm:flex-row
+                        sm:items-center
+                        sm:justify-between
+                    "
+                    style={{
+                        borderColor:
+                            "var(--chat-border)",
+                        background:
+                            "var(--chat-bg-primary)",
+                    }}
+                >
+                    <div className="flex items-center gap-3">
+                        <div
+                            className="
+                                flex
+                                h-10
+                                w-10
+                                shrink-0
+                                items-center
+                                justify-center
+                                rounded-xl
+                            "
+                            style={{
+                                background:
+                                    "var(--chat-accent-soft)",
+                                color:
+                                    "var(--chat-accent)",
+                            }}
+                        >
+                            <SettingsIcon />
+                        </div>
+
+                        <div>
+                            <p
+                                className="
+                                    text-sm
+                                    font-semibold
+                                "
+                                style={{
+                                    color:
+                                        "var(--chat-text-primary)",
+                                }}
+                            >
+                                Notification preferences
+                            </p>
+
+                            <p
+                                className="
+                                    mt-0.5
+                                    text-xs
+                                "
+                                style={{
+                                    color:
+                                        "var(--chat-text-muted)",
+                                }}
+                            >
+                                Changes are saved automatically.
+                            </p>
+                        </div>
+                    </div>
+
                     <div
                         className="
-                            mb-5
-                            rounded-xl
+                            inline-flex
+                            w-fit
+                            items-center
+                            gap-2
+                            rounded-full
                             border
-                            border-emerald-500/20
-                            bg-emerald-500/10
-                            px-4
-                            py-3
-                            text-sm
-                            text-emerald-400
+                            px-3
+                            py-1.5
+                            text-xs
+                            font-medium
                         "
+                        style={{
+                            borderColor:
+                                "var(--chat-success-border)",
+                            background:
+                                "var(--chat-success-bg)",
+                            color:
+                                "var(--chat-success)",
+                        }}
                     >
-                        {success}
+                        <span
+                            className="
+                                h-1.5
+                                w-1.5
+                                rounded-full
+                            "
+                            style={{
+                                background:
+                                    "var(--chat-success)",
+                            }}
+                        />
+
+                        Auto saved
                     </div>
-                )}
+                </div>
 
                 {/* =================================================
                     SETTINGS
                 ================================================= */}
 
-                <div
-                    className="
-                        overflow-hidden
-                        rounded-2xl
-                        border
-                        border-[var(--chat-border)]
-                        bg-[var(--chat-bg-secondary)]
-                    "
-                >
-                    <SettingToggle
+                <div className="space-y-3">
+                    <NotificationCard
+                        icon={<MessageIcon />}
                         title="Message notifications"
-                        description="Receive notifications when someone sends you a message."
+                        description="Get notified whenever someone sends you a new message."
                         enabled={settings.messages}
-                        saving={savingKey === "messages"}
+                        saving={
+                            savingKey === "messages"
+                        }
                         onChange={() =>
                             updateSetting("messages")
                         }
                     />
 
-                    <SettingToggle
+                    <NotificationCard
+                        icon={<UserPlusIcon />}
                         title="Friend request notifications"
-                        description="Receive notifications when someone sends you a friend request."
-                        enabled={settings.friendRequests}
+                        description="Get notified when someone sends you a friend request."
+                        enabled={
+                            settings.friendRequests
+                        }
                         saving={
                             savingKey ===
                             "friendRequests"
@@ -440,53 +714,103 @@ export default function NotificationSettings() {
                         }
                     />
 
-                    <SettingToggle
+                    <NotificationCard
+                        icon={<SoundIcon />}
                         title="Notification sound"
-                        description="Play a sound when a new notification arrives."
+                        description="Play a sound whenever a new notification arrives."
                         enabled={settings.sound}
-                        saving={savingKey === "sound"}
+                        saving={
+                            savingKey === "sound"
+                        }
                         onChange={() =>
                             updateSetting("sound")
                         }
                     />
 
-                    <SettingToggle
+                    <NotificationCard
+                        icon={<EyeIcon />}
                         title="Notification preview"
-                        description="Show message information in notification previews."
+                        description="Show useful message information inside notification previews."
                         enabled={settings.preview}
-                        saving={savingKey === "preview"}
+                        saving={
+                            savingKey === "preview"
+                        }
                         onChange={() =>
                             updateSetting("preview")
                         }
-                        last
                     />
                 </div>
 
                 {/* =================================================
-                    INFO
+                    FOOTER INFO
                 ================================================= */}
 
                 <div
                     className="
                         mt-5
-                        rounded-xl
+                        flex
+                        gap-3
+                        rounded-2xl
                         border
-                        border-[var(--chat-accent)]/10
-                        bg-[var(--chat-accent)]/5
-                        px-4
-                        py-3
+                        p-4
                     "
+                    style={{
+                        borderColor:
+                            "var(--chat-border)",
+                        background:
+                            "var(--chat-bg-primary)",
+                    }}
                 >
-                    <p
+                    <div
                         className="
-                            text-xs
-                            leading-5
-                            text-[var(--chat-text-secondary)]
+                            flex
+                            h-9
+                            w-9
+                            shrink-0
+                            items-center
+                            justify-center
+                            rounded-xl
                         "
+                        style={{
+                            background:
+                                "var(--chat-bg-tertiary)",
+                            color:
+                                "var(--chat-text-secondary)",
+                        }}
                     >
-                        Your notification preferences are saved
-                        automatically.
-                    </p>
+                        <InfoIcon />
+                    </div>
+
+                    <div>
+                        <p
+                            className="
+                                text-xs
+                                font-semibold
+                            "
+                            style={{
+                                color:
+                                    "var(--chat-text-primary)",
+                            }}
+                        >
+                            About notifications
+                        </p>
+
+                        <p
+                            className="
+                                mt-1
+                                text-xs
+                                leading-5
+                            "
+                            style={{
+                                color:
+                                    "var(--chat-text-muted)",
+                            }}
+                        >
+                            You can change these preferences
+                            at any time. Your choices are
+                            saved automatically.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -494,110 +818,533 @@ export default function NotificationSettings() {
 }
 
 // ================================================================
-// TOGGLE
+// NOTIFICATION CARD
 // ================================================================
 
-function SettingToggle({
+function NotificationCard({
+    icon,
     title,
     description,
     enabled,
     saving,
     onChange,
-    last = false,
 }) {
     return (
         <div
-            className={`
+            className="
+                group
+                relative
+                overflow-hidden
+                rounded-2xl
+                border
+                p-4
+                transition-all
+                duration-200
+                sm:p-5
+            "
+            style={{
+                borderColor: enabled
+                    ? "var(--chat-accent)"
+                    : "var(--chat-border)",
+
+                background: enabled
+                    ? "var(--chat-accent-soft)"
+                    : "var(--chat-bg-primary)",
+            }}
+        >
+            {/* ACTIVE ACCENT */}
+
+            {enabled && (
+                <div
+                    className="
+                        absolute
+                        bottom-0
+                        left-0
+                        top-0
+                        w-0.5
+                    "
+                    style={{
+                        background:
+                            "var(--chat-accent)",
+                    }}
+                />
+            )}
+
+            <div
+                className="
+                    flex
+                    items-center
+                    gap-4
+                "
+            >
+                {/* ICON */}
+
+                <div
+                    className="
+                        flex
+                        h-11
+                        w-11
+                        shrink-0
+                        items-center
+                        justify-center
+                        rounded-xl
+                        transition
+                    "
+                    style={{
+                        background: enabled
+                            ? "var(--chat-accent-soft)"
+                            : "var(--chat-bg-tertiary)",
+
+                        color: enabled
+                            ? "var(--chat-accent)"
+                            : "var(--chat-text-secondary)",
+                    }}
+                >
+                    {icon}
+                </div>
+
+                {/* TEXT */}
+
+                <div className="min-w-0 flex-1">
+                    <div
+                        className="
+                            flex
+                            flex-wrap
+                            items-center
+                            gap-2
+                        "
+                    >
+                        <p
+                            className="
+                                text-sm
+                                font-semibold
+                            "
+                            style={{
+                                color:
+                                    "var(--chat-text-primary)",
+                            }}
+                        >
+                            {title}
+                        </p>
+
+                        <span
+                            className="
+                                rounded-full
+                                px-2
+                                py-0.5
+                                text-[10px]
+                                font-semibold
+                            "
+                            style={{
+                                background: enabled
+                                    ? "var(--chat-success-bg)"
+                                    : "var(--chat-bg-tertiary)",
+
+                                color: enabled
+                                    ? "var(--chat-success)"
+                                    : "var(--chat-text-muted)",
+                            }}
+                        >
+                            {enabled
+                                ? "Enabled"
+                                : "Disabled"}
+                        </span>
+                    </div>
+
+                    <p
+                        className="
+                            mt-1
+                            max-w-xl
+                            text-xs
+                            leading-5
+                        "
+                        style={{
+                            color:
+                                "var(--chat-text-secondary)",
+                        }}
+                    >
+                        {description}
+                    </p>
+                </div>
+
+                {/* TOGGLE */}
+
+                <button
+                    type="button"
+                    role="switch"
+                    aria-checked={enabled}
+                    aria-label={`${title}: ${
+                        enabled
+                            ? "enabled"
+                            : "disabled"
+                    }`}
+                    disabled={saving}
+                    onClick={onChange}
+                    className="
+                        relative
+                        h-7
+                        w-12
+                        shrink-0
+                        rounded-full
+                        transition-all
+                        duration-200
+                        focus:outline-none
+                        focus:ring-2
+                        focus:ring-offset-2
+                    "
+                    style={{
+                        background: enabled
+                            ? "var(--chat-accent)"
+                            : "var(--chat-bg-tertiary)",
+
+                        "--tw-ring-color":
+                            "var(--chat-accent-soft)",
+                    }}
+                >
+                    <span
+                        className="
+                            absolute
+                            top-1
+                            h-5
+                            w-5
+                            rounded-full
+                            bg-white
+                            shadow-md
+                            transition-all
+                            duration-200
+                        "
+                        style={{
+                            left: enabled
+                                ? "24px"
+                                : "4px",
+                        }}
+                    />
+
+                    {saving && (
+                        <span
+                            className="
+                                absolute
+                                inset-0
+                                flex
+                                items-center
+                                justify-center
+                                rounded-full
+                            "
+                            style={{
+                                background:
+                                    "rgba(0,0,0,0.15)",
+                            }}
+                        >
+                            <span
+                                className="
+                                    h-3
+                                    w-3
+                                    animate-spin
+                                    rounded-full
+                                    border-2
+                                    border-white/40
+                                    border-t-white
+                                "
+                            />
+                        </span>
+                    )}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ================================================================
+// STATUS MESSAGE
+// ================================================================
+
+function StatusMessage({
+    type,
+    message,
+}) {
+    const isError = type === "error";
+
+    return (
+        <div
+            className="
+                mb-5
                 flex
                 items-center
-                justify-between
-                gap-5
+                gap-3
+                rounded-2xl
+                border
                 px-4
-                py-4
-                transition
-                hover:bg-[var(--chat-hover-bg)]
-                sm:px-5
-                ${
-                    !last
-                        ? "border-b border-[var(--chat-border)]"
-                        : ""
-                }
-            `}
+                py-3
+            "
+            style={{
+                borderColor: isError
+                    ? "var(--chat-danger-border)"
+                    : "var(--chat-success-border)",
+
+                background: isError
+                    ? "var(--chat-danger-bg)"
+                    : "var(--chat-success-bg)",
+            }}
         >
-            {/* =================================================
-                TEXT
-            ================================================= */}
-
-            <div className="min-w-0">
-                <p
-                    className="
-                        text-sm
-                        font-medium
-                        text-[var(--chat-text-primary)]
-                    "
-                >
-                    {title}
-                </p>
-
-                <p
-                    className="
-                        mt-1
-                        text-xs
-                        leading-5
-                        text-[var(--chat-text-secondary)]
-                    "
-                >
-                    {description}
-                </p>
+            <div
+                className="
+                    flex
+                    h-8
+                    w-8
+                    shrink-0
+                    items-center
+                    justify-center
+                    rounded-lg
+                "
+                style={{
+                    color: isError
+                        ? "var(--chat-danger)"
+                        : "var(--chat-success)",
+                }}
+            >
+                {isError ? (
+                    <AlertIcon />
+                ) : (
+                    <CheckIcon />
+                )}
             </div>
 
-            {/* =================================================
-                HARD-CODED TOGGLE
-            ================================================= */}
-
-            <button
-                type="button"
-                role="switch"
-                aria-checked={enabled}
-                disabled={saving}
-                onClick={onChange}
-                className={`
-                    relative
-                    h-6
-                    w-11
-                    shrink-0
-                    rounded-full
-                    transition
-                    ${
-                        enabled
-                            ? "bg-blue-600"
-                            : "bg-slate-700"
-                    }
-                    ${
-                        saving
-                            ? "cursor-wait opacity-60"
-                            : "cursor-pointer"
-                    }
-                `}
+            <p
+                className="text-xs font-medium"
+                style={{
+                    color: isError
+                        ? "var(--chat-danger)"
+                        : "var(--chat-success)",
+                }}
             >
-                <span
-                    className={`
-                        absolute
-                        top-1
-                        h-4
-                        w-4
-                        rounded-full
-                        bg-white
-                        shadow-sm
-                        transition
-                        ${
-                            enabled
-                                ? "left-6"
-                                : "left-1"
-                        }
-                    `}
-                />
-            </button>
+                {message}
+            </p>
         </div>
+    );
+}
+
+// ================================================================
+// ICONS
+// ================================================================
+
+function BellIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            className="h-6 w-6"
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 17H9m10-2.5c0 .8-.4 1.5-1.1 1.9-.4.2-.7.6-.8 1.1H6.9c-.1-.5-.4-.9-.8-1.1A2.2 2.2 0 0 1 5 14.5V11a7 7 0 1 1 14 0v3.5Z"
+            />
+
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M10 20h4"
+            />
+        </svg>
+    );
+}
+
+function MessageIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            className="h-5 w-5"
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H8l-4 2v-5.2A7.5 7.5 0 1 1 20 11.5Z"
+            />
+        </svg>
+    );
+}
+
+function UserPlusIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            className="h-5 w-5"
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15 19a6 6 0 0 0-12 0"
+            />
+
+            <circle
+                cx="9"
+                cy="7"
+                r="3"
+            />
+
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19 8v6m-3-3h6"
+            />
+        </svg>
+    );
+}
+
+function SoundIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            className="h-5 w-5"
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 10v4h4l5 4V6l-5 4H4Z"
+            />
+
+            <path
+                strokeLinecap="round"
+                d="M16 9.5a4 4 0 0 1 0 5"
+            />
+
+            <path
+                strokeLinecap="round"
+                d="M18.5 7a7.5 7.5 0 0 1 0 10"
+            />
+        </svg>
+    );
+}
+
+function EyeIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            className="h-5 w-5"
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"
+            />
+
+            <circle
+                cx="12"
+                cy="12"
+                r="2.5"
+            />
+        </svg>
+    );
+}
+
+function SettingsIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            className="h-5 w-5"
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
+            />
+
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-2.5V20a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-1.8-1.8.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H6.3v-2.5h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.8-1.8.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6v-.2H15v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v2.5H21a1.7 1.7 0 0 0-1.6 1Z"
+            />
+        </svg>
+    );
+}
+
+function InfoIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            className="h-4 w-4"
+        >
+            <circle
+                cx="12"
+                cy="12"
+                r="9"
+            />
+
+            <path
+                strokeLinecap="round"
+                d="M12 11v5"
+            />
+
+            <path
+                strokeLinecap="round"
+                d="M12 8h.01"
+            />
+        </svg>
+    );
+}
+
+function AlertIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            className="h-5 w-5"
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M10.3 4.5 2.9 17a2 2 0 0 0 1.7 3h14.8a2 2 0 0 0 1.7-3L13.7 4.5a2 2 0 0 0-3.4 0Z"
+            />
+
+            <path
+                strokeLinecap="round"
+                d="M12 9v4"
+            />
+
+            <path
+                strokeLinecap="round"
+                d="M12 16h.01"
+            />
+        </svg>
+    );
+}
+
+function CheckIcon() {
+    return (
+        <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="h-5 w-5"
+        >
+            <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m5 12 4 4L19 6"
+            />
+        </svg>
     );
 }

@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -93,13 +92,11 @@ export default function ProfileSettings() {
             setUser(data.user);
 
             setUsername(
-                data.user?.username ||
-                    ""
+                data.user?.username || ""
             );
 
             setBio(
-                data.user?.bio ||
-                    ""
+                data.user?.bio || ""
             );
         } catch (error) {
             console.error(
@@ -132,7 +129,7 @@ export default function ProfileSettings() {
     }
 
     // ============================================================
-    // AVATAR FILE SELECTED
+    // AVATAR CHANGE
     // ============================================================
 
     async function handleAvatarChange(event) {
@@ -144,10 +141,6 @@ export default function ProfileSettings() {
         if (!file) {
             return;
         }
-
-        // --------------------------------------------------------
-        // VALIDATE FILE TYPE
-        // --------------------------------------------------------
 
         const allowedTypes = [
             "image/jpeg",
@@ -170,10 +163,6 @@ export default function ProfileSettings() {
             return;
         }
 
-        // --------------------------------------------------------
-        // VALIDATE FILE SIZE
-        // --------------------------------------------------------
-
         const maxFileSize =
             5 * 1024 * 1024;
 
@@ -189,10 +178,6 @@ export default function ProfileSettings() {
 
             return;
         }
-
-        // --------------------------------------------------------
-        // UPLOAD AVATAR
-        // --------------------------------------------------------
 
         try {
             setUploadingAvatar(true);
@@ -233,22 +218,16 @@ export default function ProfileSettings() {
             setUser(data.user);
 
             setUsername(
-                data.user?.username ||
-                    ""
+                data.user?.username || ""
             );
 
             setBio(
-                data.user?.bio ||
-                    ""
+                data.user?.bio || ""
             );
 
-            setSuccess(
+            showSuccess(
                 "Profile picture updated successfully."
             );
-
-            setTimeout(() => {
-                setSuccess("");
-            }, 3000);
         } catch (error) {
             console.error(
                 "❌ AVATAR UPLOAD ERROR:",
@@ -306,22 +285,16 @@ export default function ProfileSettings() {
             setUser(data.user);
 
             setUsername(
-                data.user?.username ||
-                    ""
+                data.user?.username || ""
             );
 
             setBio(
-                data.user?.bio ||
-                    ""
+                data.user?.bio || ""
             );
 
-            setSuccess(
+            showSuccess(
                 "Profile picture removed successfully."
             );
-
-            setTimeout(() => {
-                setSuccess("");
-            }, 3000);
         } catch (error) {
             console.error(
                 "❌ AVATAR REMOVE ERROR:",
@@ -335,6 +308,18 @@ export default function ProfileSettings() {
         } finally {
             setRemovingAvatar(false);
         }
+    }
+
+    // ============================================================
+    // SUCCESS MESSAGE
+    // ============================================================
+
+    function showSuccess(message) {
+        setSuccess(message);
+
+        setTimeout(() => {
+            setSuccess("");
+        }, 3000);
     }
 
     // ============================================================
@@ -386,22 +371,16 @@ export default function ProfileSettings() {
             setUser(data.user);
 
             setUsername(
-                data.user?.username ||
-                    ""
+                data.user?.username || ""
             );
 
             setBio(
-                data.user?.bio ||
-                    ""
+                data.user?.bio || ""
             );
 
-            setSuccess(
+            showSuccess(
                 "Profile updated successfully."
             );
-
-            setTimeout(() => {
-                setSuccess("");
-            }, 3000);
         } catch (error) {
             console.error(
                 "❌ PROFILE SETTINGS SAVE ERROR:",
@@ -423,14 +402,11 @@ export default function ProfileSettings() {
 
     if (loading) {
         return (
-            <div className="p-6 sm:p-8">
-                <div className="animate-pulse">
+            <div className="p-5 sm:p-8">
+                <div className="animate-pulse space-y-5">
+
                     <div
-                        className="
-                            h-7
-                            w-40
-                            rounded
-                        "
+                        className="h-32 rounded-2xl"
                         style={{
                             background:
                                 "var(--chat-bg-tertiary)",
@@ -438,71 +414,46 @@ export default function ProfileSettings() {
                     />
 
                     <div
-                        className="
-                            mt-2
-                            h-4
-                            w-64
-                            rounded
-                        "
+                        className="h-28 rounded-2xl"
                         style={{
                             background:
                                 "var(--chat-bg-tertiary)",
                         }}
                     />
 
-                    <div className="mt-8 space-y-5">
-                        <div
-                            className="
-                                h-20
-                                rounded-xl
-                            "
-                            style={{
-                                background:
-                                    "var(--chat-bg-tertiary)",
-                            }}
-                        />
+                    <div
+                        className="h-20 rounded-2xl"
+                        style={{
+                            background:
+                                "var(--chat-bg-tertiary)",
+                        }}
+                    />
 
-                        <div
-                            className="
-                                h-12
-                                rounded-xl
-                            "
-                            style={{
-                                background:
-                                    "var(--chat-bg-tertiary)",
-                            }}
-                        />
-
-                        <div
-                            className="
-                                h-32
-                                rounded-xl
-                            "
-                            style={{
-                                background:
-                                    "var(--chat-bg-tertiary)",
-                            }}
-                        />
-                    </div>
+                    <div
+                        className="h-32 rounded-2xl"
+                        style={{
+                            background:
+                                "var(--chat-bg-tertiary)",
+                        }}
+                    />
                 </div>
             </div>
         );
     }
 
     // ============================================================
-    // ERROR / USER NOT LOADED
+    // ERROR
     // ============================================================
 
     if (!user) {
         return (
-            <div className="p-6 sm:p-8">
+            <div className="p-5 sm:p-8">
+
                 <div
                     className="
-                        rounded-xl
+                        rounded-2xl
                         border
-                        px-4
-                        py-3
-                        text-sm
+                        p-5
                     "
                     style={{
                         borderColor:
@@ -513,34 +464,72 @@ export default function ProfileSettings() {
                             "var(--chat-danger)",
                     }}
                 >
-                    {error ||
-                        "Unable to load your profile."}
-                </div>
+                    <div className="flex gap-3">
 
-                <button
-                    type="button"
-                    onClick={fetchProfile}
-                    className="
-                        mt-4
-                        rounded-xl
-                        px-4
-                        py-2.5
-                        text-sm
-                        font-semibold
-                        text-white
-                        transition
-                        hover:opacity-90
-                    "
-                    style={{
-                        background:
-                            "var(--chat-accent)",
-                    }}
-                >
-                    Try Again
-                </button>
+                        <div
+                            className="
+                                flex
+                                h-10
+                                w-10
+                                shrink-0
+                                items-center
+                                justify-center
+                                rounded-xl
+                                bg-red-500/10
+                            "
+                        >
+                            ⚠️
+                        </div>
+
+                        <div>
+                            <p className="font-semibold">
+                                Unable to load profile
+                            </p>
+
+                            <p className="mt-1 text-sm opacity-80">
+                                {error ||
+                                    "Something went wrong."}
+                            </p>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={fetchProfile}
+                        className="
+                            mt-4
+                            rounded-xl
+                            px-4
+                            py-2.5
+                            text-sm
+                            font-semibold
+                            text-white
+                            transition
+                            hover:opacity-90
+                            active:scale-[0.98]
+                        "
+                        style={{
+                            background:
+                                "var(--chat-accent)",
+                        }}
+                    >
+                        Try Again
+                    </button>
+                </div>
             </div>
         );
     }
+
+    const displayName =
+        user.displayName?.trim() ||
+        username.trim() ||
+        user.username?.trim() ||
+        "User";
+
+    const initial =
+        displayName
+            .charAt(0)
+            .toUpperCase() || "?";
 
     // ============================================================
     // MAIN
@@ -548,78 +537,227 @@ export default function ProfileSettings() {
 
     return (
         <div
+            className="relative"
             style={{
                 color:
                     "var(--chat-text-primary)",
             }}
         >
+
             {/* =====================================================
-                HEADER
+                TOP PROFILE HERO
             ===================================================== */}
 
             <div
                 className="
+                    relative
+                    overflow-hidden
                     border-b
                     px-5
-                    py-5
+                    py-7
                     sm:px-8
                 "
                 style={{
                     borderColor:
                         "var(--chat-border)",
+                    background:
+                        "linear-gradient(135deg, var(--chat-accent-soft), transparent 60%)",
                 }}
             >
-                <h2
-                    className="
-                        text-lg
-                        font-semibold
-                    "
-                    style={{
-                        color:
-                            "var(--chat-text-primary)",
-                    }}
-                >
-                    Profile Settings
-                </h2>
 
-                <p
+                {/* Decorative glow */}
+
+                <div
                     className="
-                        mt-1
-                        text-sm
+                        pointer-events-none
+                        absolute
+                        -right-20
+                        -top-20
+                        h-48
+                        w-48
+                        rounded-full
+                        blur-3xl
                     "
                     style={{
-                        color:
-                            "var(--chat-text-secondary)",
+                        background:
+                            "var(--chat-accent-soft)",
                     }}
+                />
+
+                <div
+                    className="
+                        relative
+                        flex
+                        flex-col
+                        gap-5
+                        sm:flex-row
+                        sm:items-center
+                    "
                 >
-                    Update your ChatHub profile
-                    information.
-                </p>
+
+                    {/* Avatar */}
+
+                    <div className="relative shrink-0">
+
+                        <div
+                            className="
+                                flex
+                                h-24
+                                w-24
+                                items-center
+                                justify-center
+                                overflow-hidden
+                                rounded-3xl
+                                text-3xl
+                                font-bold
+                                text-white
+                                shadow-xl
+                                ring-4
+                            "
+                            style={{
+                                background:
+                                    user.avatar
+                                        ? "var(--chat-bg-tertiary)"
+                                        : "var(--chat-accent)",
+                                ringColor:
+                                    "var(--chat-bg-secondary)",
+                            }}
+                        >
+                            {user.avatar ? (
+                                <img
+                                    src={
+                                        user.avatar
+                                    }
+                                    alt={
+                                        displayName
+                                    }
+                                    className="
+                                        h-full
+                                        w-full
+                                        object-cover
+                                    "
+                                />
+                            ) : (
+                                initial
+                            )}
+                        </div>
+
+                        {/* ONLINE DOT */}
+
+                        <span
+                            className="
+                                absolute
+                                bottom-1
+                                right-1
+                                h-5
+                                w-5
+                                rounded-full
+                                border-4
+                            "
+                            style={{
+                                background:
+                                    "#22c55e",
+                                borderColor:
+                                    "var(--chat-bg-secondary)",
+                            }}
+                            title="Online"
+                        />
+                    </div>
+
+                    {/* Profile info */}
+
+                    <div className="min-w-0 flex-1">
+
+                        <div className="flex flex-wrap items-center gap-2">
+
+                            <h2
+                                className="
+                                    truncate
+                                    text-xl
+                                    font-bold
+                                    sm:text-2xl
+                                "
+                            >
+                                {displayName}
+                            </h2>
+
+                            <span
+                                className="
+                                    rounded-full
+                                    px-2.5
+                                    py-1
+                                    text-[10px]
+                                    font-semibold
+                                    uppercase
+                                    tracking-wider
+                                "
+                                style={{
+                                    background:
+                                        "var(--chat-accent-soft)",
+                                    color:
+                                        "var(--chat-accent)",
+                                }}
+                            >
+                                Profile
+                            </span>
+                        </div>
+
+                        <p
+                            className="
+                                mt-1
+                                truncate
+                                text-sm
+                            "
+                            style={{
+                                color:
+                                    "var(--chat-text-secondary)",
+                            }}
+                        >
+                            @{user.username ||
+                                "username"}
+                        </p>
+
+                        <p
+                            className="
+                                mt-3
+                                max-w-xl
+                                text-sm
+                                leading-6
+                            "
+                            style={{
+                                color:
+                                    "var(--chat-text-muted)",
+                            }}
+                        >
+                            {bio.trim() ||
+                                "Tell people something interesting about yourself."}
+                        </p>
+                    </div>
+                </div>
             </div>
+
+            {/* =====================================================
+                FORM
+            ===================================================== */}
 
             <form
                 onSubmit={handleSave}
                 className="p-5 sm:p-8"
             >
+
                 {/* =================================================
-                    AVATAR
+                    PROFILE PHOTO CARD
                 ================================================= */}
 
-                <div
-                    className="
-                        rounded-2xl
-                        border
-                        p-5
-                    "
-                    style={{
-                        background:
-                            "var(--chat-bg-primary)",
-                        borderColor:
-                            "var(--chat-border)",
-                    }}
+                <SettingsCard
+                    icon="🖼️"
+                    title="Profile picture"
+                    description="Choose a picture that represents you on ChatHub."
                 >
+
                     <div
                         className="
+                            mt-5
                             flex
                             flex-col
                             gap-5
@@ -627,9 +765,9 @@ export default function ProfileSettings() {
                             sm:items-center
                         "
                     >
-                        {/* AVATAR */}
 
                         <div className="relative shrink-0">
+
                             <div
                                 className="
                                     flex
@@ -638,25 +776,26 @@ export default function ProfileSettings() {
                                     items-center
                                     justify-center
                                     overflow-hidden
-                                    rounded-full
+                                    rounded-2xl
                                     text-2xl
-                                    font-semibold
+                                    font-bold
                                     text-white
-                                    ring-4
+                                    shadow-lg
                                 "
                                 style={{
                                     background:
-                                        "var(--chat-accent)",
-                                    ringColor:
-                                        "var(--chat-bg-secondary)",
+                                        user.avatar
+                                            ? "var(--chat-bg-tertiary)"
+                                            : "var(--chat-accent)",
                                 }}
                             >
                                 {user.avatar ? (
                                     <img
-                                        src={user.avatar}
+                                        src={
+                                            user.avatar
+                                        }
                                         alt={
-                                            user.username ||
-                                            "User"
+                                            displayName
                                         }
                                         className="
                                             h-full
@@ -665,16 +804,12 @@ export default function ProfileSettings() {
                                         "
                                     />
                                 ) : (
-                                    user.username
-                                        ?.charAt(0)
-                                        ?.toUpperCase() ||
-                                    "?"
+                                    initial
                                 )}
                             </div>
 
-                            {/* UPLOAD SPINNER */}
-
-                            {uploadingAvatar && (
+                            {(uploadingAvatar ||
+                                removingAvatar) && (
                                 <div
                                     className="
                                         absolute
@@ -682,51 +817,17 @@ export default function ProfileSettings() {
                                         flex
                                         items-center
                                         justify-center
-                                        rounded-full
+                                        rounded-2xl
                                     "
                                     style={{
                                         background:
-                                            "rgba(0,0,0,0.6)",
+                                            "rgba(0,0,0,0.65)",
                                     }}
                                 >
                                     <div
                                         className="
-                                            h-7
-                                            w-7
-                                            animate-spin
-                                            rounded-full
-                                            border-2
-                                            border-white/30
-                                        "
-                                        style={{
-                                            borderTopColor:
-                                                "white",
-                                        }}
-                                    />
-                                </div>
-                            )}
-
-                            {/* REMOVE SPINNER */}
-
-                            {removingAvatar && (
-                                <div
-                                    className="
-                                        absolute
-                                        inset-0
-                                        flex
-                                        items-center
-                                        justify-center
-                                        rounded-full
-                                    "
-                                    style={{
-                                        background:
-                                            "rgba(0,0,0,0.6)",
-                                    }}
-                                >
-                                    <div
-                                        className="
-                                            h-7
-                                            w-7
+                                            h-6
+                                            w-6
                                             animate-spin
                                             rounded-full
                                             border-2
@@ -741,20 +842,15 @@ export default function ProfileSettings() {
                             )}
                         </div>
 
-                        {/* AVATAR DETAILS */}
-
                         <div className="min-w-0 flex-1">
+
                             <p
                                 className="
                                     text-sm
-                                    font-medium
+                                    font-semibold
                                 "
-                                style={{
-                                    color:
-                                        "var(--chat-text-primary)",
-                                }}
                             >
-                                Profile picture
+                                Change your photo
                             </p>
 
                             <p
@@ -768,26 +864,21 @@ export default function ProfileSettings() {
                                         "var(--chat-text-muted)",
                                 }}
                             >
-                                Upload a JPG, PNG, WEBP,
-                                or GIF image. Maximum
-                                file size is 5 MB.
+                                JPG, PNG, WEBP or GIF.
+                                Maximum 5 MB.
                             </p>
 
-                            <div className="mt-4 flex flex-wrap gap-2">
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept="image/jpeg,image/png,image/webp,image/gif"
-                                    onChange={
-                                        handleAvatarChange
-                                    }
-                                    className="hidden"
-                                />
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp,image/gif"
+                                onChange={
+                                    handleAvatarChange
+                                }
+                                className="hidden"
+                            />
 
-                                {/* =================================================
-                                    CHANGE PHOTO
-                                    Same style as Remove Photo
-                                ================================================= */}
+                            <div className="mt-4 flex flex-wrap gap-2">
 
                                 <button
                                     type="button"
@@ -799,34 +890,33 @@ export default function ProfileSettings() {
                                         removingAvatar
                                     }
                                     className="
+                                        inline-flex
+                                        items-center
+                                        gap-2
                                         rounded-xl
-                                        border
                                         px-4
-                                        py-2
+                                        py-2.5
                                         text-xs
                                         font-semibold
+                                        text-white
+                                        shadow-sm
                                         transition
+                                        hover:-translate-y-0.5
                                         hover:opacity-90
+                                        active:translate-y-0
                                         disabled:cursor-not-allowed
                                         disabled:opacity-50
                                     "
                                     style={{
-                                        borderColor:
-                                            "var(--chat-border)",
                                         background:
-                                            "var(--chat-bg-secondary)",
-                                        color:
-                                            "var(--chat-text-secondary)",
+                                            "var(--chat-accent)",
                                     }}
                                 >
+                                    📷
                                     {uploadingAvatar
                                         ? "Uploading..."
                                         : "Change Photo"}
                                 </button>
-
-                                {/* =================================================
-                                    REMOVE PHOTO
-                                ================================================= */}
 
                                 {user.avatar && (
                                     <button
@@ -842,315 +932,323 @@ export default function ProfileSettings() {
                                             rounded-xl
                                             border
                                             px-4
-                                            py-2
+                                            py-2.5
                                             text-xs
                                             font-semibold
                                             transition
-                                            hover:opacity-90
-                                            disabled:cursor-not-allowed
+                                            hover:bg-red-500/10
                                             disabled:opacity-50
                                         "
                                         style={{
                                             borderColor:
                                                 "var(--chat-border)",
-                                            background:
-                                                "var(--chat-bg-secondary)",
                                             color:
                                                 "var(--chat-text-secondary)",
                                         }}
                                     >
+                                        🗑️
+                                        {" "}
                                         {removingAvatar
                                             ? "Removing..."
-                                            : "Remove Photo"}
+                                            : "Remove"}
                                     </button>
                                 )}
                             </div>
                         </div>
                     </div>
-                </div>
+                </SettingsCard>
 
                 {/* =================================================
-                    THEME
+                    APPEARANCE
                 ================================================= */}
 
-                <div
-                    className="
-                        mt-5
-                        rounded-2xl
-                        border
-                        p-5
-                    "
-                    style={{
-                        background:
-                            "var(--chat-bg-primary)",
-                        borderColor:
-                            "var(--chat-border)",
-                    }}
+                <SettingsCard
+                    icon="✨"
+                    title="Appearance"
+                    description="Customize how ChatHub looks on your device."
+                    className="mt-5"
                 >
-                    <div>
-                        <p
-                            className="
-                                text-sm
-                                font-medium
-                            "
-                            style={{
-                                color:
-                                    "var(--chat-text-primary)",
-                            }}
-                        >
-                            Appearance
-                        </p>
 
-                        <p
-                            className="
-                                mt-1
-                                text-xs
-                                leading-5
-                            "
-                            style={{
-                                color:
-                                    "var(--chat-text-muted)",
-                            }}
-                        >
-                            Choose how ChatHub looks
-                            on your device.
-                        </p>
-                    </div>
-
-                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                        {/* DARK */}
+                    <div className="mt-5 grid gap-3 sm:grid-cols-3">
 
                         <ThemeButton
-                            selected={theme === "dark"}
+                            selected={
+                                theme === "dark"
+                            }
                             onClick={() =>
-                                changeTheme("dark")
+                                changeTheme(
+                                    "dark"
+                                )
                             }
                             icon="🌙"
                             title="Dark"
-                            description="Dark appearance"
+                            description="Easy on the eyes"
                         />
 
-                        {/* LIGHT */}
-
                         <ThemeButton
-                            selected={theme === "light"}
+                            selected={
+                                theme === "light"
+                            }
                             onClick={() =>
-                                changeTheme("light")
+                                changeTheme(
+                                    "light"
+                                )
                             }
                             icon="☀️"
                             title="Light"
-                            description="Light appearance"
+                            description="Bright and clean"
                         />
 
-                        {/* SYSTEM */}
-
                         <ThemeButton
-                            selected={theme === "system"}
+                            selected={
+                                theme === "system"
+                            }
                             onClick={() =>
-                                changeTheme("system")
+                                changeTheme(
+                                    "system"
+                                )
                             }
                             icon="🖥️"
                             title="System"
-                            description="Use device setting"
+                            description="Follow your device"
                         />
                     </div>
-                </div>
+                </SettingsCard>
 
                 {/* =================================================
-                    EMAIL
+                    ACCOUNT INFORMATION
                 ================================================= */}
 
-                <div className="mt-5">
-                    <label
-                        className="
-                            mb-2
-                            block
-                            text-sm
-                            font-medium
-                        "
-                        style={{
-                            color:
-                                "var(--chat-text-secondary)",
-                        }}
-                    >
-                        Email
-                    </label>
+                <SettingsCard
+                    icon="👤"
+                    title="Account information"
+                    description="Your basic ChatHub account details."
+                    className="mt-5"
+                >
 
-                    <input
-                        type="email"
-                        value={
-                            user.email || ""
-                        }
-                        disabled
-                        className="
-                            h-11
-                            w-full
-                            rounded-xl
-                            border
-                            px-4
-                            text-sm
-                            outline-none
-                        "
-                        style={{
-                            borderColor:
-                                "var(--chat-border)",
-                            background:
-                                "var(--chat-bg-tertiary)",
-                            color:
-                                "var(--chat-text-muted)",
-                        }}
-                    />
+                    {/* EMAIL */}
 
-                    <p
-                        className="
-                            mt-2
-                            text-xs
-                        "
-                        style={{
-                            color:
-                                "var(--chat-text-muted)",
-                        }}
-                    >
-                        Email changes are
-                        currently disabled.
-                    </p>
-                </div>
+                    <div className="mt-5">
 
-                {/* =================================================
-                    USERNAME
-                ================================================= */}
+                        <FieldLabel>
+                            Email address
+                        </FieldLabel>
 
-                <div className="mt-5">
-                    <label
-                        className="
-                            mb-2
-                            block
-                            text-sm
-                            font-medium
-                        "
-                        style={{
-                            color:
-                                "var(--chat-text-secondary)",
-                        }}
-                    >
-                        Username
-                    </label>
+                        <div className="relative">
 
-                    <input
-                        type="text"
-                        value={username}
-                        onChange={(event) =>
-                            setUsername(
-                                event.target.value
-                            )
-                        }
-                        minLength={3}
-                        maxLength={30}
-                        className="
-                            h-11
-                            w-full
-                            rounded-xl
-                            border
-                            px-4
-                            text-sm
-                            outline-none
-                            transition
-                            focus:ring-2
-                        "
-                        style={{
-                            borderColor:
-                                "var(--chat-border)",
-                            background:
-                                "var(--chat-bg-primary)",
-                            color:
-                                "var(--chat-text-primary)",
-                            "--tw-ring-color":
-                                "var(--chat-accent-soft)",
-                        }}
-                        placeholder="Enter username"
-                    />
+                            <input
+                                type="email"
+                                value={
+                                    user.email ||
+                                    ""
+                                }
+                                disabled
+                                className="
+                                    h-12
+                                    w-full
+                                    rounded-xl
+                                    border
+                                    px-4
+                                    pr-11
+                                    text-sm
+                                    outline-none
+                                "
+                                style={{
+                                    borderColor:
+                                        "var(--chat-border)",
+                                    background:
+                                        "var(--chat-bg-tertiary)",
+                                    color:
+                                        "var(--chat-text-muted)",
+                                }}
+                            />
 
-                    <p
-                        className="
-                            mt-2
-                            text-xs
-                        "
-                        style={{
-                            color:
-                                "var(--chat-text-muted)",
-                        }}
-                    >
-                        Username must contain
-                        3–30 characters.
-                    </p>
-                </div>
+                            <span
+                                className="
+                                    absolute
+                                    right-4
+                                    top-1/2
+                                    -translate-y-1/2
+                                    text-sm
+                                "
+                            >
+                                🔒
+                            </span>
+                        </div>
 
-                {/* =================================================
-                    BIO
-                ================================================= */}
-
-                <div className="mt-5">
-                    <div className="mb-2 flex items-center justify-between">
-                        <label
+                        <p
                             className="
-                                block
-                                text-sm
-                                font-medium
+                                mt-2
+                                text-xs
                             "
-                            style={{
-                                color:
-                                    "var(--chat-text-secondary)",
-                            }}
-                        >
-                            Bio
-                        </label>
-
-                        <span
-                            className="text-xs"
                             style={{
                                 color:
                                     "var(--chat-text-muted)",
                             }}
                         >
-                            {bio.length}/160
-                        </span>
+                            Email changes are
+                            currently disabled.
+                        </p>
                     </div>
 
-                    <textarea
-                        value={bio}
-                        onChange={(event) =>
-                            setBio(
-                                event.target.value
-                            )
-                        }
-                        maxLength={160}
-                        rows={5}
-                        placeholder="Tell people something about yourself..."
-                        className="
-                            w-full
-                            resize-none
-                            rounded-xl
-                            border
-                            px-4
-                            py-3
-                            text-sm
-                            leading-6
-                            outline-none
-                            transition
-                            focus:ring-2
-                        "
-                        style={{
-                            borderColor:
-                                "var(--chat-border)",
-                            background:
-                                "var(--chat-bg-primary)",
-                            color:
-                                "var(--chat-text-primary)",
-                            "--tw-ring-color":
-                                "var(--chat-accent-soft)",
-                        }}
-                    />
-                </div>
+                    {/* USERNAME */}
+
+                    <div className="mt-5">
+
+                        <FieldLabel>
+                            Username
+                        </FieldLabel>
+
+                        <div className="relative">
+
+                            <span
+                                className="
+                                    pointer-events-none
+                                    absolute
+                                    left-4
+                                    top-1/2
+                                    -translate-y-1/2
+                                    text-sm
+                                "
+                                style={{
+                                    color:
+                                        "var(--chat-text-muted)",
+                                }}
+                            >
+                                @
+                            </span>
+
+                            <input
+                                type="text"
+                                value={
+                                    username
+                                }
+                                onChange={(
+                                    event
+                                ) =>
+                                    setUsername(
+                                        event.target
+                                            .value
+                                    )
+                                }
+                                minLength={3}
+                                maxLength={30}
+                                className="
+                                    h-12
+                                    w-full
+                                    rounded-xl
+                                    border
+                                    pl-9
+                                    pr-4
+                                    text-sm
+                                    outline-none
+                                    transition
+                                    focus:ring-2
+                                "
+                                style={{
+                                    borderColor:
+                                        "var(--chat-border)",
+                                    background:
+                                        "var(--chat-bg-primary)",
+                                    color:
+                                        "var(--chat-text-primary)",
+                                    "--tw-ring-color":
+                                        "var(--chat-accent-soft)",
+                                }}
+                                placeholder="your_username"
+                            />
+                        </div>
+
+                        <div className="mt-2 flex justify-between">
+
+                            <p
+                                className="text-xs"
+                                style={{
+                                    color:
+                                        "var(--chat-text-muted)",
+                                }}
+                            >
+                                3–30 characters
+                            </p>
+
+                            <p
+                                className="text-xs"
+                                style={{
+                                    color:
+                                        "var(--chat-text-muted)",
+                                }}
+                            >
+                                {username.length}/30
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* BIO */}
+
+                    <div className="mt-5">
+
+                        <div className="mb-2 flex items-center justify-between">
+
+                            <FieldLabel>
+                                About you
+                            </FieldLabel>
+
+                            <span
+                                className="
+                                    text-xs
+                                    font-medium
+                                "
+                                style={{
+                                    color:
+                                        bio.length >
+                                        140
+                                            ? "var(--chat-danger)"
+                                            : "var(--chat-text-muted)",
+                                }}
+                            >
+                                {bio.length}/160
+                            </span>
+                        </div>
+
+                        <textarea
+                            value={bio}
+                            onChange={(
+                                event
+                            ) =>
+                                setBio(
+                                    event.target
+                                        .value
+                                )
+                            }
+                            maxLength={160}
+                            rows={5}
+                            placeholder="Tell people something about yourself..."
+                            className="
+                                w-full
+                                resize-none
+                                rounded-xl
+                                border
+                                px-4
+                                py-3
+                                text-sm
+                                leading-6
+                                outline-none
+                                transition
+                                focus:ring-2
+                            "
+                            style={{
+                                borderColor:
+                                    "var(--chat-border)",
+                                background:
+                                    "var(--chat-bg-primary)",
+                                color:
+                                    "var(--chat-text-primary)",
+                                "--tw-ring-color":
+                                    "var(--chat-accent-soft)",
+                            }}
+                        />
+                    </div>
+                </SettingsCard>
 
                 {/* =================================================
                     MESSAGES
@@ -1160,11 +1258,12 @@ export default function ProfileSettings() {
                     <div
                         className="
                             mt-5
-                            rounded-xl
+                            flex
+                            items-start
+                            gap-3
+                            rounded-2xl
                             border
-                            px-4
-                            py-3
-                            text-sm
+                            p-4
                         "
                         style={{
                             borderColor:
@@ -1175,7 +1274,13 @@ export default function ProfileSettings() {
                                 "var(--chat-danger)",
                         }}
                     >
-                        {error}
+                        <span className="text-lg">
+                            ⚠️
+                        </span>
+
+                        <p className="text-sm leading-5">
+                            {error}
+                        </p>
                     </div>
                 )}
 
@@ -1183,11 +1288,12 @@ export default function ProfileSettings() {
                     <div
                         className="
                             mt-5
-                            rounded-xl
+                            flex
+                            items-center
+                            gap-3
+                            rounded-2xl
                             border
-                            px-4
-                            py-3
-                            text-sm
+                            p-4
                         "
                         style={{
                             borderColor:
@@ -1198,27 +1304,94 @@ export default function ProfileSettings() {
                                 "var(--chat-success)",
                         }}
                     >
-                        {success}
+                        <span className="text-lg">
+                            ✓
+                        </span>
+
+                        <p className="text-sm font-medium">
+                            {success}
+                        </p>
                     </div>
                 )}
 
                 {/* =================================================
-                    SAVE
+                    SAVE BAR
                 ================================================= */}
 
-                <div className="mt-6 flex justify-end">
+                <div
+                    className="
+                        sticky
+                        bottom-4
+                        z-10
+                        mt-7
+                        flex
+                        flex-col
+                        gap-3
+                        rounded-2xl
+                        border
+                        p-3
+                        backdrop-blur-xl
+                        sm:flex-row
+                        sm:items-center
+                        sm:justify-between
+                    "
+                    style={{
+                        background:
+                            "color-mix(in srgb, var(--chat-bg-secondary) 90%, transparent)",
+                        borderColor:
+                            "var(--chat-border)",
+                    }}
+                >
+
+                    <div className="hidden sm:block">
+
+                        <p
+                            className="
+                                text-xs
+                                font-medium
+                            "
+                            style={{
+                                color:
+                                    "var(--chat-text-secondary)",
+                            }}
+                        >
+                            Keep your profile up to date
+                        </p>
+
+                        <p
+                            className="
+                                mt-0.5
+                                text-[11px]
+                            "
+                            style={{
+                                color:
+                                    "var(--chat-text-muted)",
+                            }}
+                        >
+                            Your changes will be visible
+                            across ChatHub.
+                        </p>
+                    </div>
+
                     <button
                         type="submit"
                         disabled={saving}
                         className="
+                            inline-flex
+                            h-11
+                            items-center
+                            justify-center
+                            gap-2
                             rounded-xl
-                            px-5
-                            py-2.5
+                            px-6
                             text-sm
                             font-semibold
                             text-white
+                            shadow-lg
                             transition
+                            hover:-translate-y-0.5
                             hover:opacity-90
+                            active:translate-y-0
                             disabled:cursor-not-allowed
                             disabled:opacity-50
                         "
@@ -1227,13 +1400,140 @@ export default function ProfileSettings() {
                                 "var(--chat-accent)",
                         }}
                     >
-                        {saving
-                            ? "Saving..."
-                            : "Save Changes"}
+                        {saving ? (
+                            <>
+                                <span
+                                    className="
+                                        h-4
+                                        w-4
+                                        animate-spin
+                                        rounded-full
+                                        border-2
+                                        border-white/30
+                                    "
+                                    style={{
+                                        borderTopColor:
+                                            "white",
+                                    }}
+                                />
+
+                                Saving...
+                            </>
+                        ) : (
+                            <>
+                                ✓
+                                Save Changes
+                            </>
+                        )}
                     </button>
                 </div>
             </form>
         </div>
+    );
+}
+
+// ============================================================
+// SETTINGS CARD
+// ============================================================
+
+function SettingsCard({
+    icon,
+    title,
+    description,
+    children,
+    className = "",
+}) {
+    return (
+        <section
+            className={`
+                rounded-2xl
+                border
+                p-5
+                sm:p-6
+                ${className}
+            `}
+            style={{
+                background:
+                    "var(--chat-bg-primary)",
+                borderColor:
+                    "var(--chat-border)",
+            }}
+        >
+            <div className="flex items-start gap-3">
+
+                <div
+                    className="
+                        flex
+                        h-10
+                        w-10
+                        shrink-0
+                        items-center
+                        justify-center
+                        rounded-xl
+                        text-lg
+                    "
+                    style={{
+                        background:
+                            "var(--chat-accent-soft)",
+                    }}
+                >
+                    {icon}
+                </div>
+
+                <div className="min-w-0">
+
+                    <h3
+                        className="
+                            text-sm
+                            font-bold
+                        "
+                    >
+                        {title}
+                    </h3>
+
+                    <p
+                        className="
+                            mt-1
+                            text-xs
+                            leading-5
+                        "
+                        style={{
+                            color:
+                                "var(--chat-text-muted)",
+                        }}
+                    >
+                        {description}
+                    </p>
+                </div>
+            </div>
+
+            {children}
+        </section>
+    );
+}
+
+// ============================================================
+// FIELD LABEL
+// ============================================================
+
+function FieldLabel({
+    children,
+}) {
+    return (
+        <label
+            className="
+                mb-2
+                block
+                text-sm
+                font-semibold
+            "
+            style={{
+                color:
+                    "var(--chat-text-secondary)",
+            }}
+        >
+            {children}
+        </label>
     );
 }
 
@@ -1253,36 +1553,65 @@ function ThemeButton({
             type="button"
             onClick={onClick}
             className="
-                rounded-xl
+                group
+                relative
+                overflow-hidden
+                rounded-2xl
                 border
                 p-4
                 text-left
-                transition
-                hover:opacity-90
+                transition-all
+                duration-200
+                hover:-translate-y-0.5
+                active:translate-y-0
             "
             style={{
-                borderColor: selected
-                    ? "var(--chat-accent)"
-                    : "var(--chat-border)",
+                borderColor:
+                    selected
+                        ? "var(--chat-accent)"
+                        : "var(--chat-border)",
 
-                background: selected
-                    ? "var(--chat-accent-soft)"
-                    : "var(--chat-bg-secondary)",
-
-                color:
-                    "var(--chat-text-primary)",
+                background:
+                    selected
+                        ? "var(--chat-accent-soft)"
+                        : "var(--chat-bg-secondary)",
             }}
         >
-            <div className="flex items-center gap-3">
+
+            {/* Selected glow */}
+
+            {selected && (
+                <div
+                    className="
+                        absolute
+                        -right-8
+                        -top-8
+                        h-20
+                        w-20
+                        rounded-full
+                        blur-2xl
+                    "
+                    style={{
+                        background:
+                            "var(--chat-accent-soft)",
+                    }}
+                />
+            )}
+
+            <div className="relative flex items-center gap-3">
+
                 <div
                     className="
                         flex
-                        h-10
-                        w-10
+                        h-11
+                        w-11
+                        shrink-0
                         items-center
                         justify-center
-                        rounded-lg
-                        text-lg
+                        rounded-xl
+                        text-xl
+                        transition-transform
+                        group-hover:scale-105
                     "
                     style={{
                         background:
@@ -1294,16 +1623,13 @@ function ThemeButton({
                     {icon}
                 </div>
 
-                <div>
+                <div className="min-w-0">
+
                     <p
                         className="
                             text-sm
-                            font-semibold
+                            font-bold
                         "
-                        style={{
-                            color:
-                                "var(--chat-text-primary)",
-                        }}
                     >
                         {title}
                     </p>
@@ -1311,6 +1637,7 @@ function ThemeButton({
                     <p
                         className="
                             mt-0.5
+                            truncate
                             text-xs
                         "
                         style={{
@@ -1326,19 +1653,40 @@ function ThemeButton({
             {selected && (
                 <div
                     className="
-                        mt-3
-                        text-xs
-                        font-medium
+                        relative
+                        mt-4
+                        flex
+                        items-center
+                        gap-1.5
+                        text-[11px]
+                        font-bold
                     "
                     style={{
                         color:
                             "var(--chat-accent)",
                     }}
                 >
-                    ✓ Selected
+                    <span
+                        className="
+                            flex
+                            h-4
+                            w-4
+                            items-center
+                            justify-center
+                            rounded-full
+                        "
+                        style={{
+                            background:
+                                "var(--chat-accent)",
+                            color: "white",
+                        }}
+                    >
+                        ✓
+                    </span>
+
+                    Currently selected
                 </div>
             )}
         </button>
     );
 }
-
