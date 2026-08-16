@@ -12,6 +12,7 @@ import { callManager } from "@/lib/callManager";
 
 import ChatSideBar from "./ChatSideBar";
 import ChatWindow from "./ChatWindow";
+import CallOverlay from "./CallOverlay";
 
 // ============================================================
 // HELPERS
@@ -27,11 +28,7 @@ function updateConversationPreview(
         message?.conversationId
     );
 
-    if (
-        !Number.isFinite(
-            conversationId
-        )
-    ) {
+    if (!Number.isFinite(conversationId)) {
         return conversations;
     }
 
@@ -58,32 +55,28 @@ function updateConversationPreview(
         conversations.map(
             (conversation) => {
                 if (
-                    Number(
-                        conversation.id
-                    ) !== conversationId
+                    Number(conversation.id) !==
+                    conversationId
                 ) {
                     return conversation;
                 }
 
                 const currentUnread =
                     Number(
-                        conversation.unreadCount ||
-                            0
+                        conversation.unreadCount || 0
                     );
 
                 return {
                     ...conversation,
 
-                    latestMessage:
-                        message,
+                    latestMessage: message,
 
                     updatedAt:
                         message.createdAt ||
                         new Date().toISOString(),
 
                     unreadCount:
-                        isOwnMessage ||
-                        isActive
+                        isOwnMessage || isActive
                             ? currentUnread
                             : currentUnread + 1,
                 };
@@ -92,12 +85,8 @@ function updateConversationPreview(
 
     return [...updated].sort(
         (a, b) =>
-            new Date(
-                b.updatedAt || 0
-            ) -
-            new Date(
-                a.updatedAt || 0
-            )
+            new Date(b.updatedAt || 0) -
+            new Date(a.updatedAt || 0)
     );
 }
 
@@ -120,9 +109,7 @@ function updateConversationMembers(
                 conversation.members || []
             ).map((member) => {
                 if (
-                    Number(
-                        member.userId
-                    ) !== id
+                    Number(member.userId) !== id
                 ) {
                     return member;
                 }
@@ -162,9 +149,7 @@ function updateActiveConversationMember(
             conversation.members || []
         ).map((member) => {
             if (
-                Number(
-                    member.userId
-                ) !== id
+                Number(member.userId) !== id
             ) {
                 return member;
             }
@@ -223,20 +208,15 @@ function createOptimisticMessage({
         deletedAt: null,
 
         pending: true,
-
         sending: true,
-
         failed: false,
 
-        // Keep the current user available
-        // for components that expect sender/user data.
         sender:
             currentUser || null,
 
         user:
             currentUser || null,
 
-        // File metadata
         attachmentUrl:
             file?.url || null,
 
@@ -250,7 +230,6 @@ function createOptimisticMessage({
             file?.type || null,
 
         reactions: [],
-
         receipts: [],
     };
 }
@@ -265,7 +244,7 @@ export default function ChatLayout({
     initialConversationId = null,
 }) {
     // ========================================================
-    // STATE
+    // CHAT STATE
     // ========================================================
 
     const [
@@ -308,7 +287,7 @@ export default function ChatLayout({
     );
 
     // ========================================================
-    // CHAT THEME STATE
+    // CHAT THEME
     // ========================================================
 
     const [
@@ -317,7 +296,7 @@ export default function ChatLayout({
     ] = useState({});
 
     // ========================================================
-    // MOBILE VIEW STATE
+    // MOBILE
     // ========================================================
 
     const [
@@ -333,6 +312,11 @@ export default function ChatLayout({
         callState,
         setCallState,
     ] = useState("idle");
+
+    const [
+        callType,
+        setCallType,
+    ] = useState("audio");
 
     const [
         incomingCall,
@@ -378,13 +362,15 @@ export default function ChatLayout({
         useRef(null);
 
     const conversationsRef =
-        useRef(initialConversations || []);
+        useRef(
+            initialConversations || []
+        );
 
     const currentUserId =
         Number(currentUser?.id);
 
     // ========================================================
-    // KEEP ACTIVE CONVERSATION REF
+    // KEEP REFS UPDATED
     // ========================================================
 
     useEffect(() => {
@@ -414,12 +400,9 @@ export default function ChatLayout({
 
                 if (
                     parsed &&
-                    typeof parsed ===
-                        "object"
+                    typeof parsed === "object"
                 ) {
-                    setChatThemes(
-                        parsed
-                    );
+                    setChatThemes(parsed);
                 }
             }
         } catch (error) {
@@ -463,13 +446,9 @@ export default function ChatLayout({
                         try {
                             window.localStorage.setItem(
                                 "chathub:conversation-themes",
-                                JSON.stringify(
-                                    updated
-                                )
+                                JSON.stringify(updated)
                             );
-                        } catch (
-                            error
-                        ) {
+                        } catch (error) {
                             console.error(
                                 "❌ Failed to save chat theme:",
                                 error
@@ -512,9 +491,7 @@ export default function ChatLayout({
             (previous) => {
                 if (
                     !previous ||
-                    Number(
-                        previous.id
-                    ) !==
+                    Number(previous.id) !==
                         conversationId
                 ) {
                     return previous;
@@ -554,18 +531,18 @@ export default function ChatLayout({
         activeConversation?.id,
     ]);
 
-    // ========================================================
+    // ============================================================
     // SOCKET CONNECTION
-    // ========================================================
+    // ============================================================
 
     useEffect(() => {
         if (!socket.connected) {
             socket.connect();
         }
 
-        // ----------------------------------------------------
+        // --------------------------------------------------------
         // CONNECT
-        // ----------------------------------------------------
+        // --------------------------------------------------------
 
         const onConnect = () => {
             console.log(
@@ -573,14 +550,12 @@ export default function ChatLayout({
                 socket.id
             );
 
-            setSocketConnected(
-                true
-            );
+            setSocketConnected(true);
         };
 
-        // ----------------------------------------------------
+        // --------------------------------------------------------
         // DISCONNECT
-        // ----------------------------------------------------
+        // --------------------------------------------------------
 
         const onDisconnect = (
             reason
@@ -590,14 +565,12 @@ export default function ChatLayout({
                 reason
             );
 
-            setSocketConnected(
-                false
-            );
+            setSocketConnected(false);
         };
 
-        // ----------------------------------------------------
+        // --------------------------------------------------------
         // CONNECT ERROR
-        // ----------------------------------------------------
+        // --------------------------------------------------------
 
         const onConnectError = (
             error
@@ -607,14 +580,12 @@ export default function ChatLayout({
                 error?.message
             );
 
-            setSocketConnected(
-                false
-            );
+            setSocketConnected(false);
         };
 
-        // ----------------------------------------------------
+        // --------------------------------------------------------
         // PRESENCE STATE
-        // ----------------------------------------------------
+        // --------------------------------------------------------
 
         const onPresenceState = (
             data
@@ -627,31 +598,23 @@ export default function ChatLayout({
                     Number.isFinite
                 );
 
-            setOnlineUsers(
-                users
-            );
+            setOnlineUsers(users);
 
             setConversations(
                 (previous) =>
                     previous.map(
-                        (
-                            conversation
-                        ) => ({
+                        (conversation) => ({
                             ...conversation,
 
                             members: (
                                 conversation.members ||
                                 []
                             ).map(
-                                (
-                                    member
-                                ) => {
+                                (member) => {
                                     const memberId =
                                         Number(
                                             member?.userId ??
-                                                member
-                                                    ?.user
-                                                    ?.id
+                                                member?.user?.id
                                         );
 
                                     if (
@@ -693,9 +656,9 @@ export default function ChatLayout({
             );
         };
 
-        // ----------------------------------------------------
+        // --------------------------------------------------------
         // USER ONLINE
-        // ----------------------------------------------------
+        // --------------------------------------------------------
 
         const onUserOnline = ({
             userId,
@@ -706,9 +669,7 @@ export default function ChatLayout({
                 Number(userId);
 
             if (
-                !Number.isFinite(
-                    id
-                )
+                !Number.isFinite(id)
             ) {
                 return;
             }
@@ -716,9 +677,7 @@ export default function ChatLayout({
             setOnlineUsers(
                 (previous) => {
                     if (
-                        previous.includes(
-                            id
-                        )
+                        previous.includes(id)
                     ) {
                         return previous;
                     }
@@ -769,9 +728,9 @@ export default function ChatLayout({
             );
         };
 
-        // ----------------------------------------------------
+        // --------------------------------------------------------
         // USER OFFLINE
-        // ----------------------------------------------------
+        // --------------------------------------------------------
 
         const onUserOffline = ({
             userId,
@@ -784,9 +743,7 @@ export default function ChatLayout({
                 Number(userId);
 
             if (
-                !Number.isFinite(
-                    id
-                )
+                !Number.isFinite(id)
             ) {
                 return;
             }
@@ -854,9 +811,9 @@ export default function ChatLayout({
             );
         };
 
-        // ----------------------------------------------------
-        // USER LAST SEEN UPDATED
-        // ----------------------------------------------------
+        // --------------------------------------------------------
+        // LAST SEEN
+        // --------------------------------------------------------
 
         const onUserLastSeenUpdated = ({
             userId,
@@ -867,9 +824,7 @@ export default function ChatLayout({
                 Number(userId);
 
             if (
-                !Number.isFinite(
-                    id
-                )
+                !Number.isFinite(id)
             ) {
                 return;
             }
@@ -880,17 +835,20 @@ export default function ChatLayout({
                     : lastSeen ||
                       new Date().toISOString();
 
+            const updates = {
+                lastSeen:
+                    updatedLastSeen,
+
+                showLastSeen:
+                    !privacyHidden,
+            };
+
             setConversations(
                 (previous) =>
                     updateConversationMembers(
                         previous,
                         id,
-                        {
-                            lastSeen:
-                                updatedLastSeen,
-                            showLastSeen:
-                                !privacyHidden,
-                        }
+                        updates
                     )
             );
 
@@ -899,19 +857,14 @@ export default function ChatLayout({
                     updateActiveConversationMember(
                         previous,
                         id,
-                        {
-                            lastSeen:
-                                updatedLastSeen,
-                            showLastSeen:
-                                !privacyHidden,
-                        }
+                        updates
                     )
             );
         };
 
-        // ----------------------------------------------------
-        // PRIVACY SETTINGS UPDATED
-        // ----------------------------------------------------
+        // --------------------------------------------------------
+        // PRIVACY SETTINGS
+        // --------------------------------------------------------
 
         const onPrivacySettingsUpdated = ({
             userId,
@@ -921,9 +874,7 @@ export default function ChatLayout({
                 Number(userId);
 
             if (
-                !Number.isFinite(
-                    id
-                )
+                !Number.isFinite(id)
             ) {
                 return;
             }
@@ -933,25 +884,27 @@ export default function ChatLayout({
                     privacy?.lastSeen
                 );
 
+            const updates = {
+                showOnlineStatus:
+                    Boolean(
+                        privacy?.onlineStatus
+                    ),
+
+                showLastSeen:
+                    isLastSeenAllowed,
+
+                lastSeen:
+                    isLastSeenAllowed
+                        ? undefined
+                        : null,
+            };
+
             setConversations(
                 (previous) =>
                     updateConversationMembers(
                         previous,
                         id,
-                        {
-                            showOnlineStatus:
-                                Boolean(
-                                    privacy?.onlineStatus
-                                ),
-
-                            showLastSeen:
-                                isLastSeenAllowed,
-
-                            lastSeen:
-                                isLastSeenAllowed
-                                    ? undefined
-                                    : null,
-                        }
+                        updates
                     )
             );
 
@@ -960,27 +913,14 @@ export default function ChatLayout({
                     updateActiveConversationMember(
                         previous,
                         id,
-                        {
-                            showOnlineStatus:
-                                Boolean(
-                                    privacy?.onlineStatus
-                                ),
-
-                            showLastSeen:
-                                isLastSeenAllowed,
-
-                            lastSeen:
-                                isLastSeenAllowed
-                                    ? undefined
-                                    : null,
-                        }
+                        updates
                     )
             );
         };
 
-        // ====================================================
+        // --------------------------------------------------------
         // REGISTER
-        // ====================================================
+        // --------------------------------------------------------
 
         socket.on(
             "connect",
@@ -1021,10 +961,6 @@ export default function ChatLayout({
             "privacy_settings_updated",
             onPrivacySettingsUpdated
         );
-
-        // ====================================================
-        // CLEANUP
-        // ====================================================
 
         return () => {
             socket.off(
@@ -1083,6 +1019,10 @@ export default function ChatLayout({
             return;
         }
 
+        // --------------------------------------------------------
+        // FIND CALLER
+        // --------------------------------------------------------
+
         const getCallerFromConversation = (
             conversationId,
             callerId
@@ -1116,168 +1056,288 @@ export default function ChatLayout({
             );
         };
 
+        // --------------------------------------------------------
+        // INITIALIZE
+        // --------------------------------------------------------
+
+        console.log(
+            "📞 Initializing CallManager for user:",
+            currentUserId
+        );
+
         callManager.initialize(
             currentUserId
         );
 
+        // --------------------------------------------------------
+        // CALLBACKS
+        // --------------------------------------------------------
+
         callManager.setCallbacks({
+            // ====================================================
+            // INCOMING CALL
+            // ====================================================
+
             onIncomingCall:
                 (data) => {
+                    console.log(
+                        "📞 INCOMING CALL:",
+                        data
+                    );
+
+                    const incomingType =
+                        data?.callType ||
+                        data?.type ||
+                        (
+                            data?.isVideo
+                                ? "video"
+                                : "audio"
+                        );
+
+                    const normalizedType =
+                        incomingType ===
+                        "video"
+                            ? "video"
+                            : "audio";
+
                     const caller =
                         getCallerFromConversation(
                             data?.conversationId,
                             data?.callerId
                         );
 
+                    setCallType(
+                        normalizedType
+                    );
+
                     setIncomingCall({
                         ...data,
                         caller,
                     });
 
-                    setCallError(
-                        null
-                    );
+                    setCallError(null);
 
                     setCallState(
                         "incoming"
                     );
                 },
 
+            // ====================================================
+            // OUTGOING CALL STARTED
+            // ====================================================
+
             onCallStarted:
-                () => {
-                    setIncomingCall(
-                        null
+                (data) => {
+                    console.log(
+                        "📞 OUTGOING CALL STARTED:",
+                        data
                     );
 
-                    setCallError(
-                        null
+                    const outgoingType =
+                        data?.callType ||
+                        data?.type ||
+                        (
+                            data?.isVideo
+                                ? "video"
+                                : callType
+                        );
+
+                    setCallType(
+                        outgoingType ===
+                            "video"
+                            ? "video"
+                            : "audio"
                     );
+
+                    setIncomingCall(null);
+                    setCallError(null);
 
                     setCallState(
                         "outgoing"
                     );
                 },
 
+            // ====================================================
+            // ACCEPTED
+            // ====================================================
+
             onCallAccepted:
-                () => {
-                    setIncomingCall(
-                        null
+                (data) => {
+                    console.log(
+                        "📞 CALL ACCEPTED:",
+                        data
                     );
 
-                    setCallError(
-                        null
-                    );
+                    const acceptedType =
+                        data?.callType ||
+                        data?.type;
+
+                    if (
+                        acceptedType ===
+                            "video" ||
+                        acceptedType ===
+                            "audio"
+                    ) {
+                        setCallType(
+                            acceptedType
+                        );
+                    }
+
+                    setIncomingCall(null);
+                    setCallError(null);
 
                     setCallState(
                         "connecting"
                     );
                 },
 
+            // ====================================================
+            // CONNECTED
+            // ====================================================
+
             onCallConnected:
-                () => {
-                    setIncomingCall(
-                        null
+                (data) => {
+                    console.log(
+                        "📞 CALL CONNECTED:",
+                        data
                     );
 
-                    setCallError(
-                        null
-                    );
+                    const connectedType =
+                        data?.callType ||
+                        data?.type;
+
+                    if (
+                        connectedType ===
+                            "video" ||
+                        connectedType ===
+                            "audio"
+                    ) {
+                        setCallType(
+                            connectedType
+                        );
+                    }
+
+                    setIncomingCall(null);
+                    setCallError(null);
 
                     setCallState(
                         "connected"
                     );
                 },
 
+            // ====================================================
+            // LOCAL STREAM
+            // ====================================================
+
             onLocalStream:
                 (stream) => {
+                    console.log(
+                        "🎤 LOCAL STREAM:",
+                        stream
+                    );
+
                     setLocalStream(
-                        stream ||
-                            null
+                        stream || null
                     );
                 },
+
+            // ====================================================
+            // REMOTE STREAM
+            // ====================================================
 
             onRemoteStream:
                 (stream) => {
+                    console.log(
+                        "📺 REMOTE STREAM:",
+                        stream
+                    );
+
                     setRemoteStream(
-                        stream ||
-                            null
+                        stream || null
                     );
                 },
+
+            // ====================================================
+            // REJECTED
+            // ====================================================
 
             onCallRejected:
-                () => {
-                    setIncomingCall(
-                        null
+                (data) => {
+                    console.log(
+                        "📵 CALL REJECTED:",
+                        data
                     );
 
-                    setLocalStream(
-                        null
-                    );
+                    setIncomingCall(null);
+                    setLocalStream(null);
+                    setRemoteStream(null);
 
-                    setRemoteStream(
-                        null
-                    );
+                    setIsMuted(false);
+                    setIsCameraOff(false);
 
-                    setIsMuted(
-                        false
-                    );
+                    setCallError(null);
+                    setCallType("audio");
 
-                    setIsCameraOff(
-                        false
-                    );
-
-                    setCallState(
-                        "idle"
-                    );
+                    setCallState("idle");
                 },
+
+            // ====================================================
+            // ENDED
+            // ====================================================
 
             onCallEnded:
-                () => {
-                    setIncomingCall(
-                        null
+                (data) => {
+                    console.log(
+                        "📴 CALL ENDED:",
+                        data
                     );
 
-                    setLocalStream(
-                        null
-                    );
+                    setIncomingCall(null);
+                    setLocalStream(null);
+                    setRemoteStream(null);
 
-                    setRemoteStream(
-                        null
-                    );
+                    setIsMuted(false);
+                    setIsCameraOff(false);
 
-                    setIsMuted(
-                        false
-                    );
+                    setCallError(null);
+                    setCallType("audio");
 
-                    setIsCameraOff(
-                        false
-                    );
-
-                    setCallState(
-                        "idle"
-                    );
+                    setCallState("idle");
                 },
+
+            // ====================================================
+            // MUTE
+            // ====================================================
 
             onMuteChanged:
                 (muted) => {
                     setIsMuted(
-                        Boolean(
-                            muted
-                        )
+                        Boolean(muted)
                     );
                 },
+
+            // ====================================================
+            // CAMERA
+            // ====================================================
 
             onCameraChanged:
                 (cameraOff) => {
                     setIsCameraOff(
-                        Boolean(
-                            cameraOff
-                        )
+                        Boolean(cameraOff)
                     );
                 },
 
+            // ====================================================
+            // CALL ERROR
+            // ====================================================
+
             onCallError:
                 (message) => {
+                    console.error(
+                        "❌ CALL ERROR:",
+                        message
+                    );
+
                     setCallError(
                         message ||
                             "Unable to establish the call."
@@ -1285,7 +1345,15 @@ export default function ChatLayout({
                 },
         });
 
+        // --------------------------------------------------------
+        // CLEANUP
+        // --------------------------------------------------------
+
         return () => {
+            console.log(
+                "🧹 Destroying CallManager from ChatLayout"
+            );
+
             callManager.destroy();
         };
     }, [
@@ -1317,18 +1385,11 @@ export default function ChatLayout({
                         conversation.id
                     );
 
-                console.log(
-                    "💬 New conversation received:",
-                    conversation
-                );
-
                 setConversations(
                     (previous) => {
                         const exists =
                             previous.some(
-                                (
-                                    item
-                                ) =>
+                                (item) =>
                                     Number(
                                         item.id
                                     ) ===
@@ -1354,9 +1415,7 @@ export default function ChatLayout({
                         {
                             conversationId,
                         },
-                        (
-                            response
-                        ) => {
+                        (response) => {
                             if (
                                 response?.success
                             ) {
@@ -1535,9 +1594,7 @@ export default function ChatLayout({
                             );
                         }
                     }
-                } catch (
-                    error
-                ) {
+                } catch (error) {
                     console.error(
                         "❌ LOAD MESSAGES ERROR:",
                         error
@@ -1556,7 +1613,7 @@ export default function ChatLayout({
         );
 
     // ============================================================
-    // MARK CONVERSATION READ
+    // MARK READ
     // ============================================================
 
     const markConversationRead =
@@ -1590,10 +1647,8 @@ export default function ChatLayout({
                                 )
                                     ? {
                                           ...conversation,
-
                                           unreadCount:
                                               0,
-
                                           lastReadAt:
                                               new Date().toISOString(),
                                       }
@@ -1666,13 +1721,9 @@ export default function ChatLayout({
                     conversation
                 );
 
-                setTypingUsers(
-                    []
-                );
+                setTypingUsers([]);
 
-                setMessages(
-                    []
-                );
+                setMessages([]);
 
                 if (
                     socket.connected
@@ -1682,9 +1733,7 @@ export default function ChatLayout({
                         {
                             conversationId,
                         },
-                        (
-                            response
-                        ) => {
+                        (response) => {
                             if (
                                 !response?.success
                             ) {
@@ -1704,25 +1753,6 @@ export default function ChatLayout({
                 markConversationRead(
                     conversationId
                 );
-
-                setConversations(
-                    (previous) =>
-                        previous.map(
-                            (
-                                item
-                            ) =>
-                                Number(
-                                    item.id
-                                ) ===
-                                conversationId
-                                    ? {
-                                          ...item,
-                                          unreadCount:
-                                              0,
-                                      }
-                                    : item
-                        )
-                );
             },
             [
                 loadMessages,
@@ -1731,7 +1761,7 @@ export default function ChatLayout({
         );
 
     // ============================================================
-    // CALL ACTIONS
+    // GET OTHER MEMBER
     // ============================================================
 
     const getOtherConversationMember =
@@ -1745,21 +1775,22 @@ export default function ChatLayout({
                 }
 
                 return (
-                    active.members ||
-                    []
+                    active.members || []
                 ).find(
                     (member) =>
                         Number(
                             member?.userId ??
-                                member
-                                    ?.user
-                                    ?.id
+                                member?.user?.id
                         ) !==
                         currentUserId
                 ) || null;
             },
             [currentUserId]
         );
+
+    // ============================================================
+    // START AUDIO CALL
+    // ============================================================
 
     const startAudioCall =
         useCallback(
@@ -1773,9 +1804,7 @@ export default function ChatLayout({
                 const receiverId =
                     Number(
                         member?.userId ??
-                            member
-                                ?.user
-                                ?.id
+                            member?.user?.id
                     );
 
                 if (
@@ -1790,14 +1819,15 @@ export default function ChatLayout({
                     );
 
                     return {
-                        success:
-                            false,
+                        success: false,
                     };
                 }
 
-                setCallError(
-                    null
+                setCallType(
+                    "audio"
                 );
+
+                setCallError(null);
 
                 return callManager.startAudioCall(
                     Number(
@@ -1811,6 +1841,10 @@ export default function ChatLayout({
             ]
         );
 
+    // ============================================================
+    // START VIDEO CALL
+    // ============================================================
+
     const startVideoCall =
         useCallback(
             async () => {
@@ -1823,9 +1857,7 @@ export default function ChatLayout({
                 const receiverId =
                     Number(
                         member?.userId ??
-                            member
-                                ?.user
-                                ?.id
+                            member?.user?.id
                     );
 
                 if (
@@ -1840,14 +1872,15 @@ export default function ChatLayout({
                     );
 
                     return {
-                        success:
-                            false,
+                        success: false,
                     };
                 }
 
-                setCallError(
-                    null
+                setCallType(
+                    "video"
                 );
+
+                setCallError(null);
 
                 return callManager.startVideoCall(
                     Number(
@@ -1861,17 +1894,23 @@ export default function ChatLayout({
             ]
         );
 
+    // ============================================================
+    // ACCEPT CALL
+    // ============================================================
+
     const acceptIncomingCall =
         useCallback(
             async () => {
-                setCallError(
-                    null
-                );
+                setCallError(null);
 
                 return callManager.acceptCall();
             },
             []
         );
+
+    // ============================================================
+    // REJECT CALL
+    // ============================================================
 
     const rejectIncomingCall =
         useCallback(
@@ -1885,6 +1924,10 @@ export default function ChatLayout({
             []
         );
 
+    // ============================================================
+    // END CALL
+    // ============================================================
+
     const endCurrentCall =
         useCallback(
             (
@@ -1897,6 +1940,10 @@ export default function ChatLayout({
             []
         );
 
+    // ============================================================
+    // TOGGLE MUTE
+    // ============================================================
+
     const toggleCallMute =
         useCallback(
             () => {
@@ -1904,6 +1951,10 @@ export default function ChatLayout({
             },
             []
         );
+
+    // ============================================================
+    // TOGGLE CAMERA
+    // ============================================================
 
     const toggleCallCamera =
         useCallback(
@@ -1954,13 +2005,9 @@ export default function ChatLayout({
                     null
                 );
 
-                setMessages(
-                    []
-                );
+                setMessages([]);
 
-                setTypingUsers(
-                    []
-                );
+                setTypingUsers([]);
 
                 setLoadingMessages(
                     false
@@ -2055,20 +2102,11 @@ export default function ChatLayout({
                 ) ===
                     conversationId;
 
-            // ------------------------------------------------
-            // IMPORTANT:
-            // If this message already exists locally
-            // because of optimistic UI / ACK, don't add
-            // another copy.
-            // ------------------------------------------------
-
             setMessages(
                 (previous) => {
                     const existing =
                         previous.find(
-                            (
-                                item
-                            ) =>
+                            (item) =>
                                 Number(
                                     item.id
                                 ) ===
@@ -2077,13 +2115,9 @@ export default function ChatLayout({
                                 )
                         );
 
-                    if (
-                        existing
-                    ) {
+                    if (existing) {
                         return previous.map(
-                            (
-                                item
-                            ) =>
+                            (item) =>
                                 Number(
                                     item.id
                                 ) ===
@@ -2104,26 +2138,15 @@ export default function ChatLayout({
                         );
                     }
 
-                    // ------------------------------------------------
-                    // Replace optimistic message when the server
-                    // sends the real message.
-                    //
-                    // We match by:
-                    // sender + conversation + content + nearby
-                    // createdAt.
-                    // ------------------------------------------------
-
                     if (
                         Number(
                             message.senderId
                         ) ===
-                            currentUserId
+                        currentUserId
                     ) {
                         const optimisticIndex =
                             previous.findIndex(
-                                (
-                                    item
-                                ) =>
+                                (item) =>
                                     item?.pending ===
                                         true &&
                                     Number(
@@ -2191,10 +2214,6 @@ export default function ChatLayout({
                 }
             );
 
-            // ------------------------------------------------
-            // Conversation sidebar preview
-            // ------------------------------------------------
-
             setConversations(
                 (previous) =>
                     updateConversationPreview(
@@ -2206,10 +2225,6 @@ export default function ChatLayout({
                             : null
                     )
             );
-
-            // ------------------------------------------------
-            // Incoming message delivery
-            // ------------------------------------------------
 
             if (
                 isActiveConversation &&
@@ -2228,9 +2243,9 @@ export default function ChatLayout({
             }
         };
 
-        // ====================================================
+        // ========================================================
         // RECEIPT UPDATED
-        // ====================================================
+        // ========================================================
 
         const onReceiptUpdated = (
             receipt
@@ -2262,9 +2277,7 @@ export default function ChatLayout({
 
                             const existing =
                                 receipts.find(
-                                    (
-                                        item
-                                    ) =>
+                                    (item) =>
                                         Number(
                                             item.userId
                                         ) ===
@@ -2273,17 +2286,13 @@ export default function ChatLayout({
                                         )
                                 );
 
-                            if (
-                                existing
-                            ) {
+                            if (existing) {
                                 return {
                                     ...message,
 
                                     receipts:
                                         receipts.map(
-                                            (
-                                                item
-                                            ) =>
+                                            (item) =>
                                                 Number(
                                                     item.userId
                                                 ) ===
@@ -2312,9 +2321,9 @@ export default function ChatLayout({
             );
         };
 
-        // ====================================================
+        // ========================================================
         // MESSAGE UPDATED
-        // ====================================================
+        // ========================================================
 
         const onMessageUpdated = (
             updatedMessage
@@ -2357,9 +2366,9 @@ export default function ChatLayout({
             );
         };
 
-        // ====================================================
+        // ========================================================
         // MESSAGE DELETED
-        // ====================================================
+        // ========================================================
 
         const onMessageDeleted = (
             deletedMessage
@@ -2402,7 +2411,6 @@ export default function ChatLayout({
                         previous,
                         {
                             ...deletedMessage,
-
                             content:
                                 "This message was deleted",
                         },
@@ -2412,9 +2420,9 @@ export default function ChatLayout({
             );
         };
 
-        // ====================================================
+        // ========================================================
         // REACTION ADDED
-        // ====================================================
+        // ========================================================
 
         const onReactionAdded = (
             reaction
@@ -2446,9 +2454,7 @@ export default function ChatLayout({
 
                             const exists =
                                 reactions.some(
-                                    (
-                                        item
-                                    ) =>
+                                    (item) =>
                                         Number(
                                             item.id
                                         ) ===
@@ -2457,9 +2463,7 @@ export default function ChatLayout({
                                         )
                                 );
 
-                            if (
-                                exists
-                            ) {
+                            if (exists) {
                                 return message;
                             }
 
@@ -2476,9 +2480,9 @@ export default function ChatLayout({
             );
         };
 
-        // ====================================================
+        // ========================================================
         // REACTION REMOVED
-        // ====================================================
+        // ========================================================
 
         const onReactionRemoved = (
             reaction
@@ -2506,9 +2510,7 @@ export default function ChatLayout({
                                           message.reactions ||
                                           []
                                       ).filter(
-                                          (
-                                              item
-                                          ) =>
+                                          (item) =>
                                               Number(
                                                   item.id
                                               ) !==
@@ -2522,9 +2524,9 @@ export default function ChatLayout({
             );
         };
 
-        // ====================================================
+        // ========================================================
         // USER TYPING
-        // ====================================================
+        // ========================================================
 
         const onUserTyping = ({
             userId,
@@ -2535,11 +2537,8 @@ export default function ChatLayout({
                 Number(userId);
 
             if (
-                !Number.isFinite(
-                    id
-                ) ||
-                id ===
-                    currentUserId
+                !Number.isFinite(id) ||
+                id === currentUserId
             ) {
                 return;
             }
@@ -2563,13 +2562,10 @@ export default function ChatLayout({
                 (previous) => {
                     const exists =
                         previous.some(
-                            (
-                                user
-                            ) =>
+                            (user) =>
                                 Number(
                                     user.userId
-                                ) ===
-                                id
+                                ) === id
                         );
 
                     if (exists) {
@@ -2579,9 +2575,7 @@ export default function ChatLayout({
                     return [
                         ...previous,
                         {
-                            userId:
-                                id,
-
+                            userId: id,
                             username:
                                 username ||
                                 `User ${id}`,
@@ -2591,9 +2585,9 @@ export default function ChatLayout({
             );
         };
 
-        // ====================================================
+        // ========================================================
         // USER STOPPED TYPING
-        // ====================================================
+        // ========================================================
 
         const onUserStoppedTyping = ({
             userId,
@@ -2628,9 +2622,9 @@ export default function ChatLayout({
             );
         };
 
-        // ====================================================
+        // ========================================================
         // REGISTER
-        // ====================================================
+        // ========================================================
 
         socket.on(
             "new_message",
@@ -2672,9 +2666,9 @@ export default function ChatLayout({
             onUserStoppedTyping
         );
 
-        // ====================================================
+        // ========================================================
         // CLEANUP
-        // ====================================================
+        // ========================================================
 
         return () => {
             socket.off(
@@ -2728,9 +2722,7 @@ export default function ChatLayout({
     // ============================================================
 
     const sendMessage =
-        async (
-            messageData
-        ) => {
+        async (messageData) => {
             if (!messageData) {
                 return;
             }
@@ -2770,31 +2762,25 @@ export default function ChatLayout({
             stopTyping();
 
             // ====================================================
-            // TEXT MESSAGE - OPTIMISTIC UI
+            // TEXT MESSAGE
             // ====================================================
 
             if (!file) {
                 const optimisticMessage =
-                    createOptimisticMessage(
-                        {
-                            conversationId:
-                                active.id,
+                    createOptimisticMessage({
+                        conversationId:
+                            active.id,
 
-                            currentUser,
+                        currentUser,
 
-                            currentUserId,
+                        currentUserId,
 
-                            content:
-                                trimmedContent,
+                        content:
+                            trimmedContent,
 
-                            type:
-                                "TEXT",
-                        }
-                    );
-
-                // ------------------------------------------------
-                // DISPLAY IMMEDIATELY
-                // ------------------------------------------------
+                        type:
+                            "TEXT",
+                    });
 
                 setMessages(
                     (previous) => [
@@ -2802,10 +2788,6 @@ export default function ChatLayout({
                         optimisticMessage,
                     ]
                 );
-
-                // ------------------------------------------------
-                // UPDATE SIDEBAR IMMEDIATELY
-                // ------------------------------------------------
 
                 setConversations(
                     (previous) =>
@@ -2816,10 +2798,6 @@ export default function ChatLayout({
                             active.id
                         )
                 );
-
-                // ------------------------------------------------
-                // SEND TO SERVER
-                // ------------------------------------------------
 
                 socket.emit(
                     "send_message",
@@ -2833,13 +2811,7 @@ export default function ChatLayout({
                         type:
                             "TEXT",
                     },
-                    (
-                        response
-                    ) => {
-                        // =================================================
-                        // SERVER ACK
-                        // =================================================
-
+                    (response) => {
                         if (
                             !response?.success
                         ) {
@@ -2847,10 +2819,6 @@ export default function ChatLayout({
                                 "❌ SEND MESSAGE:",
                                 response?.message
                             );
-
-                            // ---------------------------------------------
-                            // Mark optimistic message as failed
-                            // ---------------------------------------------
 
                             setMessages(
                                 (previous) =>
@@ -2862,13 +2830,10 @@ export default function ChatLayout({
                                             optimisticMessage.id
                                                 ? {
                                                       ...message,
-
                                                       pending:
                                                           false,
-
                                                       sending:
                                                           false,
-
                                                       failed:
                                                           true,
                                                   }
@@ -2879,11 +2844,6 @@ export default function ChatLayout({
                             return;
                         }
 
-                        // ------------------------------------------------
-                        // Your server returns the created message.
-                        // Support common response shapes.
-                        // ------------------------------------------------
-
                         const serverMessage =
                             response?.message ||
                             response?.data?.message ||
@@ -2892,16 +2852,8 @@ export default function ChatLayout({
                         if (
                             !serverMessage?.id
                         ) {
-                            console.warn(
-                                "⚠️ SEND MESSAGE succeeded but server message was not returned."
-                            );
-
                             return;
                         }
-
-                        // ------------------------------------------------
-                        // Replace optimistic message with real DB message
-                        // ------------------------------------------------
 
                         setMessages(
                             (previous) =>
@@ -2913,23 +2865,16 @@ export default function ChatLayout({
                                         optimisticMessage.id
                                             ? {
                                                   ...serverMessage,
-
                                                   pending:
                                                       false,
-
                                                   sending:
                                                       false,
-
                                                   failed:
                                                       false,
                                               }
                                             : message
                                 )
                         );
-
-                        // ------------------------------------------------
-                        // Update sidebar using real server message
-                        // ------------------------------------------------
 
                         setConversations(
                             (previous) =>
@@ -2950,28 +2895,22 @@ export default function ChatLayout({
             // FILE MESSAGE
             // ====================================================
 
-            let optimisticFileMessage =
-                createOptimisticMessage(
-                    {
-                        conversationId:
-                            active.id,
+            const optimisticFileMessage =
+                createOptimisticMessage({
+                    conversationId:
+                        active.id,
 
-                        currentUser,
+                    currentUser,
 
-                        currentUserId,
+                    currentUserId,
 
-                        content:
-                            trimmedContent,
+                    content:
+                        trimmedContent,
 
-                        type,
+                    type,
 
-                        file,
-                    }
-                );
-
-            // ------------------------------------------------
-            // SHOW FILE MESSAGE IMMEDIATELY
-            // ------------------------------------------------
+                    file,
+                });
 
             setMessages(
                 (previous) => [
@@ -3042,13 +2981,10 @@ export default function ChatLayout({
                                     optimisticFileMessage.id
                                         ? {
                                               ...message,
-
                                               pending:
                                                   false,
-
                                               sending:
                                                   false,
-
                                               failed:
                                                   true,
                                           }
@@ -3079,13 +3015,10 @@ export default function ChatLayout({
                                     optimisticFileMessage.id
                                         ? {
                                               ...message,
-
                                               pending:
                                                   false,
-
                                               sending:
                                                   false,
-
                                               failed:
                                                   true,
                                           }
@@ -3142,13 +3075,10 @@ export default function ChatLayout({
                                     optimisticFileMessage.id
                                         ? {
                                               ...message,
-
                                               pending:
                                                   false,
-
                                               sending:
                                                   false,
-
                                               failed:
                                                   true,
                                           }
@@ -3158,10 +3088,6 @@ export default function ChatLayout({
 
                     return;
                 }
-
-                // ====================================================
-                // UPDATE OPTIMISTIC FILE MESSAGE WITH UPLOAD DATA
-                // ====================================================
 
                 setMessages(
                     (previous) =>
@@ -3173,28 +3099,19 @@ export default function ChatLayout({
                                 optimisticFileMessage.id
                                     ? {
                                           ...message,
-
                                           attachmentUrl,
-
                                           attachmentName:
                                               uploadedName,
-
                                           attachmentSize:
                                               uploadedSize,
-
                                           attachmentMimeType:
                                               uploadedMimeType,
-
                                           type:
                                               uploadedType,
                                       }
                                     : message
                         )
                 );
-
-                // ====================================================
-                // SEND FILE MESSAGE TO SERVER
-                // ====================================================
 
                 socket.emit(
                     "send_message",
@@ -3219,9 +3136,7 @@ export default function ChatLayout({
                         attachmentMimeType:
                             uploadedMimeType,
                     },
-                    (
-                        response
-                    ) => {
+                    (response) => {
                         if (
                             !response?.success
                         ) {
@@ -3240,13 +3155,10 @@ export default function ChatLayout({
                                             optimisticFileMessage.id
                                                 ? {
                                                       ...message,
-
                                                       pending:
                                                           false,
-
                                                       sending:
                                                           false,
-
                                                       failed:
                                                           true,
                                                   }
@@ -3278,13 +3190,10 @@ export default function ChatLayout({
                                         optimisticFileMessage.id
                                             ? {
                                                   ...serverMessage,
-
                                                   pending:
                                                       false,
-
                                                   sending:
                                                       false,
-
                                                   failed:
                                                       false,
                                               }
@@ -3303,9 +3212,7 @@ export default function ChatLayout({
                         );
                     }
                 );
-            } catch (
-                error
-            ) {
+            } catch (error) {
                 console.error(
                     "❌ FILE UPLOAD ERROR:",
                     error
@@ -3321,13 +3228,10 @@ export default function ChatLayout({
                                 optimisticFileMessage.id
                                     ? {
                                           ...message,
-
                                           pending:
                                               false,
-
                                           sending:
                                               false,
-
                                           failed:
                                               true,
                                       }
@@ -3439,13 +3343,11 @@ export default function ChatLayout({
             const newContent =
                 window.prompt(
                     "Edit message",
-                    message.content ||
-                        ""
+                    message.content || ""
                 );
 
             if (
-                newContent ===
-                null
+                newContent === null
             ) {
                 return;
             }
@@ -3472,9 +3374,7 @@ export default function ChatLayout({
                     content:
                         trimmed,
                 },
-                (
-                    response
-                ) => {
+                (response) => {
                     if (
                         response &&
                         !response.success
@@ -3534,9 +3434,7 @@ export default function ChatLayout({
                     messageId:
                         message.id,
                 },
-                (
-                    response
-                ) => {
+                (response) => {
                     if (
                         response &&
                         !response.success
@@ -3591,9 +3489,7 @@ export default function ChatLayout({
 
                         emoji,
                     },
-                    (
-                        response
-                    ) => {
+                    (response) => {
                         if (
                             response &&
                             !response.success
@@ -3617,9 +3513,7 @@ export default function ChatLayout({
 
                     emoji,
                 },
-                (
-                    response
-                ) => {
+                (response) => {
                     if (
                         response &&
                         !response.success
@@ -3672,7 +3566,12 @@ export default function ChatLayout({
     // ============================================================
 
     return (
-        <div className="flex h-full w-full overflow-hidden bg-[#111b21] text-white">
+        <div className="relative flex h-full w-full overflow-hidden bg-[#111b21] text-white">
+
+            {/* ==================================================
+                SIDEBAR
+            ================================================== */}
+
             <aside
                 className={`
                     h-full
@@ -3714,6 +3613,10 @@ export default function ChatLayout({
                     }
                 />
             </aside>
+
+            {/* ==================================================
+                CHAT WINDOW
+            ================================================== */}
 
             <main
                 className={`
@@ -3801,34 +3704,12 @@ export default function ChatLayout({
                         toggleReaction
                     }
 
-                    callState={
-                        callState
+                    onBack={
+                        handleBackToConversations
                     }
 
-                    incomingCall={
-                        incomingCall
-                    }
-
-                    localStream={
-                        localStream
-                    }
-
-                    remoteStream={
-                        remoteStream
-                    }
-
-                    isMuted={
-                        isMuted
-                    }
-
-                    isCameraOff={
-                        isCameraOff
-                    }
-
-                    callError={
-                        callError
-                    }
-
+                    // Keep these available to ChatWindow
+                    // if it uses them for call buttons.
                     onStartAudioCall={
                         startAudioCall
                     }
@@ -3836,32 +3717,83 @@ export default function ChatLayout({
                     onStartVideoCall={
                         startVideoCall
                     }
-
-                    onAcceptCall={
-                        acceptIncomingCall
-                    }
-
-                    onRejectCall={
-                        rejectIncomingCall
-                    }
-
-                    onEndCall={
-                        endCurrentCall
-                    }
-
-                    onToggleCallMute={
-                        toggleCallMute
-                    }
-
-                    onToggleCallCamera={
-                        toggleCallCamera
-                    }
-
-                    onBack={
-                        handleBackToConversations
-                    }
                 />
             </main>
+
+            {/* ==================================================
+                CALL OVERLAY
+
+                IMPORTANT:
+                This is intentionally OUTSIDE ChatWindow.
+
+                CallOverlay uses:
+                    fixed inset-0 z-[100]
+
+                Therefore it can cover the entire ChatHub UI
+                instead of being constrained by ChatWindow.
+            ================================================== */}
+
+            <CallOverlay
+                callState={
+                    callState
+                }
+
+                callType={
+                    callType
+                }
+
+                incomingCall={
+                    incomingCall
+                }
+
+                currentUser={
+                    currentUser
+                }
+
+                activeConversation={
+                    activeConversation
+                }
+
+                localStream={
+                    localStream
+                }
+
+                remoteStream={
+                    remoteStream
+                }
+
+                isMuted={
+                    isMuted
+                }
+
+                isCameraOff={
+                    isCameraOff
+                }
+
+                callError={
+                    callError
+                }
+
+                onAcceptCall={
+                    acceptIncomingCall
+                }
+
+                onRejectCall={
+                    rejectIncomingCall
+                }
+
+                onEndCall={
+                    endCurrentCall
+                }
+
+                onToggleCallMute={
+                    toggleCallMute
+                }
+
+                onToggleCallCamera={
+                    toggleCallCamera
+                }
+            />
         </div>
     );
 }
