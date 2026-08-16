@@ -66,8 +66,7 @@ export default function ChatSideBar({
                         credentials: "include",
                         cache: "no-store",
                         headers: {
-                            Accept:
-                                "application/json",
+                            Accept: "application/json",
                         },
                     }
                 );
@@ -123,14 +122,15 @@ export default function ChatSideBar({
     const sidebarUser =
         profileUser || currentUser || {};
 
-    // ============================================================
-    // CURRENT USER DISPLAY NAME
-    // ============================================================
-
     const displayName =
         sidebarUser?.displayName ||
         sidebarUser?.username ||
         "User";
+
+    const username =
+        sidebarUser?.username
+            ? `@${sidebarUser.username}`
+            : "";
 
     const userInitial =
         displayName.charAt(0).toUpperCase() || "?";
@@ -144,7 +144,7 @@ export default function ChatSideBar({
     }, [sidebarUser?.avatar]);
 
     // ============================================================
-    // FETCH PENDING FRIEND REQUESTS
+    // FETCH FRIEND REQUEST COUNT
     // ============================================================
 
     const fetchFriendRequestCount =
@@ -157,8 +157,7 @@ export default function ChatSideBar({
                         credentials: "include",
                         cache: "no-store",
                         headers: {
-                            Accept:
-                                "application/json",
+                            Accept: "application/json",
                         },
                     }
                 );
@@ -326,39 +325,27 @@ export default function ChatSideBar({
         ]);
 
     // ============================================================
-    // OPEN FRIENDS PAGE
+    // NAVIGATION
     // ============================================================
 
     const handleOpenFriends = () => {
         router.push("/friends");
     };
 
-    // ============================================================
-    // OPEN OWN PROFILE
-    // ============================================================
-
     const handleOpenProfile = () => {
         router.push("/profile");
     };
 
-    // ============================================================
-    // OPEN STATUS
-    // ============================================================
-
     const handleOpenStatus = () => {
         router.push("/status");
     };
-
-    // ============================================================
-    // OPEN SETTINGS
-    // ============================================================
 
     const handleOpenSettings = () => {
         router.push("/settings");
     };
 
     // ============================================================
-    // OPEN LOGOUT MODAL
+    // LOGOUT MODAL
     // ============================================================
 
     const handleOpenLogoutModal = () => {
@@ -368,10 +355,6 @@ export default function ChatSideBar({
 
         setShowLogoutModal(true);
     };
-
-    // ============================================================
-    // CLOSE LOGOUT MODAL
-    // ============================================================
 
     const handleCloseLogoutModal = () => {
         if (loggingOut) {
@@ -399,8 +382,7 @@ export default function ChatSideBar({
                     method: "POST",
                     credentials: "include",
                     headers: {
-                        Accept:
-                            "application/json",
+                        Accept: "application/json",
                     },
                     cache: "no-store",
                 }
@@ -437,16 +419,12 @@ export default function ChatSideBar({
     };
 
     // ============================================================
-    // OPEN NEW CHAT
+    // NEW CHAT
     // ============================================================
 
     const handleOpenNewChat = () => {
         setShowNewChat(true);
     };
-
-    // ============================================================
-    // CLOSE NEW CHAT
-    // ============================================================
 
     const handleCloseNewChat = () => {
         setShowNewChat(false);
@@ -464,12 +442,11 @@ export default function ChatSideBar({
                     h-full
                     w-full
                     flex-col
+                    overflow-hidden
                     border-r
                     border-border
                     bg-background
                     text-foreground
-                    transition-colors
-                    duration-200
 
                     md:w-[360px]
                     lg:w-[400px]
@@ -487,230 +464,341 @@ export default function ChatSideBar({
 
                 <div
                     className="
-                        flex
-                        h-[64px]
+                        relative
                         shrink-0
-                        items-center
-                        justify-between
+                        overflow-hidden
                         border-b
                         border-border
                         bg-surface
-                        px-4
                     "
                 >
-                    {/* USER INFO */}
+                    {/* SUBTLE HEADER GLOW */}
 
-                    <button
-                        type="button"
-                        onClick={
-                            handleOpenProfile
-                        }
+                    <div
                         className="
-                            flex
-                            min-w-0
-                            items-center
-                            gap-3
-                            rounded-lg
-                            text-left
-                            transition
-                            hover:opacity-90
+                            pointer-events-none
+                            absolute
+                            -right-16
+                            -top-20
+                            h-40
+                            w-40
+                            rounded-full
+                            bg-indigo-500/10
+                            blur-3xl
                         "
-                        title="Open your profile"
-                        aria-label="Open your profile"
+                    />
+
+                    <div
+                        className="
+                            relative
+                            flex
+                            h-[76px]
+                            items-center
+                            justify-between
+                            px-4
+                        "
                     >
-                        {/* AVATAR */}
+                        {/* USER PROFILE */}
+
+                        <button
+                            type="button"
+                            onClick={
+                                handleOpenProfile
+                            }
+                            className="
+                                group
+                                flex
+                                min-w-0
+                                items-center
+                                gap-3
+                                rounded-2xl
+                                pr-3
+                                text-left
+                                transition-all
+                                duration-200
+                                hover:bg-hover
+                            "
+                            title="Open your profile"
+                            aria-label="Open your profile"
+                        >
+                            {/* AVATAR */}
+
+                            <div
+                                className="
+                                    relative
+                                    flex
+                                    h-11
+                                    w-11
+                                    shrink-0
+                                    items-center
+                                    justify-center
+                                    overflow-hidden
+                                    rounded-full
+                                    bg-gradient-to-br
+                                    from-blue-500
+                                    via-indigo-500
+                                    to-purple-600
+                                    p-[2px]
+                                    shadow-lg
+                                    shadow-indigo-500/10
+                                "
+                            >
+                                <div
+                                    className="
+                                        flex
+                                        h-full
+                                        w-full
+                                        items-center
+                                        justify-center
+                                        overflow-hidden
+                                        rounded-full
+                                        bg-surface
+                                    "
+                                >
+                                    {sidebarUser?.avatar &&
+                                    !avatarError ? (
+                                        <img
+                                            src={
+                                                sidebarUser.avatar
+                                            }
+                                            alt={
+                                                displayName
+                                            }
+                                            onError={() =>
+                                                setAvatarError(
+                                                    true
+                                                )
+                                            }
+                                            className="
+                                                h-full
+                                                w-full
+                                                object-cover
+                                            "
+                                        />
+                                    ) : (
+                                        <span
+                                            className="
+                                                text-sm
+                                                font-bold
+                                                text-foreground
+                                            "
+                                        >
+                                            {userInitial}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* ONLINE INDICATOR */}
+
+                                <span
+                                    className="
+                                        absolute
+                                        bottom-0
+                                        right-0
+                                        h-3
+                                        w-3
+                                        rounded-full
+                                        border-2
+                                        border-surface
+                                        bg-green-500
+                                    "
+                                />
+                            </div>
+
+                            {/* USER DETAILS */}
+
+                            <div className="min-w-0">
+                                <div
+                                    className="
+                                        flex
+                                        items-center
+                                        gap-2
+                                    "
+                                >
+                                    <p
+                                        className="
+                                            max-w-[150px]
+                                            truncate
+                                            text-sm
+                                            font-semibold
+                                            text-foreground
+                                        "
+                                    >
+                                        {displayName}
+                                    </p>
+
+                                    <span
+                                        className="
+                                            rounded-full
+                                            bg-green-500/10
+                                            px-1.5
+                                            py-0.5
+                                            text-[9px]
+                                            font-semibold
+                                            uppercase
+                                            tracking-wide
+                                            text-green-500
+                                        "
+                                    >
+                                        Online
+                                    </span>
+                                </div>
+
+                                <p
+                                    className="
+                                        mt-0.5
+                                        max-w-[170px]
+                                        truncate
+                                        text-[11px]
+                                        text-muted
+                                    "
+                                >
+                                    {username ||
+                                        "Your ChatHub account"}
+                                </p>
+                            </div>
+                        </button>
+
+                        {/* HEADER ACTIONS */}
 
                         <div
                             className="
                                 flex
-                                h-10
-                                w-10
                                 shrink-0
                                 items-center
-                                justify-center
-                                overflow-hidden
-                                rounded-full
-                                border
-                                border-border
-                                bg-gradient-to-br
-                                from-blue-500
-                                via-indigo-500
-                                to-purple-600
-                                font-bold
-                                text-white
-                                shadow-sm
+                                gap-1
                             "
                         >
-                            {sidebarUser?.avatar &&
-                            !avatarError ? (
-                                <img
-                                    src={
-                                        sidebarUser.avatar
-                                    }
-                                    alt={
-                                        displayName
-                                    }
-                                    onError={() =>
-                                        setAvatarError(
-                                            true
-                                        )
-                                    }
-                                    className="
-                                        h-full
-                                        w-full
-                                        object-cover
-                                    "
-                                />
-                            ) : (
-                                <span
-                                    className="
-                                        select-none
-                                        text-base
-                                        font-bold
-                                        leading-none
-                                    "
-                                >
-                                    {userInitial}
-                                </span>
-                            )}
-                        </div>
+                            {/* FRIENDS */}
 
-                        {/* USER NAME */}
-
-                        <div className="min-w-0">
-                            <p
+                            <button
+                                type="button"
+                                onClick={
+                                    handleOpenFriends
+                                }
                                 className="
-                                    truncate
-                                    text-sm
-                                    font-semibold
-                                    text-foreground
+                                    relative
+                                    flex
+                                    h-10
+                                    w-10
+                                    items-center
+                                    justify-center
+                                    rounded-xl
+                                    text-muted
+                                    transition-all
+                                    duration-200
+                                    hover:bg-hover
+                                    hover:text-foreground
+                                    active:scale-95
                                 "
+                                title="Friends & requests"
+                                aria-label="Friends and friend requests"
                             >
-                                {displayName}
-                            </p>
-                        </div>
-                    </button>
-
-                    {/* HEADER ACTIONS */}
-
-                    <div
-                        className="
-                            flex
-                            items-center
-                            gap-1
-                            text-muted
-                        "
-                    >
-                        {/* FRIEND REQUESTS */}
-
-                        <button
-                            type="button"
-                            onClick={
-                                handleOpenFriends
-                            }
-                            className="
-                                relative
-                                flex
-                                h-10
-                                w-10
-                                items-center
-                                justify-center
-                                rounded-full
-                                transition
-                                hover:bg-hover
-                            "
-                            title="Friends & friend requests"
-                            aria-label="Friends and friend requests"
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.8"
-                                className="h-[21px] w-[21px]"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"
-                                />
-
-                                <circle
-                                    cx="9"
-                                    cy="7"
-                                    r="4"
-                                />
-
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M22 21v-2a4 4 0 0 0-3-3.87"
-                                />
-
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M16 3.13a4 4 0 0 1 0 7.75"
-                                />
-                            </svg>
-
-                            {friendRequestCount >
-                                0 && (
-                                <span
-                                    className="
-                                        absolute
-                                        -right-0.5
-                                        -top-0.5
-                                        flex
-                                        h-[18px]
-                                        min-w-[18px]
-                                        items-center
-                                        justify-center
-                                        rounded-full
-                                        bg-red-500
-                                        px-1
-                                        text-[10px]
-                                        font-bold
-                                        leading-none
-                                        text-white
-                                        ring-2
-                                        ring-surface
-                                    "
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                    className="h-[20px] w-[20px]"
                                 >
-                                    {friendRequestCount >
-                                    99
-                                        ? "99+"
-                                        : friendRequestCount}
-                                </span>
-                            )}
-                        </button>
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"
+                                    />
 
-                        {/* NEW CHAT */}
+                                    <circle
+                                        cx="9"
+                                        cy="7"
+                                        r="4"
+                                    />
 
-                        <button
-                            type="button"
-                            onClick={
-                                handleOpenNewChat
-                            }
-                            className="
-                                flex
-                                h-10
-                                w-10
-                                items-center
-                                justify-center
-                                rounded-full
-                                text-2xl
-                                font-light
-                                text-foreground
-                                transition
-                                hover:bg-hover
-                            "
-                            title="New chat"
-                            aria-label="New chat"
-                        >
-                            +
-                        </button>
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M22 21v-2a4 4 0 0 0-3-3.87"
+                                    />
+
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M16 3.13a4 4 0 0 1 0 7.75"
+                                    />
+                                </svg>
+
+                                {friendRequestCount >
+                                    0 && (
+                                    <span
+                                        className="
+                                            absolute
+                                            right-0
+                                            top-0
+                                            flex
+                                            h-[17px]
+                                            min-w-[17px]
+                                            items-center
+                                            justify-center
+                                            rounded-full
+                                            bg-red-500
+                                            px-1
+                                            text-[9px]
+                                            font-bold
+                                            text-white
+                                            ring-2
+                                            ring-surface
+                                        "
+                                    >
+                                        {friendRequestCount >
+                                        99
+                                            ? "99+"
+                                            : friendRequestCount}
+                                    </span>
+                                )}
+                            </button>
+
+                            {/* NEW CHAT */}
+
+                            <button
+                                type="button"
+                                onClick={
+                                    handleOpenNewChat
+                                }
+                                className="
+                                    flex
+                                    h-10
+                                    w-10
+                                    items-center
+                                    justify-center
+                                    rounded-xl
+                                    bg-foreground
+                                    text-background
+                                    shadow-sm
+                                    transition-all
+                                    duration-200
+                                    hover:scale-105
+                                    hover:shadow-lg
+                                    active:scale-95
+                                "
+                                title="New chat"
+                                aria-label="New chat"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    className="h-5 w-5"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M12 5v14M5 12h14"
+                                    />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -724,27 +812,57 @@ export default function ChatSideBar({
                         border-b
                         border-border
                         bg-background
-                        p-2
+                        px-3
+                        py-3
                     "
                 >
                     <div
                         className="
+                            group
                             flex
+                            h-11
                             items-center
-                            rounded-lg
+                            rounded-xl
+                            border
+                            border-transparent
                             bg-surface
                             px-3
+                            transition-all
+                            duration-200
+                            focus-within:border-indigo-500/30
+                            focus-within:bg-surface
+                            focus-within:ring-2
+                            focus-within:ring-indigo-500/10
                         "
                     >
-                        <span
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
                             className="
-                                mr-2
+                                mr-2.5
+                                h-[18px]
+                                w-[18px]
+                                shrink-0
                                 text-muted
+                                transition-colors
+                                group-focus-within:text-indigo-500
                             "
                             aria-hidden="true"
                         >
-                            🔍
-                        </span>
+                            <circle
+                                cx="11"
+                                cy="11"
+                                r="7"
+                            />
+
+                            <path
+                                strokeLinecap="round"
+                                d="m20 20-4-4"
+                            />
+                        </svg>
 
                         <input
                             type="text"
@@ -754,9 +872,9 @@ export default function ChatSideBar({
                                     event.target.value
                                 )
                             }
-                            placeholder="Search or start new chat"
+                            placeholder="Search conversations..."
                             className="
-                                h-10
+                                min-w-0
                                 flex-1
                                 bg-transparent
                                 text-sm
@@ -773,20 +891,40 @@ export default function ChatSideBar({
                                     setSearch("")
                                 }
                                 className="
+                                    flex
+                                    h-6
+                                    w-6
+                                    items-center
+                                    justify-center
+                                    rounded-full
                                     text-muted
                                     transition
+                                    hover:bg-hover
                                     hover:text-foreground
                                 "
                                 aria-label="Clear search"
                             >
-                                ×
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    className="h-3.5 w-3.5"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M6 6l12 12M18 6 6 18"
+                                    />
+                                </svg>
                             </button>
                         )}
                     </div>
                 </div>
 
                 {/* ====================================================
-                    MY STATUS
+                    STATUS
                 ==================================================== */}
 
                 <div
@@ -795,8 +933,8 @@ export default function ChatSideBar({
                         border-b
                         border-border
                         bg-background
-                        px-2
-                        py-2
+                        px-3
+                        py-3
                     "
                 >
                     <button
@@ -805,20 +943,45 @@ export default function ChatSideBar({
                             handleOpenStatus
                         }
                         className="
+                            group
+                            relative
                             flex
                             w-full
                             items-center
                             gap-3
-                            rounded-xl
-                            px-2
-                            py-2
+                            overflow-hidden
+                            rounded-2xl
+                            border
+                            border-border
+                            bg-surface
+                            px-3
+                            py-3
                             text-left
-                            transition
+                            transition-all
+                            duration-200
+                            hover:border-indigo-500/20
                             hover:bg-hover
+                            hover:shadow-sm
                         "
                         title="Open Status"
                         aria-label="Open Status"
                     >
+                        {/* CARD GLOW */}
+
+                        <div
+                            className="
+                                pointer-events-none
+                                absolute
+                                -right-8
+                                -top-8
+                                h-20
+                                w-20
+                                rounded-full
+                                bg-green-500/10
+                                blur-2xl
+                            "
+                        />
+
                         {/* STATUS AVATAR */}
 
                         <div
@@ -835,7 +998,7 @@ export default function ChatSideBar({
                                 border-2
                                 border-dashed
                                 border-green-500
-                                bg-surface
+                                bg-background
                             "
                         >
                             {sidebarUser?.avatar &&
@@ -879,9 +1042,8 @@ export default function ChatSideBar({
                                     border-2
                                     border-background
                                     bg-green-500
-                                    text-[11px]
+                                    text-[10px]
                                     font-bold
-                                    leading-none
                                     text-white
                                 "
                             >
@@ -891,7 +1053,7 @@ export default function ChatSideBar({
 
                         {/* STATUS TEXT */}
 
-                        <div className="min-w-0 flex-1">
+                        <div className="relative min-w-0 flex-1">
                             <p
                                 className="
                                     truncate
@@ -907,11 +1069,12 @@ export default function ChatSideBar({
                                 className="
                                     mt-0.5
                                     truncate
-                                    text-xs
+                                    text-[11px]
                                     text-muted
                                 "
                             >
-                                Add a status
+                                Share an update with
+                                your friends
                             </p>
                         </div>
 
@@ -922,12 +1085,16 @@ export default function ChatSideBar({
                             stroke="currentColor"
                             strokeWidth="1.8"
                             className="
+                                relative
                                 h-4
                                 w-4
                                 shrink-0
                                 text-muted
+                                transition-transform
+                                duration-200
+                                group-hover:translate-x-0.5
+                                group-hover:text-foreground
                             "
-                            aria-hidden="true"
                         >
                             <path
                                 strokeLinecap="round"
@@ -936,6 +1103,53 @@ export default function ChatSideBar({
                             />
                         </svg>
                     </button>
+                </div>
+
+                {/* ====================================================
+                    CONVERSATIONS HEADER
+                ==================================================== */}
+
+                <div
+                    className="
+                        flex
+                        shrink-0
+                        items-center
+                        justify-between
+                        px-4
+                        pb-2
+                        pt-3
+                    "
+                >
+                    <p
+                        className="
+                            text-[11px]
+                            font-semibold
+                            uppercase
+                            tracking-[0.12em]
+                            text-muted
+                        "
+                    >
+                        Messages
+                    </p>
+
+                    {filteredConversations.length >
+                        0 && (
+                        <span
+                            className="
+                                rounded-full
+                                bg-surface
+                                px-2
+                                py-0.5
+                                text-[10px]
+                                font-medium
+                                text-muted
+                            "
+                        >
+                            {
+                                filteredConversations.length
+                            }
+                        </span>
+                    )}
                 </div>
 
                 {/* ====================================================
@@ -975,7 +1189,7 @@ export default function ChatSideBar({
                         border-t
                         border-border
                         bg-background
-                        px-2
+                        px-3
                         py-2
                     "
                 >
@@ -985,16 +1199,18 @@ export default function ChatSideBar({
                             handleOpenStatus
                         }
                         className="
+                            group
                             flex
                             w-full
                             items-center
                             gap-3
                             rounded-xl
                             px-3
-                            py-2.5
+                            py-2
                             text-left
                             text-foreground
-                            transition
+                            transition-all
+                            duration-200
                             hover:bg-hover
                         "
                         title="View Status"
@@ -1011,6 +1227,8 @@ export default function ChatSideBar({
                                 rounded-lg
                                 bg-surface
                                 text-muted
+                                transition-colors
+                                group-hover:text-foreground
                             "
                         >
                             <svg
@@ -1038,11 +1256,33 @@ export default function ChatSideBar({
                         <span className="text-sm font-medium">
                             View Status
                         </span>
+
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            className="
+                                ml-auto
+                                h-4
+                                w-4
+                                text-muted
+                                transition-transform
+                                group-hover:translate-x-0.5
+                            "
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="m9 18 6-6-6-6"
+                            />
+                        </svg>
                     </button>
                 </div>
 
                 {/* ====================================================
-                    SIDEBAR FOOTER
+                    FOOTER
                 ==================================================== */}
 
                 <div
@@ -1054,200 +1294,215 @@ export default function ChatSideBar({
                         p-2
                     "
                 >
-                    {/* PROFILE */}
-
-                    <button
-                        type="button"
-                        onClick={
-                            handleOpenProfile
-                        }
+                    <div
                         className="
-                            flex
-                            w-full
-                            items-center
-                            gap-3
-                            rounded-xl
-                            px-3
-                            py-2.5
-                            text-left
-                            text-foreground
-                            transition
-                            hover:bg-hover
+                            grid
+                            grid-cols-3
+                            gap-1
                         "
-                        title="My Profile"
                     >
-                        <span
+                        {/* PROFILE */}
+
+                        <button
+                            type="button"
+                            onClick={
+                                handleOpenProfile
+                            }
                             className="
+                                group
                                 flex
-                                h-9
-                                w-9
-                                shrink-0
+                                flex-col
                                 items-center
                                 justify-center
-                                rounded-lg
-                                bg-background
+                                gap-1
+                                rounded-xl
+                                py-2
                                 text-muted
+                                transition-all
+                                duration-200
+                                hover:bg-hover
+                                hover:text-foreground
                             "
+                            title="My Profile"
                         >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.8"
-                                className="h-5 w-5"
+                            <span
+                                className="
+                                    flex
+                                    h-8
+                                    w-8
+                                    items-center
+                                    justify-center
+                                    rounded-lg
+                                    bg-background
+                                    transition-transform
+                                    group-hover:scale-105
+                                "
                             >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M20 21a8 8 0 0 0-16 0"
-                                />
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                    className="h-[18px] w-[18px]"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M20 21a8 8 0 0 0-16 0"
+                                    />
 
-                                <circle
-                                    cx="12"
-                                    cy="7"
-                                    r="4"
-                                />
-                            </svg>
-                        </span>
+                                    <circle
+                                        cx="12"
+                                        cy="7"
+                                        r="4"
+                                    />
+                                </svg>
+                            </span>
 
-                        <span className="text-sm font-medium">
-                            My Profile
-                        </span>
-                    </button>
+                            <span className="text-[10px] font-medium">
+                                Profile
+                            </span>
+                        </button>
 
-                    {/* SETTINGS */}
+                        {/* SETTINGS */}
 
-                    <button
-                        type="button"
-                        onClick={
-                            handleOpenSettings
-                        }
-                        className="
-                            flex
-                            w-full
-                            items-center
-                            gap-3
-                            rounded-xl
-                            px-3
-                            py-2.5
-                            text-left
-                            text-foreground
-                            transition
-                            hover:bg-hover
-                        "
-                        title="Settings"
-                    >
-                        <span
+                        <button
+                            type="button"
+                            onClick={
+                                handleOpenSettings
+                            }
                             className="
+                                group
                                 flex
-                                h-9
-                                w-9
-                                shrink-0
+                                flex-col
                                 items-center
                                 justify-center
-                                rounded-lg
-                                bg-background
+                                gap-1
+                                rounded-xl
+                                py-2
                                 text-muted
+                                transition-all
+                                duration-200
+                                hover:bg-hover
+                                hover:text-foreground
                             "
+                            title="Settings"
                         >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.8"
-                                className="h-5 w-5"
+                            <span
+                                className="
+                                    flex
+                                    h-8
+                                    w-8
+                                    items-center
+                                    justify-center
+                                    rounded-lg
+                                    bg-background
+                                    transition-transform
+                                    duration-200
+                                    group-hover:rotate-12
+                                "
                             >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
-                                />
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                    className="h-[18px] w-[18px]"
+                                >
+                                    <circle
+                                        cx="12"
+                                        cy="12"
+                                        r="3"
+                                    />
 
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 1.7-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20h-2.4v-.2a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.7-1.7.06-.06A1.7 1.7 0 0 0 8.46 15a1.7 1.7 0 0 0-1.56-1.03H6.7v-2.4h.2A1.7 1.7 0 0 0 8.46 10a1.7 1.7 0 0 0-.34-1.88l-.06-.06 1.7-1.7.06.06a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1.88.34l.06-.06 1.7 1.7-.06.06A1.7 1.7 0 0 0 19.4 10a1.7 1.7 0 0 0 1.56 1.03h.2v2.4h-.2A1.7 1.7 0 0 0 19.4 15Z"
-                                />
-                            </svg>
-                        </span>
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-1.77 1.77-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V20h-2.5v-.23a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06-1.77-1.77.06-.06A1.65 1.65 0 0 0 8.4 15a1.65 1.65 0 0 0-1.51-1H6.7v-2.5h.19a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06 1.77-1.77.06.06a1.65 1.65 0 0 0 1.82.33 1.65 1.65 0 0 0 1-1.51V5.5h2.5v.23a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06 1.77 1.77-.06.06a1.65 1.65 0 0 0-.33 1.82 1.65 1.65 0 0 0 1.51 1h.19V14h-.19a1.65 1.65 0 0 0-1.51 1Z"
+                                    />
+                                </svg>
+                            </span>
 
-                        <span className="text-sm font-medium">
-                            Settings
-                        </span>
-                    </button>
+                            <span className="text-[10px] font-medium">
+                                Settings
+                            </span>
+                        </button>
 
-                    {/* LOGOUT */}
+                        {/* LOGOUT */}
 
-                    <button
-                        type="button"
-                        onClick={
-                            handleOpenLogoutModal
-                        }
-                        disabled={loggingOut}
-                        className="
-                            flex
-                            w-full
-                            items-center
-                            gap-3
-                            rounded-xl
-                            px-3
-                            py-2.5
-                            text-left
-                            text-foreground
-                            transition
-                            hover:bg-hover
-                            disabled:cursor-not-allowed
-                            disabled:opacity-60
-                        "
-                        title="Logout"
-                    >
-                        <span
+                        <button
+                            type="button"
+                            onClick={
+                                handleOpenLogoutModal
+                            }
+                            disabled={loggingOut}
                             className="
+                                group
                                 flex
-                                h-9
-                                w-9
-                                shrink-0
+                                flex-col
                                 items-center
                                 justify-center
-                                rounded-lg
-                                bg-background
+                                gap-1
+                                rounded-xl
+                                py-2
                                 text-muted
+                                transition-all
+                                duration-200
+                                hover:bg-red-500/10
+                                hover:text-red-500
+                                disabled:cursor-not-allowed
+                                disabled:opacity-50
                             "
+                            title="Logout"
                         >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.8"
-                                className="h-5 w-5"
+                            <span
+                                className="
+                                    flex
+                                    h-8
+                                    w-8
+                                    items-center
+                                    justify-center
+                                    rounded-lg
+                                    bg-background
+                                    transition-transform
+                                    group-hover:translate-x-0.5
+                                "
                             >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"
-                                />
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                    className="h-[18px] w-[18px]"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"
+                                    />
 
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M10 17l5-5-5-5"
-                                />
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="m10 17 5-5-5-5"
+                                    />
 
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M15 12H3"
-                                />
-                            </svg>
-                        </span>
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M15 12H3"
+                                    />
+                                </svg>
+                            </span>
 
-                        <span className="text-sm font-medium">
-                            Logout
-                        </span>
-                    </button>
+                            <span className="text-[10px] font-medium">
+                                Logout
+                            </span>
+                        </button>
+                    </div>
                 </div>
             </aside>
 
@@ -1263,7 +1518,7 @@ export default function ChatSideBar({
             />
 
             {/* ========================================================
-                LOGOUT CONFIRMATION MODAL
+                LOGOUT MODAL
             ======================================================== */}
 
             {showLogoutModal && (
@@ -1277,7 +1532,7 @@ export default function ChatSideBar({
                         justify-center
                         bg-black/60
                         px-4
-                        backdrop-blur-sm
+                        backdrop-blur-md
                     "
                     onMouseDown={(event) => {
                         if (
@@ -1294,7 +1549,7 @@ export default function ChatSideBar({
                             w-full
                             max-w-sm
                             overflow-hidden
-                            rounded-2xl
+                            rounded-3xl
                             border
                             border-border
                             bg-surface
@@ -1304,17 +1559,19 @@ export default function ChatSideBar({
                         aria-modal="true"
                         aria-labelledby="logout-title"
                     >
-                        <div className="px-6 pb-5 pt-6">
+                        {/* MODAL CONTENT */}
+
+                        <div className="px-6 pb-6 pt-7">
                             <div
                                 className="
                                     mx-auto
-                                    mb-4
+                                    mb-5
                                     flex
-                                    h-12
-                                    w-12
+                                    h-14
+                                    w-14
                                     items-center
                                     justify-center
-                                    rounded-full
+                                    rounded-2xl
                                     bg-red-500/10
                                     text-red-500
                                 "
@@ -1325,7 +1582,7 @@ export default function ChatSideBar({
                                     fill="none"
                                     stroke="currentColor"
                                     strokeWidth="1.8"
-                                    className="h-6 w-6"
+                                    className="h-7 w-7"
                                 >
                                     <path
                                         strokeLinecap="round"
@@ -1336,7 +1593,7 @@ export default function ChatSideBar({
                                     <path
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
-                                        d="M10 17l5-5-5-5"
+                                        d="m10 17 5-5-5-5"
                                     />
 
                                     <path
@@ -1374,6 +1631,8 @@ export default function ChatSideBar({
                             </p>
                         </div>
 
+                        {/* MODAL ACTIONS */}
+
                         <div
                             className="
                                 flex
@@ -1381,7 +1640,7 @@ export default function ChatSideBar({
                                 border-t
                                 border-border
                                 bg-background
-                                px-6
+                                px-5
                                 py-4
                             "
                         >
@@ -1430,14 +1689,23 @@ export default function ChatSideBar({
                                     text-sm
                                     font-semibold
                                     text-white
+                                    shadow-sm
                                     transition
                                     hover:bg-red-700
+                                    hover:shadow-lg
                                     disabled:cursor-not-allowed
                                     disabled:opacity-60
                                 "
                             >
                                 {loggingOut ? (
-                                    <span className="flex items-center justify-center gap-2">
+                                    <span
+                                        className="
+                                            flex
+                                            items-center
+                                            justify-center
+                                            gap-2
+                                        "
+                                    >
                                         <span
                                             className="
                                                 h-4
