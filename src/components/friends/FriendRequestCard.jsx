@@ -5,8 +5,6 @@ import { useState } from "react";
 
 // ============================================================
 // HARD-CODED FRIEND REQUEST UI CONFIG
-// Static design values stay hardcoded.
-// Dynamic values remain state/data-driven.
 // ============================================================
 
 const COLORS = {
@@ -73,6 +71,10 @@ export default function FriendRequestCard({
     // ========================================================
 
     const handleRequest = async (action) => {
+        // ----------------------------------------------------
+        // Prevent duplicate requests
+        // ----------------------------------------------------
+
         if (loading) {
             return;
         }
@@ -86,34 +88,98 @@ export default function FriendRequestCard({
                 {
                     method: "POST",
                     credentials: "include",
+                    headers: {
+                        Accept: "application/json",
+                        "Content-Type": "application/json",
+                    },
+                    cache: "no-store",
                 }
             );
 
-            const data = await response.json();
+            // ------------------------------------------------
+            // Read response safely
+            // ------------------------------------------------
 
-            if (!response.ok || !data.success) {
+            const responseText =
+                await response.text();
+
+            let data = null;
+
+            try {
+                data = responseText
+                    ? JSON.parse(responseText)
+                    : null;
+            } catch (parseError) {
+                console.error(
+                    "❌ FRIEND REQUEST INVALID JSON:",
+                    responseText
+                );
+            }
+
+            console.log(
+                "FRIEND REQUEST RESPONSE:",
+                {
+                    action,
+                    requestId: request.id,
+                    status: response.status,
+                    ok: response.ok,
+                    data,
+                }
+            );
+
+            // ------------------------------------------------
+            // SERVER ERROR
+            // ------------------------------------------------
+
+            if (!response.ok) {
+                throw new Error(
+                    data?.message ||
+                        `Failed to ${action} friend request`
+                );
+            }
+
+            // ------------------------------------------------
+            // API SUCCESS CHECK
+            // ------------------------------------------------
+
+            if (
+                data &&
+                data.success === false
+            ) {
                 throw new Error(
                     data.message ||
                         `Failed to ${action} friend request`
                 );
             }
 
+            // ------------------------------------------------
+            // ACCEPTED
+            // ------------------------------------------------
+
             if (action === "accept") {
                 onAccepted?.(request);
             }
+
+            // ------------------------------------------------
+            // REJECTED
+            // ------------------------------------------------
 
             if (action === "reject") {
                 onRejected?.(request);
             }
         } catch (error) {
             console.error(
-                "FRIEND REQUEST ACTION ERROR:",
-                error
+                "❌ FRIEND REQUEST ACTION ERROR:",
+                {
+                    requestId: request.id,
+                    action,
+                    error,
+                }
             );
 
             setError(
-                error.message ||
-                    "Something went wrong."
+                error?.message ||
+                    "Something went wrong. Please try again."
             );
         } finally {
             setLoading(false);
@@ -134,9 +200,12 @@ export default function FriendRequestCard({
                 transition
             "
             style={{
-                background: COLORS.background,
-                borderColor: COLORS.border,
-                color: COLORS.textPrimary,
+                background:
+                    COLORS.background,
+                borderColor:
+                    COLORS.border,
+                color:
+                    COLORS.textPrimary,
             }}
         >
             <div className="flex items-center gap-4">
@@ -148,8 +217,10 @@ export default function FriendRequestCard({
                 <div
                     className="relative shrink-0"
                     style={{
-                        width: SIZES.avatar,
-                        height: SIZES.avatar,
+                        width:
+                            SIZES.avatar,
+                        height:
+                            SIZES.avatar,
                     }}
                 >
                     {sender.avatar ? (
@@ -248,9 +319,10 @@ export default function FriendRequestCard({
                             text-sm
                         "
                         style={{
-                            color: sender.isOnline
-                                ? COLORS.success
-                                : COLORS.textSecondary,
+                            color:
+                                sender.isOnline
+                                    ? COLORS.success
+                                    : COLORS.textSecondary,
                         }}
                     >
                         {sender.isOnline
@@ -289,7 +361,9 @@ export default function FriendRequestCard({
                         type="button"
                         disabled={loading}
                         onClick={() =>
-                            handleRequest("accept")
+                            handleRequest(
+                                "accept"
+                            )
                         }
                         className="
                             rounded-xl
@@ -321,7 +395,9 @@ export default function FriendRequestCard({
                         type="button"
                         disabled={loading}
                         onClick={() =>
-                            handleRequest("reject")
+                            handleRequest(
+                                "reject"
+                            )
                         }
                         className="
                             rounded-xl

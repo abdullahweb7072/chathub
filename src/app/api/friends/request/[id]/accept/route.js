@@ -16,16 +16,19 @@ function parseCookies(cookieHeader) {
     }
 
     cookieHeader.split(";").forEach((cookie) => {
-        const [name, ...valueParts] = cookie.trim().split("=");
+        const [name, ...valueParts] =
+            cookie.trim().split("=");
 
         if (!name) {
             return;
         }
 
-        const value = valueParts.join("=");
+        const value =
+            valueParts.join("=");
 
         try {
-            cookies[name] = decodeURIComponent(value);
+            cookies[name] =
+                decodeURIComponent(value);
         } catch {
             cookies[name] = value;
         }
@@ -38,15 +41,20 @@ function parseCookies(cookieHeader) {
 // POST - ACCEPT FRIEND REQUEST
 // ============================================================
 
-export async function POST(request, { params }) {
+export async function POST(
+    request,
+    { params }
+) {
     try {
         // ========================================================
         // AUTHENTICATION
         // ========================================================
 
-        const cookieHeader = request.headers.get("cookie");
+        const cookieHeader =
+            request.headers.get("cookie");
 
-        const cookies = parseCookies(cookieHeader);
+        const cookies =
+            parseCookies(cookieHeader);
 
         const token = cookies.Token;
 
@@ -56,7 +64,9 @@ export async function POST(request, { params }) {
                     success: false,
                     message: "Unauthorized",
                 },
-                { status: 401 }
+                {
+                    status: 401,
+                }
             );
         }
 
@@ -68,9 +78,12 @@ export async function POST(request, { params }) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: "Server configuration error",
+                    message:
+                        "Server configuration error",
                 },
-                { status: 500 }
+                {
+                    status: 500,
+                }
             );
         }
 
@@ -94,24 +107,33 @@ export async function POST(request, { params }) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: "Invalid or expired token",
+                    message:
+                        "Invalid or expired token",
                 },
-                { status: 401 }
+                {
+                    status: 401,
+                }
             );
         }
 
-        const currentUserId = Number(decoded.id);
+        const currentUserId =
+            Number(decoded.id);
 
         if (
-            !Number.isInteger(currentUserId) ||
+            !Number.isInteger(
+                currentUserId
+            ) ||
             currentUserId <= 0
         ) {
             return NextResponse.json(
                 {
                     success: false,
-                    message: "Invalid user",
+                    message:
+                        "Invalid user",
                 },
-                { status: 401 }
+                {
+                    status: 401,
+                }
             );
         }
 
@@ -120,11 +142,13 @@ export async function POST(request, { params }) {
         // params IS A PROMISE
         // ========================================================
 
-        const resolvedParams = await params;
+        const resolvedParams =
+            await params;
 
-        const requestId = Number(
-            resolvedParams?.id
-        );
+        const requestId =
+            Number(
+                resolvedParams?.id
+            );
 
         console.log("");
         console.log(
@@ -153,7 +177,9 @@ export async function POST(request, { params }) {
         // ========================================================
 
         if (
-            !Number.isInteger(requestId) ||
+            !Number.isInteger(
+                requestId
+            ) ||
             requestId <= 0
         ) {
             return NextResponse.json(
@@ -162,7 +188,9 @@ export async function POST(request, { params }) {
                     message:
                         "Invalid friend request ID",
                 },
-                { status: 400 }
+                {
+                    status: 400,
+                }
             );
         }
 
@@ -171,29 +199,31 @@ export async function POST(request, { params }) {
         // ========================================================
 
         const friendRequest =
-            await prisma.friendRequest.findUnique({
-                where: {
-                    id: requestId,
-                },
-
-                include: {
-                    sender: {
-                        select: {
-                            id: true,
-                            username: true,
-                            avatar: true,
-                        },
+            await prisma.friendRequest.findUnique(
+                {
+                    where: {
+                        id: requestId,
                     },
 
-                    receiver: {
-                        select: {
-                            id: true,
-                            username: true,
-                            avatar: true,
+                    include: {
+                        sender: {
+                            select: {
+                                id: true,
+                                username: true,
+                                avatar: true,
+                            },
+                        },
+
+                        receiver: {
+                            select: {
+                                id: true,
+                                username: true,
+                                avatar: true,
+                            },
                         },
                     },
-                },
-            });
+                }
+            );
 
         if (!friendRequest) {
             console.log(
@@ -206,7 +236,9 @@ export async function POST(request, { params }) {
                     message:
                         "Friend request not found",
                 },
-                { status: 404 }
+                {
+                    status: 404,
+                }
             );
         }
 
@@ -237,7 +269,9 @@ export async function POST(request, { params }) {
                     message:
                         "You are not authorized to accept this friend request",
                 },
-                { status: 403 }
+                {
+                    status: 403,
+                }
             );
         }
 
@@ -255,7 +289,9 @@ export async function POST(request, { params }) {
                     message:
                         "You are already friends",
                 },
-                { status: 409 }
+                {
+                    status: 409,
+                }
             );
         }
 
@@ -269,12 +305,18 @@ export async function POST(request, { params }) {
                     message:
                         `This friend request is ${friendRequest.status.toLowerCase()}`,
                 },
-                { status: 409 }
+                {
+                    status: 409,
+                }
             );
         }
 
         // ========================================================
         // USER IDS
+        //
+        // IMPORTANT:
+        // These MUST be outside the transaction because
+        // we use them after the transaction as well.
         // ========================================================
 
         const senderId =
@@ -296,96 +338,103 @@ export async function POST(request, { params }) {
                     // ==================================================
 
                     const updatedRequest =
-                        await tx.friendRequest.update({
-                            where: {
-                                id: requestId,
-                            },
-
-                            data: {
-                                status:
-                                    "ACCEPTED",
-                            },
-
-                            include: {
-                                sender: {
-                                    select: {
-                                        id: true,
-                                        username:
-                                            true,
-                                        avatar:
-                                            true,
-                                    },
+                        await tx.friendRequest.update(
+                            {
+                                where: {
+                                    id: requestId,
                                 },
 
-                                receiver: {
-                                    select: {
-                                        id: true,
-                                        username:
-                                            true,
-                                        avatar:
-                                            true,
+                                data: {
+                                    status:
+                                        "ACCEPTED",
+                                },
+
+                                include: {
+                                    sender: {
+                                        select: {
+                                            id: true,
+                                            username:
+                                                true,
+                                            avatar:
+                                                true,
+                                        },
+                                    },
+
+                                    receiver: {
+                                        select: {
+                                            id: true,
+                                            username:
+                                                true,
+                                            avatar:
+                                                true,
+                                        },
                                     },
                                 },
-                            },
-                        });
+                            }
+                        );
 
                     // ==================================================
                     // 2. CREATE FRIENDSHIP
-                    //
-                    // sender -> receiver
-                    // receiver -> sender
-                    //
-                    // We use upsert so this is safe even if
-                    // friendship records already exist.
                     // ==================================================
 
                     const friendshipOne =
-                        await tx.friendship.upsert({
-                            where: {
-                                userId_friendId: {
+                        await tx.friendship.upsert(
+                            {
+                                where: {
+                                    userId_friendId:
+                                        {
+                                            userId:
+                                                senderId,
+
+                                            friendId:
+                                                receiverId,
+                                        },
+                                },
+
+                                update: {},
+
+                                create: {
                                     userId:
                                         senderId,
+
                                     friendId:
                                         receiverId,
                                 },
-                            },
-
-                            update: {},
-
-                            create: {
-                                userId:
-                                    senderId,
-                                friendId:
-                                    receiverId,
-                            },
-                        });
+                            }
+                        );
 
                     const friendshipTwo =
-                        await tx.friendship.upsert({
-                            where: {
-                                userId_friendId: {
+                        await tx.friendship.upsert(
+                            {
+                                where: {
+                                    userId_friendId:
+                                        {
+                                            userId:
+                                                receiverId,
+
+                                            friendId:
+                                                senderId,
+                                        },
+                                },
+
+                                update: {},
+
+                                create: {
                                     userId:
                                         receiverId,
+
                                     friendId:
                                         senderId,
                                 },
-                            },
-
-                            update: {},
-
-                            create: {
-                                userId:
-                                    receiverId,
-                                friendId:
-                                    senderId,
-                            },
-                        });
+                            }
+                        );
 
                     console.log(
                         "🤝 Friendship created:",
                         {
                             friendshipOne:
                                 friendshipOne.id,
+
                             friendshipTwo:
                                 friendshipTwo.id,
                         }
@@ -396,51 +445,53 @@ export async function POST(request, { params }) {
                     // ==================================================
 
                     const existingConversations =
-                        await tx.conversation.findMany({
-                            where: {
-                                type: "DIRECT",
+                        await tx.conversation.findMany(
+                            {
+                                where: {
+                                    type: "DIRECT",
 
-                                members: {
-                                    some: {
-                                        userId:
-                                            senderId,
-                                    },
-                                },
-
-                                AND: [
-                                    {
-                                        members: {
-                                            some: {
-                                                userId:
-                                                    receiverId,
-                                            },
+                                    members: {
+                                        some: {
+                                            userId:
+                                                senderId,
                                         },
                                     },
-                                ],
-                            },
 
-                            include: {
-                                members: {
-                                    select: {
-                                        id: true,
-                                        userId: true,
-                                        conversationId:
-                                            true,
-                                        joinedAt:
-                                            true,
-                                        lastReadAt:
-                                            true,
-                                        isMuted:
-                                            true,
-                                        isArchived:
-                                            true,
+                                    AND: [
+                                        {
+                                            members: {
+                                                some: {
+                                                    userId:
+                                                        receiverId,
+                                                },
+                                            },
+                                        },
+                                    ],
+                                },
+
+                                include: {
+                                    members: {
+                                        select: {
+                                            id: true,
+                                            userId: true,
+                                            conversationId:
+                                                true,
+                                            joinedAt:
+                                                true,
+                                            lastReadAt:
+                                                true,
+                                            isMuted:
+                                                true,
+                                            isArchived:
+                                                true,
+                                        },
                                     },
                                 },
-                            },
-                        });
+                            }
+                        );
 
                     // ==================================================
-                    // FIND CONVERSATION WITH ONLY THESE TWO USERS
+                    // 4. FIND CONVERSATION WITH ONLY THESE TWO USERS
                     // ==================================================
 
                     let conversation =
@@ -448,7 +499,8 @@ export async function POST(request, { params }) {
                             (conv) => {
 
                                 if (
-                                    conv.members
+                                    conv
+                                        .members
                                         .length !==
                                     2
                                 ) {
@@ -477,54 +529,56 @@ export async function POST(request, { params }) {
                         );
 
                     // ==================================================
-                    // 4. CREATE CONVERSATION IF NEEDED
+                    // 5. CREATE CONVERSATION IF NEEDED
                     // ==================================================
 
                     if (!conversation) {
 
                         conversation =
-                            await tx.conversation.create({
-                                data: {
-                                    type:
-                                        "DIRECT",
+                            await tx.conversation.create(
+                                {
+                                    data: {
+                                        type:
+                                            "DIRECT",
 
-                                    createdBy:
-                                        receiverId,
+                                        createdBy:
+                                            receiverId,
 
-                                    members: {
-                                        create: [
-                                            {
-                                                userId:
-                                                    senderId,
-                                            },
-                                            {
-                                                userId:
-                                                    receiverId,
-                                            },
-                                        ],
-                                    },
-                                },
-
-                                include: {
-                                    members: {
-                                        select: {
-                                            id: true,
-                                            userId:
-                                                true,
-                                            conversationId:
-                                                true,
-                                            joinedAt:
-                                                true,
-                                            lastReadAt:
-                                                true,
-                                            isMuted:
-                                                true,
-                                            isArchived:
-                                                true,
+                                        members: {
+                                            create: [
+                                                {
+                                                    userId:
+                                                        senderId,
+                                                },
+                                                {
+                                                    userId:
+                                                        receiverId,
+                                                },
+                                            ],
                                         },
                                     },
-                                },
-                            });
+
+                                    include: {
+                                        members: {
+                                            select: {
+                                                id: true,
+                                                userId:
+                                                    true,
+                                                conversationId:
+                                                    true,
+                                                joinedAt:
+                                                    true,
+                                                lastReadAt:
+                                                    true,
+                                                isMuted:
+                                                    true,
+                                                isArchived:
+                                                    true,
+                                            },
+                                        },
+                                    },
+                                }
+                            );
 
                         console.log(
                             `💬 Created DIRECT conversation ${conversation.id}`
@@ -533,54 +587,58 @@ export async function POST(request, { params }) {
                     } else {
 
                         // ==================================================
-                        // 5. ENSURE BOTH USERS ARE MEMBERS
+                        // 6. ENSURE BOTH USERS ARE MEMBERS
                         // ==================================================
 
-                        await tx.conversationMember.upsert({
-                            where: {
-                                userId_conversationId:
-                                    {
-                                        userId:
-                                            senderId,
+                        await tx.conversationMember.upsert(
+                            {
+                                where: {
+                                    userId_conversationId:
+                                        {
+                                            userId:
+                                                senderId,
 
-                                        conversationId:
-                                            conversation.id,
-                                    },
-                            },
+                                            conversationId:
+                                                conversation.id,
+                                        },
+                                },
 
-                            update: {},
+                                update: {},
 
-                            create: {
-                                userId:
-                                    senderId,
+                                create: {
+                                    userId:
+                                        senderId,
 
-                                conversationId:
-                                    conversation.id,
-                            },
-                        });
+                                    conversationId:
+                                        conversation.id,
+                                },
+                            }
+                        );
 
-                        await tx.conversationMember.upsert({
-                            where: {
-                                userId_conversationId:
-                                    {
-                                        userId:
-                                            receiverId,
+                        await tx.conversationMember.upsert(
+                            {
+                                where: {
+                                    userId_conversationId:
+                                        {
+                                            userId:
+                                                receiverId,
 
-                                        conversationId:
-                                            conversation.id,
-                                    },
-                            },
+                                            conversationId:
+                                                conversation.id,
+                                        },
+                                },
 
-                            update: {},
+                                update: {},
 
-                            create: {
-                                userId:
-                                    receiverId,
+                                create: {
+                                    userId:
+                                        receiverId,
 
-                                conversationId:
-                                    conversation.id,
-                            },
-                        });
+                                    conversationId:
+                                        conversation.id,
+                                },
+                            }
+                        );
 
                         console.log(
                             `💬 Existing DIRECT conversation ${conversation.id} reused`
@@ -588,36 +646,38 @@ export async function POST(request, { params }) {
                     }
 
                     // ==================================================
-                    // 6. FETCH COMPLETE CONVERSATION
+                    // 7. FETCH COMPLETE CONVERSATION
                     // ==================================================
 
                     const completeConversation =
-                        await tx.conversation.findUnique({
-                            where: {
-                                id:
-                                    conversation.id,
-                            },
+                        await tx.conversation.findUnique(
+                            {
+                                where: {
+                                    id:
+                                        conversation.id,
+                                },
 
-                            include: {
-                                members: {
-                                    include: {
-                                        user: {
-                                            select: {
-                                                id: true,
-                                                username:
-                                                    true,
-                                                avatar:
-                                                    true,
-                                                isOnline:
-                                                    true,
-                                                lastSeen:
-                                                    true,
+                                include: {
+                                    members: {
+                                        include: {
+                                            user: {
+                                                select: {
+                                                    id: true,
+                                                    username:
+                                                        true,
+                                                    avatar:
+                                                        true,
+                                                    isOnline:
+                                                        true,
+                                                    lastSeen:
+                                                        true,
+                                                },
                                             },
                                         },
                                     },
                                 },
-                            },
-                        });
+                            }
+                        );
 
                     // ==================================================
                     // RETURN TRANSACTION RESULT
@@ -658,6 +718,12 @@ export async function POST(request, { params }) {
             result.friendRequest.id
         );
 
+        // ========================================================
+        // THIS NOW WORKS
+        // because senderId and receiverId are
+        // declared outside the transaction.
+        // ========================================================
+
         console.log(
             "Friendship:",
             senderId,
@@ -673,6 +739,10 @@ export async function POST(request, { params }) {
         console.log(
             "========================================"
         );
+
+        // ========================================================
+        // SUCCESS RESPONSE
+        // ========================================================
 
         return NextResponse.json(
             {
@@ -692,7 +762,9 @@ export async function POST(request, { params }) {
                         result.conversation,
                 },
             },
-            { status: 200 }
+            {
+                status: 200,
+            }
         );
 
     } catch (error) {
@@ -708,7 +780,9 @@ export async function POST(request, { params }) {
                 message:
                     "Failed to accept friend request",
             },
-            { status: 500 }
+            {
+                status: 500,
+            }
         );
     }
 }
