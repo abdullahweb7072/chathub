@@ -1688,6 +1688,10 @@ async endCall(reason = "ended") {
 // HANDLE CALL REJECTED
 // ============================================================
 
+// ============================================================
+// HANDLE CALL REJECTED
+// ============================================================
+
 handleCallRejected(data) {
     if (!data?.callId) {
         return;
@@ -1704,11 +1708,8 @@ handleCallRejected(data) {
         console.log(
             "⚠️ Ignoring rejection for another call:",
             {
-                currentCallId:
-                    this.callId,
-
-                rejectedCallId:
-                    data.callId,
+                currentCallId: this.callId,
+                rejectedCallId: data.callId,
             }
         );
 
@@ -1716,19 +1717,51 @@ handleCallRejected(data) {
     }
 
     console.log(
-        "❌ Call rejected:",
+        "❌ Call rejected by receiver:",
         data
     );
 
+    // ========================================================
+    // SAVE IMPORTANT INFORMATION BEFORE CLEANUP
+    // ========================================================
+
+    const rejectionData = {
+        ...data,
+
+        callId: data.callId,
+
+        conversationId:
+            data.conversationId ??
+            this.conversationId,
+
+        callType:
+            data.callType ??
+            this.callType,
+
+        reason:
+            data.reason || "rejected",
+
+        remoteUserId:
+            this.remoteUserId,
+    };
+
+    // ========================================================
+    // NOTIFY UI FIRST
+    // ========================================================
+
     if (
         typeof this.callbacks
-            .onCallRejected ===
+            ?.onCallRejected ===
         "function"
     ) {
         this.callbacks.onCallRejected(
-            data
+            rejectionData
         );
     }
+
+    // ========================================================
+    // CLEAN CALL RESOURCES
+    // ========================================================
 
     this.cleanup();
 }

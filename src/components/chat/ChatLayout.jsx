@@ -1264,7 +1264,7 @@ export default function ChatLayout({
             onCallRejected:
                 (data) => {
                     console.log(
-                        "📵 CALL REJECTED:",
+                        "📞 Receiver declined call:",
                         data
                     );
 
@@ -1278,7 +1278,10 @@ export default function ChatLayout({
                     setCallError(null);
                     setCallType("audio");
 
-                    setCallState("idle");
+                    // IMPORTANT:
+                    // Keep the declined state so
+                    // CallOverlay can display it.
+                    setCallState("declined");
                 },
 
             // ====================================================
@@ -1359,6 +1362,33 @@ export default function ChatLayout({
     }, [
         currentUserId,
     ]);
+
+    // ============================================================
+    // DISMISS CALL OVERLAY
+    // ============================================================
+
+    const dismissCallOverlay =
+        useCallback(() => {
+            console.log(
+                "👋 Dismissing call overlay"
+            );
+
+            setCallState("idle");
+
+            setIncomingCall(null);
+
+            setLocalStream(null);
+
+            setRemoteStream(null);
+
+            setIsMuted(false);
+
+            setIsCameraOff(false);
+
+            setCallError(null);
+
+            setCallType("audio");
+        }, []);
 
     // ============================================================
     // NEW CONVERSATION CREATED
@@ -2180,10 +2210,9 @@ export default function ChatLayout({
                             optimisticIndex !==
                             -1
                         ) {
-                            const updated =
-                                [
-                                    ...previous,
-                                ];
+                            const updated = [
+                                ...previous,
+                            ];
 
                             updated[
                                 optimisticIndex
@@ -3708,8 +3737,6 @@ export default function ChatLayout({
                         handleBackToConversations
                     }
 
-                    // Keep these available to ChatWindow
-                    // if it uses them for call buttons.
                     onStartAudioCall={
                         startAudioCall
                     }
@@ -3729,8 +3756,7 @@ export default function ChatLayout({
                 CallOverlay uses:
                     fixed inset-0 z-[100]
 
-                Therefore it can cover the entire ChatHub UI
-                instead of being constrained by ChatWindow.
+                Therefore it can cover the entire ChatHub UI.
             ================================================== */}
 
             <CallOverlay
@@ -3792,6 +3818,15 @@ export default function ChatLayout({
 
                 onToggleCallCamera={
                     toggleCallCamera
+                }
+
+                // =================================================
+                // NEW:
+                // Allows CallOverlay to dismiss the
+                // "Call declined" UI.
+                // =================================================
+                onCallDismiss={
+                    dismissCallOverlay
                 }
             />
         </div>
