@@ -20,9 +20,7 @@ export default function StatusPage() {
     // ============================================================
 
     const [statuses, setStatuses] = useState([]);
-
     const [loading, setLoading] = useState(true);
-
     const [error, setError] = useState("");
 
     const [showCreateModal, setShowCreateModal] =
@@ -37,9 +35,6 @@ export default function StatusPage() {
     const [currentUserId, setCurrentUserId] =
         useState(null);
 
-    // IMPORTANT:
-    // Do not render/group statuses until we know
-    // exactly who the current user is.
     const [currentUserLoaded, setCurrentUserLoaded] =
         useState(false);
 
@@ -131,9 +126,7 @@ export default function StatusPage() {
                         Number(user.id);
 
                     if (
-                        Number.isInteger(
-                            userId
-                        ) &&
+                        Number.isInteger(userId) &&
                         userId > 0
                     ) {
                         setCurrentUserId(
@@ -171,16 +164,10 @@ export default function StatusPage() {
     }, [fetchStatuses]);
 
     // ============================================================
-    // GROUP STATUSES BY USER
+    // GROUP STATUSES
     // ============================================================
 
     const groupedStatuses = useMemo(() => {
-        /*
-         * VERY IMPORTANT
-         *
-         * Do not group anything until we know
-         * the current user's ID.
-         */
         if (
             !currentUserLoaded ||
             !currentUserId
@@ -194,17 +181,14 @@ export default function StatusPage() {
             const user =
                 status?.user || null;
 
-            const userId =
-                Number(
-                    user?.id ??
+            const userId = Number(
+                user?.id ??
                     status?.userId ??
                     0
-                );
+            );
 
             if (
-                !Number.isInteger(
-                    userId
-                ) ||
+                !Number.isInteger(userId) ||
                 userId <= 0
             ) {
                 continue;
@@ -246,18 +230,15 @@ export default function StatusPage() {
 
         return statuses.filter(
             (status) => {
-                const ownerId =
-                    Number(
-                        status?.user?.id ??
+                const ownerId = Number(
+                    status?.user?.id ??
                         status?.userId ??
                         0
-                    );
+                );
 
                 return (
                     ownerId ===
-                    Number(
-                        currentUserId
-                    )
+                    Number(currentUserId)
                 );
             }
         );
@@ -281,17 +262,13 @@ export default function StatusPage() {
 
         return groupedStatuses.filter(
             (group) => {
-                const ownerId =
-                    Number(
-                        group?.user?.id ??
-                        0
-                    );
+                const ownerId = Number(
+                    group?.user?.id ?? 0
+                );
 
                 return (
                     ownerId !==
-                    Number(
-                        currentUserId
-                    )
+                    Number(currentUserId)
                 );
             }
         );
@@ -319,19 +296,11 @@ export default function StatusPage() {
             return;
         }
 
-        /*
-         * Extra safety:
-         *
-         * Never open a status here unless
-         * it actually belongs to the current user.
-         */
-
-        const ownerId =
-            Number(
-                status?.user?.id ??
+        const ownerId = Number(
+            status?.user?.id ??
                 status?.userId ??
                 0
-            );
+        );
 
         if (
             ownerId !==
@@ -367,18 +336,9 @@ export default function StatusPage() {
             return;
         }
 
-        const ownerId =
-            Number(
-                group?.user?.id ??
-                0
-            );
-
-        /*
-         * CRITICAL SAFETY CHECK
-         *
-         * Never allow an own status to be
-         * opened through the friend-status path.
-         */
+        const ownerId = Number(
+            group?.user?.id ?? 0
+        );
 
         if (
             ownerId ===
@@ -395,9 +355,7 @@ export default function StatusPage() {
             group.statuses
         );
 
-        setSelectedStatusIndex(
-            0
-        );
+        setSelectedStatusIndex(0);
     };
 
     // ============================================================
@@ -406,7 +364,6 @@ export default function StatusPage() {
 
     const handleCloseViewer = () => {
         setSelectedStatuses([]);
-
         setSelectedStatusIndex(0);
     };
 
@@ -416,10 +373,7 @@ export default function StatusPage() {
 
     const handleStatusCreated =
         async () => {
-            setShowCreateModal(
-                false
-            );
-
+            setShowCreateModal(false);
             await fetchStatuses();
         };
 
@@ -434,8 +388,7 @@ export default function StatusPage() {
                     await fetch(
                         `/api/status/${statusId}`,
                         {
-                            method:
-                                "DELETE",
+                            method: "DELETE",
                             credentials:
                                 "include",
                             headers: {
@@ -458,10 +411,6 @@ export default function StatusPage() {
                     );
                 }
 
-                // ------------------------------------------------
-                // REMOVE FROM MAIN STATUS LIST
-                // ------------------------------------------------
-
                 setStatuses(
                     (previous) =>
                         previous.filter(
@@ -474,10 +423,6 @@ export default function StatusPage() {
                                 )
                         )
                 );
-
-                // ------------------------------------------------
-                // REMOVE FROM CURRENT VIEWER
-                // ------------------------------------------------
 
                 setSelectedStatuses(
                     (previous) => {
@@ -531,9 +476,7 @@ export default function StatusPage() {
                         Number(
                             status.id
                         ) ===
-                        Number(
-                            statusId
-                        )
+                        Number(statusId)
                             ? {
                                   ...status,
                                   viewed: true,
@@ -549,9 +492,7 @@ export default function StatusPage() {
                         Number(
                             status.id
                         ) ===
-                        Number(
-                            statusId
-                        )
+                        Number(statusId)
                             ? {
                                   ...status,
                                   viewed: true,
@@ -562,7 +503,7 @@ export default function StatusPage() {
     };
 
     // ============================================================
-    // BACK TO CHAT
+    // BACK
     // ============================================================
 
     const handleBack = () => {
@@ -570,11 +511,38 @@ export default function StatusPage() {
     };
 
     // ============================================================
+    // CURRENT USER DISPLAY
+    // ============================================================
+
+    const currentUser =
+        statuses.find(
+            (status) =>
+                Number(
+                    status?.user?.id ??
+                        status?.userId
+                ) ===
+                Number(currentUserId)
+        )?.user || null;
+
+    const currentUserName =
+        currentUser?.displayName ||
+        currentUser?.username ||
+        "You";
+
+    // ============================================================
     // RENDER
     // ============================================================
 
     return (
         <main className="min-h-screen bg-background text-foreground">
+            {/* ====================================================
+                BACKGROUND DECORATION
+            ==================================================== */}
+
+            <div className="pointer-events-none fixed inset-0 overflow-hidden">
+                <div className="absolute -left-32 top-20 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl" />
+                <div className="absolute -right-32 top-80 h-80 w-80 rounded-full bg-purple-500/10 blur-3xl" />
+            </div>
 
             {/* ====================================================
                 HEADER
@@ -584,99 +552,154 @@ export default function StatusPage() {
                 className="
                     sticky
                     top-0
-                    z-20
-                    flex
-                    h-16
-                    items-center
-                    justify-between
+                    z-40
                     border-b
-                    border-border
-                    bg-surface
-                    px-4
-                    md:px-6
+                    border-border/70
+                    bg-surface/85
+                    backdrop-blur-xl
                 "
             >
-                <div className="flex items-center gap-3">
+                <div
+                    className="
+                        mx-auto
+                        flex
+                        h-[72px]
+                        w-full
+                        max-w-4xl
+                        items-center
+                        justify-between
+                        px-4
+                        md:px-6
+                    "
+                >
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={
+                                handleBack
+                            }
+                            className="
+                                group
+                                flex
+                                h-10
+                                w-10
+                                items-center
+                                justify-center
+                                rounded-xl
+                                border
+                                border-border
+                                bg-background/50
+                                text-muted
+                                transition-all
+                                duration-200
+                                hover:-translate-x-0.5
+                                hover:bg-hover
+                                hover:text-foreground
+                            "
+                            aria-label="Back to ChatHub"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                className="h-5 w-5"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M15 18l-6-6 6-6"
+                                />
+                            </svg>
+                        </button>
 
-                    {/* BACK */}
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-lg font-bold tracking-tight">
+                                    Status
+                                </h1>
+
+                                {statuses.length >
+                                    0 && (
+                                    <span
+                                        className="
+                                            rounded-full
+                                            bg-foreground/10
+                                            px-2
+                                            py-0.5
+                                            text-[10px]
+                                            font-semibold
+                                            text-muted
+                                        "
+                                    >
+                                        {
+                                            statuses.length
+                                        }
+                                    </span>
+                                )}
+                            </div>
+
+                            <p className="hidden text-xs text-muted sm:block">
+                                Updates from you and your friends
+                            </p>
+                        </div>
+                    </div>
 
                     <button
                         type="button"
-                        onClick={
-                            handleBack
+                        onClick={() =>
+                            setShowCreateModal(
+                                true
+                            )
                         }
                         className="
+                            group
                             flex
-                            h-9
-                            w-9
                             items-center
-                            justify-center
-                            rounded-full
-                            text-muted
-                            transition
-                            hover:bg-hover
-                            hover:text-foreground
+                            gap-2
+                            rounded-xl
+                            bg-foreground
+                            px-3.5
+                            py-2.5
+                            text-sm
+                            font-semibold
+                            text-background
+                            shadow-lg
+                            transition-all
+                            duration-200
+                            hover:-translate-y-0.5
+                            hover:opacity-90
+                            hover:shadow-xl
+                            active:translate-y-0
+                            sm:px-4
                         "
-                        aria-label="Back to ChatHub"
-                        title="Back to ChatHub"
                     >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            className="h-5 w-5"
+                        <span
+                            className="
+                                flex
+                                h-5
+                                w-5
+                                items-center
+                                justify-center
+                                rounded-full
+                                bg-background/15
+                                text-base
+                                leading-none
+                            "
                         >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M15 18l-6-6 6-6"
-                            />
-                        </svg>
-                    </button>
+                            +
+                        </span>
 
-                    <div>
-                        <h1 className="text-lg font-semibold">
+                        <span className="hidden sm:inline">
+                            New Status
+                        </span>
+
+                        <span className="sm:hidden">
                             Status
-                        </h1>
-
-                        <p className="text-xs text-muted">
-                            Updates from you and your friends
-                        </p>
-                    </div>
+                        </span>
+                    </button>
                 </div>
-
-                {/* NEW STATUS */}
-
-                <button
-                    type="button"
-                    onClick={() =>
-                        setShowCreateModal(
-                            true
-                        )
-                    }
-                    className="
-                        flex
-                        items-center
-                        gap-2
-                        rounded-xl
-                        bg-foreground
-                        px-4
-                        py-2
-                        text-sm
-                        font-semibold
-                        text-background
-                        transition
-                        hover:opacity-90
-                    "
-                >
-                    <span className="text-lg leading-none">
-                        +
-                    </span>
-
-                    New Status
-                </button>
             </header>
 
             {/* ====================================================
@@ -685,31 +708,59 @@ export default function StatusPage() {
 
             <div
                 className="
+                    relative
                     mx-auto
                     w-full
-                    max-w-3xl
+                    max-w-4xl
                     px-4
                     py-6
+                    md:px-6
+                    md:py-8
                 "
             >
-
                 {/* ERROR */}
 
                 {error && (
                     <div
                         className="
-                            mb-5
-                            rounded-xl
+                            mb-6
+                            flex
+                            items-start
+                            gap-3
+                            rounded-2xl
                             border
                             border-red-500/20
                             bg-red-500/10
                             px-4
-                            py-3
+                            py-3.5
                             text-sm
                             text-red-500
                         "
                     >
-                        {error}
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            className="mt-0.5 h-5 w-5 shrink-0"
+                        >
+                            <circle
+                                cx="12"
+                                cy="12"
+                                r="9"
+                            />
+                            <path
+                                strokeLinecap="round"
+                                d="M12 8v4"
+                            />
+                            <path
+                                strokeLinecap="round"
+                                d="M12 16h.01"
+                            />
+                        </svg>
+
+                        <span>{error}</span>
                     </div>
                 )}
 
@@ -718,26 +769,23 @@ export default function StatusPage() {
                 ================================================= */}
 
                 <section className="mb-8">
+                    <div className="mb-4 flex items-end justify-between">
+                        <div>
+                            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+                                Your updates
+                            </p>
 
-                    <div
-                        className="
-                            mb-3
-                            flex
-                            items-center
-                            justify-between
-                        "
-                    >
-                        <h2 className="text-sm font-semibold">
-                            My Status
-                        </h2>
+                            <h2 className="text-xl font-bold tracking-tight">
+                                My Status
+                            </h2>
+                        </div>
 
                         {myStatuses.length >
                             0 && (
-                            <span className="text-xs text-muted">
+                            <span className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted">
                                 {
                                     myStatuses.length
                                 }{" "}
-                                active{" "}
                                 {myStatuses.length ===
                                 1
                                     ? "update"
@@ -747,30 +795,18 @@ export default function StatusPage() {
                     </div>
 
                     {!currentUserLoaded ? (
-                        <div
-                            className="
-                                rounded-2xl
-                                border
-                                border-border
-                                bg-surface
-                                px-5
-                                py-8
-                                text-center
-                                text-sm
-                                text-muted
-                            "
-                        >
-                            Loading...
-                        </div>
+                        <LoadingCard />
                     ) : myStatuses.length >
                       0 ? (
                         <div
                             className="
                                 overflow-hidden
-                                rounded-2xl
+                                rounded-3xl
                                 border
                                 border-border
-                                bg-surface
+                                bg-surface/80
+                                shadow-sm
+                                backdrop-blur
                             "
                         >
                             {myStatuses.map(
@@ -789,6 +825,7 @@ export default function StatusPage() {
                                             )
                                         }
                                         className="
+                                            group
                                             flex
                                             w-full
                                             items-center
@@ -798,9 +835,11 @@ export default function StatusPage() {
                                             px-4
                                             py-4
                                             text-left
-                                            transition
+                                            transition-all
+                                            duration-200
                                             last:border-b-0
                                             hover:bg-hover
+                                            md:px-5
                                         "
                                     >
                                         <StatusThumbnail
@@ -821,25 +860,45 @@ export default function StatusPage() {
                                                         : "Status update")}
                                             </p>
 
-                                            <p className="mt-1 text-xs text-muted">
-                                                Tap to view
-                                            </p>
+                                            <div className="mt-1.5 flex items-center gap-2">
+                                                <span className="h-1 w-1 rounded-full bg-muted/50" />
+
+                                                <p className="text-xs text-muted">
+                                                    Tap to view
+                                                </p>
+                                            </div>
                                         </div>
 
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth="1.8"
-                                            className="h-5 w-5 text-muted"
+                                        <div
+                                            className="
+                                                flex
+                                                h-9
+                                                w-9
+                                                shrink-0
+                                                items-center
+                                                justify-center
+                                                rounded-full
+                                                text-muted
+                                                transition-all
+                                                group-hover:bg-background
+                                                group-hover:text-foreground
+                                            "
                                         >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                d="m9 18 6-6-6-6"
-                                            />
-                                        </svg>
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                strokeWidth="1.8"
+                                                className="h-5 w-5"
+                                            >
+                                                <path
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    d="m9 18 6-6-6-6"
+                                                />
+                                            </svg>
+                                        </div>
                                     </button>
                                 )
                             )}
@@ -853,113 +912,124 @@ export default function StatusPage() {
                                 )
                             }
                             className="
+                                group
                                 flex
                                 w-full
                                 items-center
                                 gap-4
-                                rounded-2xl
+                                rounded-3xl
                                 border
                                 border-dashed
                                 border-border
-                                bg-surface
+                                bg-surface/70
                                 p-5
                                 text-left
-                                transition
+                                transition-all
+                                duration-200
+                                hover:border-foreground/20
                                 hover:bg-hover
+                                md:p-6
                             "
                         >
                             <div
                                 className="
+                                    relative
                                     flex
-                                    h-12
-                                    w-12
+                                    h-14
+                                    w-14
+                                    shrink-0
                                     items-center
                                     justify-center
-                                    rounded-full
+                                    rounded-2xl
                                     bg-foreground
                                     text-2xl
                                     text-background
+                                    shadow-lg
+                                    transition-transform
+                                    duration-200
+                                    group-hover:scale-105
                                 "
                             >
                                 +
+
+                                <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full border-2 border-surface bg-green-500" />
                             </div>
 
-                            <div>
-                                <p className="text-sm font-semibold">
-                                    Add a status
+                            <div className="min-w-0 flex-1">
+                                <p className="text-sm font-bold">
+                                    Share a new status
                                 </p>
 
-                                <p className="mt-1 text-xs text-muted">
-                                    Share a photo, video, or text
+                                <p className="mt-1 text-xs leading-relaxed text-muted">
+                                    Share a photo, video, or
+                                    thought with your friends.
                                 </p>
                             </div>
+
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                className="h-5 w-5 text-muted transition-transform duration-200 group-hover:translate-x-1"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="m9 18 6-6-6-6"
+                                />
+                            </svg>
                         </button>
                     )}
                 </section>
 
                 {/* =================================================
-                    FRIEND STATUSES
+                    RECENT UPDATES
                 ================================================= */}
 
                 <section>
+                    <div className="mb-4">
+                        <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+                            From your people
+                        </p>
 
-                    <div className="mb-3">
-                        <h2 className="text-sm font-semibold">
-                            Recent Updates
-                        </h2>
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-bold tracking-tight">
+                                Recent Updates
+                            </h2>
+
+                            {friendGroups.length >
+                                0 && (
+                                <span className="text-xs text-muted">
+                                    {
+                                        friendGroups.length
+                                    }{" "}
+                                    {friendGroups.length ===
+                                    1
+                                        ? "person"
+                                        : "people"}
+                                </span>
+                            )}
+                        </div>
                     </div>
 
                     {loading ||
                     !currentUserLoaded ? (
-                        <div
-                            className="
-                                rounded-2xl
-                                border
-                                border-border
-                                bg-surface
-                                px-5
-                                py-8
-                                text-center
-                                text-sm
-                                text-muted
-                            "
-                        >
-                            Loading statuses...
-                        </div>
+                        <LoadingCard />
                     ) : friendGroups.length ===
                       0 ? (
-                        <div
-                            className="
-                                rounded-2xl
-                                border
-                                border-border
-                                bg-surface
-                                px-5
-                                py-10
-                                text-center
-                            "
-                        >
-                            <div className="text-3xl">
-                                ◌
-                            </div>
-
-                            <p className="mt-3 text-sm font-medium">
-                                No friend updates
-                            </p>
-
-                            <p className="mt-1 text-xs text-muted">
-                                Your friends' active statuses
-                                will appear here.
-                            </p>
-                        </div>
+                        <EmptyUpdates />
                     ) : (
                         <div
                             className="
                                 overflow-hidden
-                                rounded-2xl
+                                rounded-3xl
                                 border
                                 border-border
-                                bg-surface
+                                bg-surface/80
+                                shadow-sm
+                                backdrop-blur
                             "
                         >
                             {friendGroups.map(
@@ -988,6 +1058,7 @@ export default function StatusPage() {
                                                 )
                                             }
                                             className="
+                                                group
                                                 flex
                                                 w-full
                                                 items-center
@@ -997,9 +1068,11 @@ export default function StatusPage() {
                                                 px-4
                                                 py-4
                                                 text-left
-                                                transition
+                                                transition-all
+                                                duration-200
                                                 last:border-b-0
                                                 hover:bg-hover
+                                                md:px-5
                                             "
                                         >
                                             <StatusAvatar
@@ -1012,45 +1085,78 @@ export default function StatusPage() {
                                             />
 
                                             <div className="min-w-0 flex-1">
-                                                <p className="truncate text-sm font-semibold">
-                                                    {group
-                                                        .user
-                                                        .displayName ||
-                                                        group
+                                                <div className="flex items-center gap-2">
+                                                    <p className="truncate text-sm font-semibold">
+                                                        {group
                                                             .user
-                                                            .username ||
-                                                        "User"}
-                                                </p>
+                                                            .displayName ||
+                                                            group
+                                                                .user
+                                                                .username ||
+                                                            "User"}
+                                                    </p>
 
-                                                <p className="mt-1 text-xs text-muted">
-                                                    {
-                                                        group
+                                                    {hasUnviewed && (
+                                                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]" />
+                                                    )}
+                                                </div>
+
+                                                <div className="mt-1.5 flex items-center gap-2">
+                                                    <span className="text-xs text-muted">
+                                                        {
+                                                            group
+                                                                .statuses
+                                                                .length
+                                                        }{" "}
+                                                        {group
                                                             .statuses
-                                                            .length
-                                                    }{" "}
-                                                    {group
-                                                        .statuses
-                                                        .length ===
-                                                    1
-                                                        ? "update"
-                                                        : "updates"}
-                                                </p>
+                                                            .length ===
+                                                        1
+                                                            ? "update"
+                                                            : "updates"}
+                                                    </span>
+
+                                                    {hasUnviewed && (
+                                                        <>
+                                                            <span className="h-1 w-1 rounded-full bg-muted/50" />
+                                                            <span className="text-xs font-medium text-green-500">
+                                                                New
+                                                            </span>
+                                                        </>
+                                                    )}
+                                                </div>
                                             </div>
 
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                strokeWidth="1.8"
-                                                className="h-5 w-5 text-muted"
+                                            <div
+                                                className="
+                                                    flex
+                                                    h-9
+                                                    w-9
+                                                    shrink-0
+                                                    items-center
+                                                    justify-center
+                                                    rounded-full
+                                                    text-muted
+                                                    transition-all
+                                                    group-hover:bg-background
+                                                    group-hover:text-foreground
+                                                "
                                             >
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    d="m9 18 6-6-6-6"
-                                                />
-                                            </svg>
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="1.8"
+                                                    className="h-5 w-5"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        d="m9 18 6-6-6-6"
+                                                    />
+                                                </svg>
+                                            </div>
                                         </button>
                                     );
                                 }
@@ -1058,6 +1164,10 @@ export default function StatusPage() {
                         </div>
                     )}
                 </section>
+
+                {/* BOTTOM SPACE */}
+
+                <div className="h-8" />
             </div>
 
             {/* ====================================================
@@ -1113,6 +1223,105 @@ export default function StatusPage() {
 }
 
 // ============================================================
+// LOADING CARD
+// ============================================================
+
+function LoadingCard() {
+    return (
+        <div
+            className="
+                overflow-hidden
+                rounded-3xl
+                border
+                border-border
+                bg-surface
+            "
+        >
+            <div className="flex items-center gap-4 p-5">
+                <div className="h-14 w-14 animate-pulse rounded-2xl bg-foreground/5" />
+
+                <div className="flex-1 space-y-2">
+                    <div className="h-3 w-32 animate-pulse rounded-full bg-foreground/5" />
+                    <div className="h-2.5 w-20 animate-pulse rounded-full bg-foreground/5" />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ============================================================
+// EMPTY UPDATES
+// ============================================================
+
+function EmptyUpdates() {
+    return (
+        <div
+            className="
+                relative
+                overflow-hidden
+                rounded-3xl
+                border
+                border-border
+                bg-surface/80
+                px-6
+                py-14
+                text-center
+            "
+        >
+            <div className="absolute left-1/2 top-0 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-500/10 blur-3xl" />
+
+            <div
+                className="
+                    relative
+                    mx-auto
+                    flex
+                    h-16
+                    w-16
+                    items-center
+                    justify-center
+                    rounded-2xl
+                    border
+                    border-border
+                    bg-background
+                    text-muted
+                    shadow-sm
+                "
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    className="h-7 w-7"
+                >
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M20 12a8 8 0 1 1-2.34-5.66"
+                    />
+
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M20 5v5h-5"
+                    />
+                </svg>
+            </div>
+
+            <h3 className="relative mt-5 text-sm font-bold">
+                No recent updates
+            </h3>
+
+            <p className="relative mx-auto mt-2 max-w-xs text-xs leading-relaxed text-muted">
+                When your friends share a status,
+                their updates will appear here.
+            </p>
+        </div>
+    );
+}
+
+// ============================================================
 // STATUS THUMBNAIL
 // ============================================================
 
@@ -1125,17 +1334,33 @@ function StatusThumbnail({
             "IMAGE"
     ) {
         return (
-            <img
-                src={status.mediaUrl}
-                alt=""
+            <div
                 className="
-                    h-12
-                    w-12
+                    relative
+                    h-14
+                    w-14
                     shrink-0
-                    rounded-xl
-                    object-cover
+                    overflow-hidden
+                    rounded-2xl
+                    bg-background
+                    shadow-sm
                 "
-            />
+            >
+                <img
+                    src={status.mediaUrl}
+                    alt=""
+                    className="
+                        h-full
+                        w-full
+                        object-cover
+                        transition-transform
+                        duration-300
+                        group-hover:scale-105
+                    "
+                />
+
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+            </div>
         );
     }
 
@@ -1147,19 +1372,49 @@ function StatusThumbnail({
         return (
             <div
                 className="
+                    relative
                     flex
-                    h-12
-                    w-12
+                    h-14
+                    w-14
                     shrink-0
                     items-center
                     justify-center
                     overflow-hidden
-                    rounded-xl
+                    rounded-2xl
                     bg-black
                     text-white
+                    shadow-sm
                 "
             >
-                ▶
+                <video
+                    src={status.mediaUrl}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    className="absolute inset-0 h-full w-full object-cover opacity-70"
+                />
+
+                <span
+                    className="
+                        relative
+                        flex
+                        h-8
+                        w-8
+                        items-center
+                        justify-center
+                        rounded-full
+                        bg-black/50
+                        backdrop-blur-sm
+                    "
+                >
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        className="ml-0.5 h-4 w-4"
+                    >
+                        <path d="M8 5v14l11-7z" />
+                    </svg>
+                </span>
             </div>
         );
     }
@@ -1168,18 +1423,20 @@ function StatusThumbnail({
         <div
             className="
                 flex
-                h-12
-                w-12
+                h-14
+                w-14
                 shrink-0
                 items-center
                 justify-center
                 overflow-hidden
-                rounded-xl
-                px-1
+                rounded-2xl
+                px-1.5
                 text-center
-                text-[9px]
-                font-semibold
+                text-[10px]
+                font-bold
+                leading-tight
                 text-white
+                shadow-sm
             "
             style={{
                 background:
@@ -1190,7 +1447,7 @@ function StatusThumbnail({
             {status?.content
                 ? status.content.slice(
                       0,
-                      12
+                      18
                   )
                 : "Status"}
         </div>
@@ -1219,41 +1476,63 @@ function StatusAvatar({
     return (
         <div
             className={`
+                relative
                 flex
-                h-12
-                w-12
+                h-14
+                w-14
                 shrink-0
                 items-center
                 justify-center
-                overflow-hidden
                 rounded-full
-                border-2
+                p-[2px]
                 ${
                     hasUnviewed
-                        ? "border-green-500"
-                        : "border-border"
+                        ? "bg-gradient-to-br from-green-400 via-emerald-500 to-teal-500"
+                        : "bg-border"
                 }
-                bg-surface
             `}
         >
-            {user?.avatar ? (
-                <img
-                    src={
-                        user.avatar
-                    }
-                    alt={
-                        displayName
-                    }
+            <div
+                className="
+                    flex
+                    h-full
+                    w-full
+                    items-center
+                    justify-center
+                    overflow-hidden
+                    rounded-full
+                    border-2
+                    border-surface
+                    bg-surface
+                "
+            >
+                {user?.avatar ? (
+                    <img
+                        src={user.avatar}
+                        alt={displayName}
+                        className="h-full w-full object-cover"
+                    />
+                ) : (
+                    <span className="text-sm font-bold">
+                        {initial}
+                    </span>
+                )}
+            </div>
+
+            {hasUnviewed && (
+                <span
                     className="
-                        h-full
-                        w-full
-                        object-cover
+                        absolute
+                        bottom-0
+                        right-0
+                        h-3.5
+                        w-3.5
+                        rounded-full
+                        border-2
+                        border-surface
+                        bg-green-500
                     "
                 />
-            ) : (
-                <span className="text-sm font-bold">
-                    {initial}
-                </span>
             )}
         </div>
     );

@@ -96,22 +96,6 @@ export default function StatusViewer({
     // ============================================================
     // OWNER
     // ============================================================
-    //
-    // IMPORTANT:
-    //
-    // The owner of a status comes from the status object.
-    //
-    // We intentionally prefer:
-    //
-    // currentStatus.user.id
-    //
-    // because `user` is the actual relation belonging to
-    // this status.
-    //
-    // Only fall back to currentStatus.userId if the relation
-    // is unavailable.
-    //
-    // ============================================================
 
     const owner =
         currentStatus?.user || {};
@@ -126,10 +110,6 @@ export default function StatusViewer({
 
     const normalizedCurrentUserId =
         Number(currentUserId);
-
-    // ============================================================
-    // IS OWN STATUS
-    // ============================================================
 
     const isOwnStatus =
         Number.isInteger(
@@ -159,90 +139,11 @@ export default function StatusViewer({
         "?";
 
     // ============================================================
-    // DEBUG
-    // ============================================================
-
-    useEffect(() => {
-        if (
-            !open ||
-            !currentStatus
-        ) {
-            return;
-        }
-
-        console.log(
-            "========================================"
-        );
-
-        console.log(
-            "STATUS VIEWER DEBUG"
-        );
-
-        console.log(
-            "Status ID:",
-            currentStatus.id
-        );
-
-        console.log(
-            "Current User ID:",
-            currentUserId
-        );
-
-        console.log(
-            "Current Status user.id:",
-            currentStatus?.user?.id
-        );
-
-        console.log(
-            "Current Status userId:",
-            currentStatus?.userId
-        );
-
-        console.log(
-            "Resolved Owner ID:",
-            ownerId
-        );
-
-        console.log(
-            "Owner Name:",
-            ownerName
-        );
-
-        console.log(
-            "Is Own Status:",
-            isOwnStatus
-        );
-
-        console.log(
-            "Status User Object:",
-            currentStatus?.user
-        );
-
-        console.log(
-            "Full Status:",
-            currentStatus
-        );
-
-        console.log(
-            "========================================"
-        );
-    }, [
-        open,
-        currentStatus,
-        currentUserId,
-        ownerId,
-        ownerName,
-        isOwnStatus,
-    ]);
-
-    // ============================================================
     // STATUS TIME
     // ============================================================
 
     const statusTime = useMemo(() => {
-        if (
-            !currentStatus?.createdAt
-        ) {
+        if (!currentStatus?.createdAt) {
             return "";
         }
 
@@ -299,52 +200,20 @@ export default function StatusViewer({
                 );
 
             if (!status) {
-                console.warn(
-                    "STATUS VIEWERS: status not found."
-                );
-
                 setStatusViewers([]);
-
                 return;
             }
-
-            // ====================================================
-            // RESOLVE OWNER FROM STATUS
-            // ====================================================
 
             const statusOwnerId =
                 status?.user?.id ??
                 status?.userId ??
                 null;
 
-            console.log(
-                "STATUS VIEWERS OWNER CHECK:",
-                {
-                    statusId,
-                    currentUserId,
-                    statusUserId:
-                        status?.userId,
-                    statusUserObjectId:
-                        status?.user?.id,
-                    resolvedOwnerId:
-                        statusOwnerId,
-                }
-            );
-
-            // ====================================================
-            // ONLY OWNER CAN LOAD VIEWERS
-            // ====================================================
-
             if (
                 Number(statusOwnerId) !==
                 Number(currentUserId)
             ) {
-                console.warn(
-                    "STATUS VIEWERS: current user is NOT the status owner."
-                );
-
                 setStatusViewers([]);
-
                 return;
             }
 
@@ -376,36 +245,11 @@ export default function StatusViewer({
                             () => null
                         );
 
-                console.log(
-                    `STATUS VIEWERS RESPONSE ${statusId}:`,
-                    data
-                );
-
                 if (
-                    !response.ok
-                ) {
-                    console.error(
-                        "STATUS VIEWERS LOAD ERROR:",
-                        data?.message ||
-                            `Request failed with status ${response.status}`
-                    );
-
-                    setStatusViewers([]);
-
-                    return;
-                }
-
-                if (
+                    !response.ok ||
                     !data?.success
                 ) {
-                    console.error(
-                        "STATUS VIEWERS LOAD ERROR:",
-                        data?.message ||
-                            "Failed to load viewers."
-                    );
-
                     setStatusViewers([]);
-
                     return;
                 }
 
@@ -467,15 +311,10 @@ export default function StatusViewer({
         );
 
         setProgress(0);
-
         setShowMenu(false);
-
         setShowViewers(false);
-
         setReplyMessage("");
-
         setCurrentReaction(null);
-
         setStatusViewers([]);
 
         loadingViewersRef.current =
@@ -502,15 +341,10 @@ export default function StatusViewer({
         }
 
         setProgress(0);
-
         setShowMenu(false);
-
         setShowViewers(false);
-
         setReplyMessage("");
-
         setCurrentReaction(null);
-
         setStatusViewers([]);
 
         loadingViewersRef.current =
@@ -521,7 +355,7 @@ export default function StatusViewer({
     ]);
 
     // ============================================================
-    // LOAD VIEWERS WHEN OWNER OPENS OWN STATUS
+    // LOAD VIEWERS FOR OWNER
     // ============================================================
 
     useEffect(() => {
@@ -560,7 +394,6 @@ export default function StatusViewer({
 
             if (showViewers) {
                 setShowViewers(false);
-
                 return;
             }
 
@@ -577,7 +410,7 @@ export default function StatusViewer({
         ]);
 
     // ============================================================
-    // LOAD CURRENT USER REACTION
+    // LOAD CURRENT REACTION
     // ============================================================
 
     useEffect(() => {
@@ -589,10 +422,7 @@ export default function StatusViewer({
         }
 
         if (isOwnStatus) {
-            setCurrentReaction(
-                null
-            );
-
+            setCurrentReaction(null);
             return;
         }
 
@@ -627,12 +457,6 @@ export default function StatusViewer({
                         !response.ok ||
                         !data?.success
                     ) {
-                        console.error(
-                            "STATUS REACTION LOAD ERROR:",
-                            data?.message ||
-                                "Failed to load reaction."
-                        );
-
                         return;
                     }
 
@@ -669,7 +493,7 @@ export default function StatusViewer({
     ]);
 
     // ============================================================
-    // MARK STATUS AS VIEWED
+    // MARK STATUS VIEWED
     // ============================================================
 
     useEffect(() => {
@@ -695,18 +519,6 @@ export default function StatusViewer({
             return;
         }
 
-        /*
-         * IMPORTANT:
-         *
-         * The viewer ID is NEVER taken from the status.
-         *
-         * The viewer is the authenticated current user.
-         *
-         * The server gets this from the Token cookie.
-         *
-         * The status owner comes from currentStatus.user.id.
-         */
-
         viewedStatusIdsRef.current.add(
             statusId
         );
@@ -716,21 +528,7 @@ export default function StatusViewer({
         const markViewed =
             async () => {
                 try {
-                    setLoadingView(
-                        true
-                    );
-
-                    console.log(
-                        "MARKING STATUS AS VIEWED:",
-                        {
-                            statusId,
-                            viewerUserId:
-                                currentUserId,
-                            statusOwnerId:
-                                ownerId,
-                            isOwnStatus,
-                        }
-                    );
+                    setLoadingView(true);
 
                     const response =
                         await fetch(
@@ -753,21 +551,10 @@ export default function StatusViewer({
                                 () => null
                             );
 
-                    console.log(
-                        `STATUS ${statusId} VIEW RESULT:`,
-                        data
-                    );
-
                     if (
                         !response.ok ||
                         !data?.success
                     ) {
-                        console.error(
-                            "STATUS VIEW ERROR:",
-                            data?.message ||
-                                `Request failed with status ${response.status}`
-                        );
-
                         viewedStatusIdsRef.current.delete(
                             statusId
                         );
@@ -837,17 +624,10 @@ export default function StatusViewer({
                 );
 
                 setProgress(0);
-
                 setShowMenu(false);
-
                 setShowViewers(false);
-
                 setReplyMessage("");
-
-                setCurrentReaction(
-                    null
-                );
-
+                setCurrentReaction(null);
                 setStatusViewers([]);
 
                 return;
@@ -875,17 +655,10 @@ export default function StatusViewer({
                 );
 
                 setProgress(0);
-
                 setShowMenu(false);
-
                 setShowViewers(false);
-
                 setReplyMessage("");
-
-                setCurrentReaction(
-                    null
-                );
-
+                setCurrentReaction(null);
                 setStatusViewers([]);
             }
         }, [
@@ -941,12 +714,6 @@ export default function StatusViewer({
                         !response.ok ||
                         !data?.success
                     ) {
-                        console.error(
-                            "STATUS REACTION DELETE ERROR:",
-                            data?.message ||
-                                "Failed to remove reaction."
-                        );
-
                         return;
                     }
 
@@ -1005,12 +772,6 @@ export default function StatusViewer({
                     !response.ok ||
                     !data?.success
                 ) {
-                    console.error(
-                        "STATUS REACTION ERROR:",
-                        data?.message ||
-                            "Failed to send reaction."
-                    );
-
                     return;
                 }
 
@@ -1071,9 +832,7 @@ export default function StatusViewer({
             }
 
             try {
-                setSendingReply(
-                    true
-                );
+                setSendingReply(true);
 
                 const response =
                     await fetch(
@@ -1111,12 +870,6 @@ export default function StatusViewer({
                     !response.ok ||
                     !data?.success
                 ) {
-                    console.error(
-                        "STATUS REPLY ERROR:",
-                        data?.message ||
-                            "Failed to send status reply."
-                    );
-
                     return;
                 }
 
@@ -1148,9 +901,7 @@ export default function StatusViewer({
                     error
                 );
             } finally {
-                setSendingReply(
-                    false
-                );
+                setSendingReply(false);
             }
         };
 
@@ -1166,7 +917,6 @@ export default function StatusViewer({
                 !event.shiftKey
             ) {
                 event.preventDefault();
-
                 handleSendReply();
             }
         };
@@ -1185,11 +935,8 @@ export default function StatusViewer({
             return;
         }
 
-        const duration =
-            7000;
-
-        const intervalTime =
-            50;
+        const duration = 7000;
+        const intervalTime = 50;
 
         const interval =
             setInterval(() => {
@@ -1300,7 +1047,6 @@ export default function StatusViewer({
                         setShowViewers(
                             false
                         );
-
                         return;
                     }
 
@@ -1308,12 +1054,10 @@ export default function StatusViewer({
                         setShowMenu(
                             false
                         );
-
                         return;
                     }
 
                     onClose?.();
-
                     return;
                 }
 
@@ -1403,7 +1147,6 @@ export default function StatusViewer({
             }
 
             setShowMenu(false);
-
             setShowViewers(false);
 
             await onDelete(
@@ -1438,16 +1181,34 @@ export default function StatusViewer({
                 bg-black
             "
         >
+            {/* OUTER DESKTOP BACKDROP */}
+
+            <div
+                className="
+                    absolute
+                    inset-0
+                    hidden
+                    bg-black/90
+                    md:block
+                "
+            />
+
             <div
                 className="
                     relative
                     flex
                     h-full
                     w-full
-                    max-w-[520px]
                     flex-col
                     overflow-hidden
                     bg-black
+                    shadow-2xl
+                    md:h-[96vh]
+                    md:max-h-[900px]
+                    md:w-[520px]
+                    md:rounded-3xl
+                    md:ring-1
+                    md:ring-white/10
                 "
             >
                 {/* ==================================================
@@ -1457,10 +1218,10 @@ export default function StatusViewer({
                 <div
                     className="
                         absolute
-                        left-3
-                        right-3
+                        left-4
+                        right-4
                         top-3
-                        z-30
+                        z-[80]
                         flex
                         gap-1
                     "
@@ -1475,11 +1236,11 @@ export default function StatusViewer({
                                     status.id
                                 }
                                 className="
-                                    h-1
+                                    h-[3px]
                                     flex-1
                                     overflow-hidden
                                     rounded-full
-                                    bg-white/30
+                                    bg-white/25
                                 "
                             >
                                 <div
@@ -1487,6 +1248,9 @@ export default function StatusViewer({
                                         h-full
                                         rounded-full
                                         bg-white
+                                        shadow-[0_0_8px_rgba(255,255,255,0.45)]
+                                        transition-[width]
+                                        duration-75
                                     "
                                     style={{
                                         width:
@@ -1514,78 +1278,68 @@ export default function StatusViewer({
                         left-0
                         right-0
                         top-0
-                        z-20
+                        z-50
                         flex
                         items-center
                         justify-between
                         bg-gradient-to-b
-                        from-black/80
+                        from-black/90
+                        via-black/55
                         to-transparent
                         px-4
-                        pb-8
-                        pt-6
+                        pb-10
+                        pt-7
                     "
                 >
                     {/* OWNER */}
 
-                    <div
-                        className="
-                            flex
-                            min-w-0
-                            items-center
-                            gap-3
-                        "
-                    >
+                    <div className="flex min-w-0 items-center gap-3">
                         <div
                             className="
-                                flex
-                                h-10
-                                w-10
+                                h-11
+                                w-11
                                 shrink-0
-                                items-center
-                                justify-center
-                                overflow-hidden
                                 rounded-full
-                                bg-white/10
-                                font-bold
-                                text-white
+                                bg-gradient-to-br
+                                from-white/40
+                                to-white/10
+                                p-[2px]
                             "
                         >
-                            {owner.avatar ? (
-                                <img
-                                    src={
-                                        owner.avatar
-                                    }
-                                    alt={
-                                        ownerName
-                                    }
-                                    className="
-                                        h-full
-                                        w-full
-                                        object-cover
-                                    "
-                                />
-                            ) : (
-                                ownerInitial
-                            )}
-                        </div>
-
-                        <div className="min-w-0">
                             <div
                                 className="
                                     flex
+                                    h-full
+                                    w-full
                                     items-center
-                                    gap-2
+                                    justify-center
+                                    overflow-hidden
+                                    rounded-full
+                                    bg-[#202020]
+                                    text-sm
+                                    font-bold
+                                    text-white
                                 "
                             >
-                                <p
-                                    className="
-                                        truncate
-                                        text-sm
-                                        font-semibold
-                                        text-white
-                                    "
-                                >
+                                {owner.avatar ? (
+                                    <img
+                                        src={
+                                            owner.avatar
+                                        }
+                                        alt={
+                                            ownerName
+                                        }
+                                        className="h-full w-full object-cover"
+                                    />
+                                ) : (
+                                    ownerInitial
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                                <p className="truncate text-sm font-semibold text-white">
                                     {
                                         ownerName
                                     }
@@ -1595,11 +1349,16 @@ export default function StatusViewer({
                                     <span
                                         className="
                                             rounded-full
-                                            bg-white/15
+                                            border
+                                            border-white/10
+                                            bg-white/10
                                             px-2
                                             py-0.5
-                                            text-[10px]
-                                            text-white/80
+                                            text-[9px]
+                                            font-semibold
+                                            uppercase
+                                            tracking-wide
+                                            text-white/70
                                         "
                                     >
                                         You
@@ -1607,30 +1366,19 @@ export default function StatusViewer({
                                 )}
                             </div>
 
-                            <p
-                                className="
-                                    text-xs
-                                    text-white/60
-                                "
-                            >
-                                {
-                                    statusTime
-                                }
-                            </p>
+                            <div className="mt-0.5 flex items-center gap-1.5">
+                                <span className="h-1 w-1 rounded-full bg-white/40" />
+
+                                <p className="text-[11px] text-white/55">
+                                    {statusTime}
+                                </p>
+                            </div>
                         </div>
                     </div>
 
                     {/* HEADER ACTIONS */}
 
-                    <div
-                        className="
-                            flex
-                            items-center
-                            gap-1
-                        "
-                    >
-                        {/* VIEWERS */}
-
+                    <div className="flex items-center gap-1">
                         {isOwnStatus && (
                             <button
                                 type="button"
@@ -1643,9 +1391,13 @@ export default function StatusViewer({
                                     items-center
                                     gap-1.5
                                     rounded-full
+                                    border
+                                    border-white/10
+                                    bg-white/5
                                     px-3
                                     text-white
-                                    transition
+                                    backdrop-blur-xl
+                                    transition-all
                                     hover:bg-white/10
                                 "
                                 aria-label="View status viewers"
@@ -1656,7 +1408,7 @@ export default function StatusViewer({
                                     fill="none"
                                     stroke="currentColor"
                                     strokeWidth="1.8"
-                                    className="h-5 w-5"
+                                    className="h-4.5 w-4.5"
                                 >
                                     <path
                                         strokeLinecap="round"
@@ -1671,21 +1423,13 @@ export default function StatusViewer({
                                     />
                                 </svg>
 
-                                <span
-                                    className="
-                                        min-w-[12px]
-                                        text-xs
-                                        font-medium
-                                    "
-                                >
+                                <span className="text-xs font-semibold">
                                     {
                                         viewerCount
                                     }
                                 </span>
                             </button>
                         )}
-
-                        {/* MENU */}
 
                         {isOwnStatus && (
                             <div className="relative">
@@ -1710,8 +1454,12 @@ export default function StatusViewer({
                                         items-center
                                         justify-center
                                         rounded-full
+                                        border
+                                        border-white/10
+                                        bg-white/5
                                         text-white
-                                        transition
+                                        backdrop-blur-xl
+                                        transition-all
                                         hover:bg-white/10
                                     "
                                     aria-label="Status options"
@@ -1725,19 +1473,19 @@ export default function StatusViewer({
                                         <circle
                                             cx="5"
                                             cy="12"
-                                            r="1.8"
+                                            r="1.6"
                                         />
 
                                         <circle
                                             cx="12"
                                             cy="12"
-                                            r="1.8"
+                                            r="1.6"
                                         />
 
                                         <circle
                                             cx="19"
                                             cy="12"
-                                            r="1.8"
+                                            r="1.6"
                                         />
                                     </svg>
                                 </button>
@@ -1747,15 +1495,17 @@ export default function StatusViewer({
                                         className="
                                             absolute
                                             right-0
-                                            top-11
-                                            z-50
-                                            w-40
+                                            top-12
+                                            z-[100]
+                                            w-44
                                             overflow-hidden
-                                            rounded-xl
+                                            rounded-2xl
                                             border
                                             border-white/10
-                                            bg-[#171717]
+                                            bg-[#171717]/95
+                                            p-1
                                             shadow-2xl
+                                            backdrop-blur-2xl
                                         "
                                     >
                                         <button
@@ -1768,50 +1518,52 @@ export default function StatusViewer({
                                                 w-full
                                                 items-center
                                                 gap-3
-                                                px-4
+                                                rounded-xl
+                                                px-3
                                                 py-3
                                                 text-left
                                                 text-sm
+                                                font-medium
                                                 text-red-400
                                                 transition
-                                                hover:bg-white/10
+                                                hover:bg-red-500/10
                                             "
                                         >
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                strokeWidth="1.8"
-                                                className="h-4 w-4"
-                                            >
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    d="M3 6h18"
-                                                />
+                                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10">
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="1.8"
+                                                    className="h-4 w-4"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        d="M3 6h18"
+                                                    />
 
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    d="M8 6V4h8v2"
-                                                />
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        d="M8 6V4h8v2"
+                                                    />
 
-                                                <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    d="M19 6l-1 14H6L5 6"
-                                                />
-                                            </svg>
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        d="M19 6l-1 14H6L5 6"
+                                                    />
+                                                </svg>
+                                            </span>
 
-                                            Delete
+                                            Delete status
                                         </button>
                                     </div>
                                 )}
                             </div>
                         )}
-
-                        {/* CLOSE */}
 
                         <button
                             type="button"
@@ -1825,15 +1577,30 @@ export default function StatusViewer({
                                 items-center
                                 justify-center
                                 rounded-full
-                                bg-black/20
-                                text-2xl
+                                border
+                                border-white/10
+                                bg-white/5
                                 text-white
-                                transition
+                                backdrop-blur-xl
+                                transition-all
                                 hover:bg-white/10
                             "
                             aria-label="Close status"
                         >
-                            ×
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                className="h-5 w-5"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M6 6l12 12M18 6 6 18"
+                                />
+                            </svg>
                         </button>
                     </div>
                 </div>
@@ -1849,16 +1616,16 @@ export default function StatusViewer({
                                 absolute
                                 left-3
                                 right-3
-                                top-[76px]
+                                top-[82px]
                                 z-[100]
-                                max-h-[65vh]
+                                max-h-[62vh]
                                 overflow-hidden
-                                rounded-2xl
+                                rounded-3xl
                                 border
                                 border-white/10
-                                bg-[#151515]/95
+                                bg-[#111111]/95
                                 shadow-2xl
-                                backdrop-blur-xl
+                                backdrop-blur-2xl
                             "
                         >
                             <div
@@ -1869,34 +1636,48 @@ export default function StatusViewer({
                                     border-b
                                     border-white/10
                                     px-4
-                                    py-3
+                                    py-4
                                 "
                             >
-                                <div>
-                                    <p
-                                        className="
-                                            text-sm
-                                            font-semibold
-                                            text-white
-                                        "
-                                    >
-                                        Viewed by
-                                    </p>
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-white">
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="1.7"
+                                            className="h-5 w-5"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z"
+                                            />
 
-                                    <p
-                                        className="
-                                            text-xs
-                                            text-white/50
-                                        "
-                                    >
-                                        {
-                                            viewerCount
-                                        }{" "}
-                                        {viewerCount ===
-                                        1
-                                            ? "viewer"
-                                            : "viewers"}
-                                    </p>
+                                            <circle
+                                                cx="12"
+                                                cy="12"
+                                                r="2.75"
+                                            />
+                                        </svg>
+                                    </div>
+
+                                    <div>
+                                        <p className="text-sm font-semibold text-white">
+                                            Viewed by
+                                        </p>
+
+                                        <p className="mt-0.5 text-[11px] text-white/45">
+                                            {
+                                                viewerCount
+                                            }{" "}
+                                            {viewerCount ===
+                                            1
+                                                ? "viewer"
+                                                : "viewers"}
+                                        </p>
+                                    </div>
                                 </div>
 
                                 <button
@@ -1913,8 +1694,7 @@ export default function StatusViewer({
                                         items-center
                                         justify-center
                                         rounded-full
-                                        text-lg
-                                        text-white/70
+                                        text-white/50
                                         transition
                                         hover:bg-white/10
                                         hover:text-white
@@ -1925,71 +1705,35 @@ export default function StatusViewer({
                                 </button>
                             </div>
 
-                            <div
-                                className="
-                                    max-h-[calc(65vh-65px)]
-                                    overflow-y-auto
-                                "
-                            >
+                            <div className="max-h-[calc(62vh-75px)] overflow-y-auto">
                                 {loadingViewers ? (
-                                    <div
-                                        className="
-                                            flex
-                                            items-center
-                                            justify-center
-                                            gap-3
-                                            px-4
-                                            py-10
-                                            text-sm
-                                            text-white/60
-                                        "
-                                    >
+                                    <div className="flex flex-col items-center justify-center px-4 py-12">
                                         <span
                                             className="
-                                                h-5
-                                                w-5
+                                                h-7
+                                                w-7
                                                 animate-spin
                                                 rounded-full
                                                 border-2
-                                                border-white/20
+                                                border-white/10
                                                 border-t-white
                                             "
                                         />
 
-                                        Loading viewers...
+                                        <p className="mt-3 text-xs text-white/45">
+                                            Loading viewers...
+                                        </p>
                                     </div>
                                 ) : viewerCount ===
                                   0 ? (
-                                    <div
-                                        className="
-                                            flex
-                                            flex-col
-                                            items-center
-                                            justify-center
-                                            px-4
-                                            py-10
-                                            text-center
-                                        "
-                                    >
-                                        <div
-                                            className="
-                                                mb-3
-                                                flex
-                                                h-12
-                                                w-12
-                                                items-center
-                                                justify-center
-                                                rounded-full
-                                                bg-white/5
-                                                text-white/40
-                                            "
-                                        >
+                                    <div className="flex flex-col items-center justify-center px-5 py-12 text-center">
+                                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 text-white/30">
                                             <svg
                                                 xmlns="http://www.w3.org/2000/svg"
                                                 viewBox="0 0 24 24"
                                                 fill="none"
                                                 stroke="currentColor"
-                                                strokeWidth="1.7"
+                                                strokeWidth="1.6"
                                                 className="h-6 w-6"
                                             >
                                                 <path
@@ -2006,23 +1750,11 @@ export default function StatusViewer({
                                             </svg>
                                         </div>
 
-                                        <p
-                                            className="
-                                                text-sm
-                                                font-medium
-                                                text-white
-                                            "
-                                        >
+                                        <p className="mt-4 text-sm font-semibold text-white">
                                             No views yet
                                         </p>
 
-                                        <p
-                                            className="
-                                                mt-1
-                                                text-xs
-                                                text-white/40
-                                            "
-                                        >
+                                        <p className="mt-1 max-w-[230px] text-xs leading-relaxed text-white/35">
                                             People who view
                                             your status will
                                             appear here.
@@ -2063,61 +1795,34 @@ export default function StatusViewer({
                                                         flex
                                                         items-center
                                                         gap-3
+                                                        border-b
+                                                        border-white/5
                                                         px-4
                                                         py-3
-                                                        transition
-                                                        hover:bg-white/5
+                                                        last:border-b-0
+                                                        hover:bg-white/[0.03]
                                                     "
                                                 >
-                                                    <div
-                                                        className="
-                                                            flex
-                                                            h-10
-                                                            w-10
-                                                            shrink-0
-                                                            items-center
-                                                            justify-center
-                                                            overflow-hidden
-                                                            rounded-full
-                                                            bg-white/10
-                                                            text-sm
-                                                            font-semibold
-                                                            text-white
-                                                        "
-                                                    >
-                                                        {user.avatar ? (
-                                                            <img
-                                                                src={
-                                                                    user.avatar
-                                                                }
-                                                                alt={
-                                                                    name
-                                                                }
-                                                                className="
-                                                                    h-full
-                                                                    w-full
-                                                                    object-cover
-                                                                "
-                                                            />
-                                                        ) : (
-                                                            initial
-                                                        )}
+                                                    <div className="h-10 w-10 shrink-0 rounded-full bg-white/10 p-[1.5px]">
+                                                        <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-[#202020] text-sm font-semibold text-white">
+                                                            {user.avatar ? (
+                                                                <img
+                                                                    src={
+                                                                        user.avatar
+                                                                    }
+                                                                    alt={
+                                                                        name
+                                                                    }
+                                                                    className="h-full w-full object-cover"
+                                                                />
+                                                            ) : (
+                                                                initial
+                                                            )}
+                                                        </div>
                                                     </div>
 
-                                                    <div
-                                                        className="
-                                                            min-w-0
-                                                            flex-1
-                                                        "
-                                                    >
-                                                        <p
-                                                            className="
-                                                                truncate
-                                                                text-sm
-                                                                font-medium
-                                                                text-white
-                                                            "
-                                                        >
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="truncate text-sm font-medium text-white">
                                                             {
                                                                 name
                                                             }
@@ -2125,13 +1830,7 @@ export default function StatusViewer({
 
                                                         {user.username &&
                                                             user.displayName && (
-                                                                <p
-                                                                    className="
-                                                                        truncate
-                                                                        text-xs
-                                                                        text-white/40
-                                                                    "
-                                                                >
+                                                                <p className="mt-0.5 truncate text-[11px] text-white/35">
                                                                     @
                                                                     {
                                                                         user.username
@@ -2140,17 +1839,11 @@ export default function StatusViewer({
                                                             )}
                                                     </div>
 
-                                                    <div
-                                                        className="
-                                                            shrink-0
-                                                            text-xs
-                                                            text-white/40
-                                                        "
-                                                    >
+                                                    <span className="shrink-0 text-[11px] text-white/35">
                                                         {formatViewedTime(
                                                             viewer.viewedAt
                                                         )}
-                                                    </div>
+                                                    </span>
                                                 </div>
                                             );
                                         }
@@ -2165,14 +1858,7 @@ export default function StatusViewer({
                 ================================================== */}
 
                 <div
-                    className="
-                        relative
-                        flex
-                        min-h-0
-                        flex-1
-                        items-center
-                        justify-center
-                    "
+                    className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden"
                     style={{
                         backgroundColor:
                             !currentStatus.mediaUrl
@@ -2181,6 +1867,12 @@ export default function StatusViewer({
                                 : "#000000",
                     }}
                 >
+                    {/* SUBTLE MEDIA GLOW */}
+
+                    {!currentStatus.mediaUrl && (
+                        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.08),transparent_55%)]" />
+                    )}
+
                     {/* PREVIOUS */}
 
                     <button
@@ -2188,14 +1880,19 @@ export default function StatusViewer({
                         onClick={
                             goPrevious
                         }
+                        disabled={
+                            currentIndex ===
+                            0
+                        }
                         className="
                             absolute
                             left-0
                             top-0
-                            z-10
+                            z-20
                             h-full
-                            w-1/3
+                            w-1/4
                             cursor-pointer
+                            disabled:cursor-default
                         "
                         aria-label="Previous status"
                     />
@@ -2211,9 +1908,9 @@ export default function StatusViewer({
                             absolute
                             right-0
                             top-0
-                            z-10
+                            z-20
                             h-full
-                            w-1/3
+                            w-1/4
                             cursor-pointer
                         "
                         aria-label="Next status"
@@ -2277,6 +1974,7 @@ export default function StatusViewer({
                         currentStatus.content && (
                             <div
                                 className="
+                                    relative
                                     flex
                                     max-h-full
                                     w-full
@@ -2284,24 +1982,29 @@ export default function StatusViewer({
                                     justify-center
                                     overflow-y-auto
                                     px-10
-                                    py-24
+                                    py-28
                                 "
                             >
-                                <p
-                                    className="
-                                        whitespace-pre-wrap
-                                        break-words
-                                        text-center
-                                        text-2xl
-                                        font-semibold
-                                        leading-relaxed
-                                        text-white
-                                    "
-                                >
-                                    {
-                                        currentStatus.content
-                                    }
-                                </p>
+                                <div className="max-w-[430px]">
+                                    <p
+                                        className="
+                                            whitespace-pre-wrap
+                                            break-words
+                                            text-center
+                                            text-[28px]
+                                            font-bold
+                                            leading-[1.35]
+                                            tracking-tight
+                                            text-white
+                                            drop-shadow-lg
+                                            sm:text-[32px]
+                                        "
+                                    >
+                                        {
+                                            currentStatus.content
+                                        }
+                                    </p>
+                                </div>
                             </div>
                         )}
 
@@ -2317,11 +2020,12 @@ export default function StatusViewer({
                                     right-0
                                     z-10
                                     bg-gradient-to-t
-                                    from-black/80
+                                    from-black/90
+                                    via-black/50
                                     to-transparent
                                     px-6
-                                    pb-32
-                                    pt-16
+                                    pb-36
+                                    pt-24
                                 "
                             >
                                 <p
@@ -2332,6 +2036,7 @@ export default function StatusViewer({
                                         font-medium
                                         leading-relaxed
                                         text-white
+                                        drop-shadow-md
                                     "
                                 >
                                     {
@@ -2349,10 +2054,10 @@ export default function StatusViewer({
                         <div
                             className="
                                 absolute
-                                bottom-4
+                                bottom-3
                                 left-3
                                 right-3
-                                z-30
+                                z-40
                                 flex
                                 flex-col
                                 gap-2
@@ -2360,35 +2065,14 @@ export default function StatusViewer({
                         >
                             {/* REPLY INDICATOR */}
 
-                            <div
-                                className="
-                                    flex
-                                    items-center
-                                    justify-center
-                                    gap-2
-                                    text-[11px]
-                                    text-white/60
-                                "
-                            >
-                                <span
-                                    className="
-                                        h-1.5
-                                        w-1.5
-                                        rounded-full
-                                        bg-white/50
-                                    "
-                                />
+                            <div className="flex items-center justify-center gap-2 text-[10px] text-white/45">
+                                <span className="h-1 w-1 rounded-full bg-white/40" />
 
                                 <span>
                                     Replying to
                                 </span>
 
-                                <span
-                                    className="
-                                        font-medium
-                                        text-white/80
-                                    "
-                                >
+                                <span className="font-semibold text-white/70">
                                     {
                                         ownerName
                                     }
@@ -2396,28 +2080,10 @@ export default function StatusViewer({
                                 </span>
                             </div>
 
-                            {/* REACTIONS */}
+                            {/* REACTION DOCK */}
 
-                            <div
-                                className="
-                                    mx-auto
-                                    rounded-full
-                                    border
-                                    border-white/10
-                                    bg-black/70
-                                    px-2
-                                    py-2
-                                    shadow-2xl
-                                    backdrop-blur-md
-                                "
-                            >
-                                <div
-                                    className="
-                                        flex
-                                        items-center
-                                        gap-1
-                                    "
-                                >
+                            <div className="mx-auto rounded-full border border-white/10 bg-black/55 p-1.5 shadow-2xl backdrop-blur-xl">
+                                <div className="flex items-center gap-0.5">
                                     {STATUS_REACTIONS.map(
                                         (
                                             reaction
@@ -2448,17 +2114,18 @@ export default function StatusViewer({
                                                         items-center
                                                         justify-center
                                                         rounded-full
-                                                        text-xl
-                                                        transition
+                                                        text-[19px]
+                                                        transition-all
+                                                        duration-200
                                                         ${
                                                             selected
-                                                                ? "scale-110 bg-white/25"
-                                                                : "hover:bg-white/10"
+                                                                ? "scale-110 bg-white/20 shadow-lg"
+                                                                : "hover:scale-110 hover:bg-white/10"
                                                         }
                                                         ${
                                                             loadingReaction ||
                                                             sendingReply
-                                                                ? "cursor-not-allowed opacity-50"
+                                                                ? "cursor-not-allowed opacity-40"
                                                                 : ""
                                                         }
                                                     `}
@@ -2487,10 +2154,10 @@ export default function StatusViewer({
                                     rounded-2xl
                                     border
                                     border-white/10
-                                    bg-black/80
-                                    p-2
+                                    bg-black/65
+                                    p-1.5
                                     shadow-2xl
-                                    backdrop-blur-md
+                                    backdrop-blur-2xl
                                 "
                             >
                                 <textarea
@@ -2509,7 +2176,7 @@ export default function StatusViewer({
                                     onKeyDown={
                                         handleReplyKeyDown
                                     }
-                                    placeholder={`Reply to ${ownerName}'s status...`}
+                                    placeholder={`Reply to ${ownerName}...`}
                                     rows={1}
                                     maxLength={
                                         1000
@@ -2528,7 +2195,7 @@ export default function StatusViewer({
                                         text-sm
                                         text-white
                                         outline-none
-                                        placeholder:text-white/40
+                                        placeholder:text-white/35
                                     "
                                 />
 
@@ -2548,13 +2215,16 @@ export default function StatusViewer({
                                         shrink-0
                                         items-center
                                         justify-center
-                                        rounded-full
+                                        rounded-xl
                                         bg-white
                                         text-black
-                                        transition
+                                        shadow-lg
+                                        transition-all
+                                        hover:scale-105
                                         hover:bg-white/90
+                                        active:scale-95
                                         disabled:cursor-not-allowed
-                                        disabled:opacity-40
+                                        disabled:opacity-30
                                     "
                                     aria-label="Send status reply"
                                 >
@@ -2577,7 +2247,7 @@ export default function StatusViewer({
                                             fill="none"
                                             stroke="currentColor"
                                             strokeWidth="2"
-                                            className="h-5 w-5"
+                                            className="h-4.5 w-4.5"
                                         >
                                             <path
                                                 strokeLinecap="round"
@@ -2604,19 +2274,42 @@ export default function StatusViewer({
                             className="
                                 pointer-events-none
                                 absolute
-                                bottom-4
-                                right-4
-                                z-20
-                                h-4
-                                w-4
-                                animate-spin
+                                bottom-5
+                                right-5
+                                z-30
+                                flex
+                                h-7
+                                w-7
+                                items-center
+                                justify-center
                                 rounded-full
-                                border-2
-                                border-white/20
-                                border-t-white
+                                bg-black/30
+                                backdrop-blur
                             "
-                        />
+                        >
+                            <span
+                                className="
+                                    h-3.5
+                                    w-3.5
+                                    animate-spin
+                                    rounded-full
+                                    border
+                                    border-white/20
+                                    border-t-white
+                                "
+                            />
+                        </div>
                     )}
+                </div>
+
+                {/* ==================================================
+                    DESKTOP SIDE HINT
+                ================================================== */}
+
+                <div className="pointer-events-none absolute bottom-5 left-1/2 z-30 hidden -translate-x-1/2 items-center gap-2 rounded-full bg-black/30 px-3 py-1.5 text-[9px] text-white/30 backdrop-blur md:flex">
+                    <span>←</span>
+                    <span>Use arrow keys to navigate</span>
+                    <span>→</span>
                 </div>
             </div>
         </div>
