@@ -103,7 +103,7 @@ const EMOJIS = [
 // ============================================================
 
 const MAX_FILE_SIZE =
-    25 * 1024 * 1024;
+    50 * 1024 * 1024;
 
 // ============================================================
 // LONG PRESS
@@ -147,6 +147,7 @@ export default function ChatWindow({
     // ========================================================
 
     onStartAudioCall,
+    onStartVideoCall,
 }) {
     const router = useRouter();
 
@@ -881,6 +882,9 @@ export default function ChatWindow({
                 }
                 onStartAudioCall={
                     onStartAudioCall
+                }
+                onStartVideoCall={
+                    onStartVideoCall
                 }
             />
 
