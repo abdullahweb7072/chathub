@@ -24,15 +24,8 @@ export default function CallOverlay({
   onToggleCallMute,
   onToggleCallCamera,
 
-  // Used to dismiss declined-call UI
+  // Used for declined-call UI
   onCallDismiss,
-
-  // ============================================================
-  // NEW
-  // Only the caller should set this to true after receiver
-  // rejects the call.
-  // ============================================================
-  showDeclinedUI = false,
 }) {
   const remoteVideoRef = useRef(null);
   const localVideoRef = useRef(null);
@@ -83,10 +76,7 @@ export default function CallOverlay({
   // ============================================================
 
   useEffect(() => {
-    if (
-      callState !== "declined" ||
-      !showDeclinedUI
-    ) {
+    if (callState !== "declined") {
       return;
     }
 
@@ -97,11 +87,7 @@ export default function CallOverlay({
     return () => {
       clearTimeout(timer);
     };
-  }, [
-    callState,
-    showDeclinedUI,
-    onCallDismiss,
-  ]);
+  }, [callState, onCallDismiss]);
 
   // ============================================================
   // IDLE
@@ -115,8 +101,7 @@ export default function CallOverlay({
   // RESOLVE REMOTE USER
   // ============================================================
 
-  const incomingCaller =
-    incomingCall?.caller || null;
+  const incomingCaller = incomingCall?.caller || null;
 
   const conversationMember = (
     activeConversation?.members || []
@@ -147,26 +132,9 @@ export default function CallOverlay({
     remoteUser?.avatarUrl ||
     null;
 
-  const isIncoming =
-    callState === "incoming";
-
-  // ============================================================
-  // IMPORTANT
-  //
-  // Declined UI is shown ONLY when:
-  //
-  // 1. callState is declined
-  // 2. showDeclinedUI is true
-  //
-  // The receiver should keep this false.
-  // ============================================================
-
-  const isDeclined =
-    callState === "declined" &&
-    showDeclinedUI === true;
-
-  const isVideo =
-    callType === "video";
+  const isIncoming = callState === "incoming";
+  const isDeclined = callState === "declined";
+  const isVideo = callType === "video";
 
   const initials =
     displayName
@@ -180,8 +148,6 @@ export default function CallOverlay({
 
   // ============================================================
   // DECLINED CALL
-  //
-  // ONLY SHOWN ON CALLER/SENDER SIDE
   // ============================================================
 
   if (isDeclined) {
@@ -219,19 +185,14 @@ export default function CallOverlay({
             ================================================== */}
 
             <div className="mb-8 flex justify-center">
-
               <div className="flex items-center gap-2 rounded-full border border-red-400/[0.12] bg-red-500/[0.07] px-4 py-2 text-xs font-medium text-red-300">
 
                 <span className="relative flex h-2 w-2">
-
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-40" />
-
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-red-400" />
-
                 </span>
 
                 Call declined
-
               </div>
             </div>
 
@@ -241,11 +202,17 @@ export default function CallOverlay({
 
             <div className="relative mx-auto mb-7 h-28 w-28">
 
+              {/* Outer ring */}
+
               <div className="absolute -inset-4 rounded-full border border-red-400/[0.06]" />
 
               <div className="absolute -inset-2 rounded-full border border-red-400/[0.10]" />
 
+              {/* Glow */}
+
               <div className="absolute inset-0 rounded-full bg-red-500/10 blur-2xl" />
+
+              {/* Avatar */}
 
               <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full border border-white/[0.12] bg-gradient-to-br from-slate-600 to-slate-800 text-3xl font-semibold text-white shadow-[0_0_50px_rgba(239,68,68,0.12)]">
 
@@ -259,14 +226,16 @@ export default function CallOverlay({
                   initials
                 )}
 
+                {/* Dark overlay */}
+
                 <div className="absolute inset-0 bg-black/20" />
 
-                <div className="absolute inset-0 flex items-center justify-center">
+                {/* Declined icon */}
 
+                <div className="absolute inset-0 flex items-center justify-center">
                   <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-red-500 text-lg font-semibold text-white shadow-[0_8px_25px_rgba(239,68,68,0.35)]">
                     ✕
                   </div>
-
                 </div>
               </div>
             </div>
@@ -285,7 +254,6 @@ export default function CallOverlay({
                 declined your{" "}
                 {isVideo ? "video" : "audio"} call
               </p>
-
             </div>
 
             {/* ==================================================
@@ -301,7 +269,6 @@ export default function CallOverlay({
                 </div>
 
                 <div className="text-left">
-
                   <p className="text-sm font-medium text-white/70">
                     Call not answered
                   </p>
@@ -311,9 +278,7 @@ export default function CallOverlay({
                       ? "Your video call was declined."
                       : "Your audio call was declined."}
                   </p>
-
                 </div>
-
               </div>
             </div>
 
@@ -323,9 +288,7 @@ export default function CallOverlay({
 
             <button
               type="button"
-              onClick={() =>
-                onCallDismiss?.()
-              }
+              onClick={() => onCallDismiss?.()}
               className="mt-6 flex h-12 w-full items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.05] text-sm font-medium text-white/75 transition-all duration-200 hover:bg-white/[0.09] hover:text-white active:scale-[0.98]"
             >
               Close
@@ -338,7 +301,6 @@ export default function CallOverlay({
             <p className="mt-3 text-center text-[11px] text-white/25">
               Closing automatically...
             </p>
-
           </div>
         </div>
       </div>
@@ -363,11 +325,15 @@ export default function CallOverlay({
 
         <div className="relative w-full max-w-md overflow-hidden rounded-[32px] border border-white/10 bg-[#11181d]/95 shadow-[0_30px_100px_rgba(0,0,0,0.7)]">
 
+          {/* Gradient */}
+
           <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-blue-500/[0.12] via-indigo-500/[0.04] to-transparent" />
 
           <div className="relative px-7 pb-8 pt-9 sm:px-8">
 
-            {/* CALL TYPE */}
+            {/* ==================================================
+                CALL TYPE
+            ================================================== */}
 
             <div className="mb-8 flex justify-center">
 
@@ -380,7 +346,6 @@ export default function CallOverlay({
                       : "text-emerald-400"
                   }`}
                 >
-
                   <span
                     className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-40 ${
                       isVideo
@@ -396,27 +361,28 @@ export default function CallOverlay({
                         : "bg-emerald-400"
                     }`}
                   />
-
                 </span>
 
                 Incoming{" "}
-                {isVideo
-                  ? "video"
-                  : "audio"}{" "}
-                call
-
+                {isVideo ? "video" : "audio"} call
               </div>
             </div>
 
-            {/* AVATAR */}
+            {/* ==================================================
+                AVATAR
+            ================================================== */}
 
             <div className="relative mx-auto mb-7 h-28 w-28">
+
+              {/* Animated rings */}
 
               <div className="absolute -inset-5 animate-pulse rounded-full border border-blue-400/[0.08]" />
 
               <div className="absolute -inset-3 rounded-full border border-blue-400/[0.10]" />
 
               <div className="absolute inset-0 animate-ping rounded-full bg-blue-500/[0.08]" />
+
+              {/* Avatar */}
 
               <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full border border-white/20 bg-gradient-to-br from-blue-500 to-indigo-600 text-3xl font-semibold text-white shadow-[0_0_60px_rgba(37,99,235,0.30)]">
 
@@ -429,11 +395,12 @@ export default function CallOverlay({
                 ) : (
                   initials
                 )}
-
               </div>
             </div>
 
-            {/* NAME */}
+            {/* ==================================================
+                NAME
+            ================================================== */}
 
             <div className="text-center">
 
@@ -444,10 +411,11 @@ export default function CallOverlay({
               <p className="mt-2 text-sm text-white/45">
                 is calling you...
               </p>
-
             </div>
 
-            {/* ACTIONS */}
+            {/* ==================================================
+                ACTIONS
+            ================================================== */}
 
             <div className="mt-9 grid grid-cols-2 gap-4">
 
@@ -460,13 +428,11 @@ export default function CallOverlay({
                 }
                 className="group flex h-14 items-center justify-center gap-2 rounded-2xl border border-red-400/[0.10] bg-red-500/[0.10] text-sm font-semibold text-red-400 transition-all duration-200 hover:border-red-400/[0.18] hover:bg-red-500/[0.18] active:scale-[0.97]"
               >
-
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-500/[0.12] text-base transition-transform duration-200 group-hover:scale-110">
                   ✕
                 </span>
 
                 Decline
-
               </button>
 
               {/* ACCEPT */}
@@ -476,15 +442,12 @@ export default function CallOverlay({
                 onClick={onAcceptCall}
                 className="group flex h-14 items-center justify-center gap-2 rounded-2xl bg-emerald-500 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(16,185,129,0.20)] transition-all duration-200 hover:bg-emerald-400 hover:shadow-[0_12px_35px_rgba(16,185,129,0.30)] active:scale-[0.97]"
               >
-
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.15] text-base transition-transform duration-200 group-hover:scale-110">
                   ✓
                 </span>
 
                 Accept
-
               </button>
-
             </div>
           </div>
         </div>
@@ -499,7 +462,9 @@ export default function CallOverlay({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-[#020406] p-0 sm:p-3">
 
-      {/* REMOTE AUDIO */}
+      {/* ========================================================
+          REMOTE AUDIO
+      ======================================================== */}
 
       {!isVideo && (
         <audio
@@ -509,11 +474,15 @@ export default function CallOverlay({
         />
       )}
 
-      {/* MAIN CALL CONTAINER */}
+      {/* ========================================================
+          MAIN CALL CONTAINER
+      ======================================================== */}
 
       <div className="relative flex h-full w-full max-w-[1500px] flex-col overflow-hidden bg-[#080d11] shadow-2xl sm:h-[calc(100vh-24px)] sm:rounded-[28px] sm:border sm:border-white/[0.08]">
 
-        {/* BACKGROUND */}
+        {/* ======================================================
+            BACKGROUND
+        ====================================================== */}
 
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
 
@@ -522,10 +491,11 @@ export default function CallOverlay({
           <div className="absolute -left-40 -top-40 h-[400px] w-[400px] rounded-full bg-indigo-500/[0.04] blur-[120px]" />
 
           <div className="absolute -bottom-40 -right-40 h-[400px] w-[400px] rounded-full bg-purple-500/[0.04] blur-[120px]" />
-
         </div>
 
-        {/* TOP BAR */}
+        {/* ======================================================
+            TOP BAR
+        ====================================================== */}
 
         <div className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-5 py-5 sm:px-7">
 
@@ -544,7 +514,6 @@ export default function CallOverlay({
               ) : (
                 initials
               )}
-
             </div>
 
             <div className="hidden sm:block">
@@ -566,9 +535,7 @@ export default function CallOverlay({
                 {isVideo
                   ? "Video call"
                   : "Audio call"}
-
               </div>
-
             </div>
           </div>
 
@@ -585,16 +552,18 @@ export default function CallOverlay({
             {callState !== "outgoing" &&
               callState !== "connecting" &&
               "Connected"}
-
           </div>
-
         </div>
 
-        {/* MAIN DISPLAY */}
+        {/* ======================================================
+            MAIN DISPLAY
+        ====================================================== */}
 
         <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-[#05090c]">
 
-          {/* REMOTE VIDEO */}
+          {/* ====================================================
+              REMOTE VIDEO
+          ==================================================== */}
 
           {isVideo && remoteStream ? (
             <video
@@ -605,7 +574,13 @@ export default function CallOverlay({
             />
           ) : (
 
+            /* ==================================================
+               AUDIO DISPLAY
+            ================================================== */
+
             <div className="relative flex flex-col items-center justify-center px-6 text-center">
+
+              {/* Glow */}
 
               <div
                 className={`absolute h-64 w-64 rounded-full blur-[80px] ${
@@ -615,7 +590,7 @@ export default function CallOverlay({
                 }`}
               />
 
-              {/* AVATAR */}
+              {/* Avatar */}
 
               <div className="relative">
 
@@ -638,18 +613,16 @@ export default function CallOverlay({
                   ) : (
                     initials
                   )}
-
                 </div>
-
               </div>
 
-              {/* NAME */}
+              {/* Name */}
 
               <h1 className="relative mt-8 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
                 {displayName}
               </h1>
 
-              {/* STATUS */}
+              {/* Status */}
 
               <div className="relative mt-3 flex items-center gap-2 text-sm text-white/45">
 
@@ -677,12 +650,13 @@ export default function CallOverlay({
                       Connected
                     </>
                   )}
-
               </div>
             </div>
           )}
 
-          {/* LOCAL VIDEO */}
+          {/* ====================================================
+              LOCAL VIDEO
+          ==================================================== */}
 
           {isVideo &&
             localStream &&
@@ -700,11 +674,12 @@ export default function CallOverlay({
                 <div className="absolute bottom-2 left-2 rounded-lg bg-black/50 px-2 py-1 text-[10px] text-white/70 backdrop-blur-md">
                   You
                 </div>
-
               </div>
             )}
 
-          {/* CAMERA OFF */}
+          {/* ====================================================
+              CAMERA OFF
+          ==================================================== */}
 
           {isVideo && isCameraOff && (
             <div className="absolute right-4 top-20 z-10 flex h-32 w-24 items-center justify-center rounded-2xl border border-white/10 bg-[#11181d] shadow-xl sm:right-7 sm:top-24 sm:h-40 sm:w-60">
@@ -718,23 +693,24 @@ export default function CallOverlay({
                 <p className="mt-2 text-[10px] text-white/40">
                   Camera off
                 </p>
-
               </div>
-
             </div>
           )}
 
-          {/* CALL ERROR */}
+          {/* ====================================================
+              CALL ERROR
+          ==================================================== */}
 
           {callError && (
             <div className="absolute left-1/2 top-20 z-30 w-[calc(100%-32px)] max-w-md -translate-x-1/2 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-center text-sm text-red-300 shadow-xl backdrop-blur-xl">
               {callError}
             </div>
           )}
-
         </div>
 
-        {/* BOTTOM CONTROLS */}
+        {/* ======================================================
+            BOTTOM CONTROLS
+        ====================================================== */}
 
         <div className="relative z-20 shrink-0 border-t border-white/[0.06] bg-[#0b1115]/95 px-4 pb-7 pt-4 backdrop-blur-2xl sm:px-7 sm:pb-8">
 
@@ -747,14 +723,15 @@ export default function CallOverlay({
                 ? "Video call"
                 : "Audio call"}
             </div>
-
           </div>
 
           {/* CONTROLS */}
 
           <div className="flex items-center justify-center gap-3 sm:gap-4">
 
-            {/* MUTE */}
+            {/* ==================================================
+                MUTE
+            ================================================== */}
 
             <button
               type="button"
@@ -775,14 +752,14 @@ export default function CallOverlay({
                   : "Mute microphone"
               }
             >
-
               <span className="text-xl">
                 {isMuted ? "🔇" : "🎤"}
               </span>
-
             </button>
 
-            {/* CAMERA */}
+            {/* ==================================================
+                CAMERA
+            ================================================== */}
 
             {isVideo && (
               <button
@@ -804,17 +781,17 @@ export default function CallOverlay({
                     : "Turn camera off"
                 }
               >
-
                 <span className="text-xl">
                   {isCameraOff
                     ? "📹"
                     : "🎥"}
                 </span>
-
               </button>
             )}
 
-            {/* END CALL */}
+            {/* ==================================================
+                END CALL
+            ================================================== */}
 
             <button
               type="button"
@@ -825,13 +802,10 @@ export default function CallOverlay({
               aria-label="End call"
               title="End call"
             >
-
               <span className="rotate-[135deg] text-2xl">
                 📞
               </span>
-
             </button>
-
           </div>
         </div>
       </div>
