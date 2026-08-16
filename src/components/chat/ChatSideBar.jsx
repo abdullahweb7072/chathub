@@ -26,24 +26,12 @@ export default function ChatSideBar({
     // ============================================================
 
     const [search, setSearch] = useState("");
-
-    const [friendRequestCount, setFriendRequestCount] =
-        useState(0);
-
-    const [showNewChat, setShowNewChat] =
-        useState(false);
-
-    const [showLogoutModal, setShowLogoutModal] =
-        useState(false);
-
-    const [loggingOut, setLoggingOut] =
-        useState(false);
-
-    const [avatarError, setAvatarError] =
-        useState(false);
-
-    const [profileUser, setProfileUser] =
-        useState(null);
+    const [friendRequestCount, setFriendRequestCount] = useState(0);
+    const [showNewChat, setShowNewChat] = useState(false);
+    const [showLogoutModal, setShowLogoutModal] = useState(false);
+    const [loggingOut, setLoggingOut] = useState(false);
+    const [avatarError, setAvatarError] = useState(false);
+    const [profileUser, setProfileUser] = useState(null);
 
     const resolvedCurrentUserId =
         currentUserId ?? currentUser?.id;
@@ -52,88 +40,83 @@ export default function ChatSideBar({
     // FETCH CURRENT USER PROFILE
     // ============================================================
 
-    const fetchCurrentUserProfile = useCallback(
-        async () => {
-            if (!resolvedCurrentUserId) {
+    const fetchCurrentUserProfile = useCallback(async () => {
+        if (!resolvedCurrentUserId) {
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                `/api/users/${resolvedCurrentUserId}`,
+                {
+                    method: "GET",
+                    credentials: "include",
+                    cache: "no-store",
+                    headers: {
+                        Accept: "application/json",
+                    },
+                }
+            );
+
+            if (!response.ok) {
+                console.error(
+                    "❌ PROFILE FETCH FAILED:",
+                    response.status
+                );
                 return;
             }
 
-            try {
-                const response = await fetch(
-                    `/api/users/${resolvedCurrentUserId}`,
-                    {
-                        method: "GET",
-                        credentials: "include",
-                        cache: "no-store",
-                        headers: {
-                            Accept: "application/json",
-                        },
-                    }
-                );
+            const data = await response.json();
 
-                if (!response.ok) {
-                    console.error(
-                        "❌ PROFILE FETCH FAILED:",
-                        response.status
-                    );
-                    return;
-                }
-
-                const data = await response.json();
-
-                if (!data?.success) {
-                    console.error(
-                        "❌ PROFILE API ERROR:",
-                        data?.message
-                    );
-                    return;
-                }
-
-                const user =
-                    data?.user ||
-                    data?.data ||
-                    null;
-
-                if (user) {
-                    setProfileUser(user);
-                }
-            } catch (error) {
+            if (!data?.success) {
                 console.error(
-                    "❌ CURRENT USER PROFILE ERROR:",
-                    error
+                    "❌ PROFILE API ERROR:",
+                    data?.message
                 );
+                return;
             }
-        },
-        [resolvedCurrentUserId]
-    );
 
-    // ============================================================
-    // LOAD PROFILE
-    // ============================================================
+            const user =
+                data?.user ||
+                data?.data ||
+                null;
+
+            if (user) {
+                setProfileUser(user);
+            }
+        } catch (error) {
+            console.error(
+                "❌ CURRENT USER PROFILE ERROR:",
+                error
+            );
+        }
+    }, [resolvedCurrentUserId]);
 
     useEffect(() => {
         fetchCurrentUserProfile();
     }, [fetchCurrentUserProfile]);
 
     // ============================================================
-    // CURRENT USER DISPLAY DATA
+    // CURRENT USER
     // ============================================================
 
     const sidebarUser =
-        profileUser || currentUser || {};
+        profileUser ||
+        currentUser ||
+        {};
 
     const displayName =
-        sidebarUser?.displayName ||
-        sidebarUser?.username ||
+        sidebarUser?.displayName?.trim() ||
+        sidebarUser?.username?.trim() ||
         "User";
 
     const username =
-        sidebarUser?.username
-            ? `@${sidebarUser.username}`
-            : "";
+        sidebarUser?.username?.trim() ||
+        "";
 
     const userInitial =
-        displayName.charAt(0).toUpperCase() || "?";
+        displayName.charAt(0).toUpperCase() ||
+        "?";
 
     // ============================================================
     // RESET AVATAR ERROR
@@ -144,7 +127,7 @@ export default function ChatSideBar({
     }, [sidebarUser?.avatar]);
 
     // ============================================================
-    // FETCH FRIEND REQUEST COUNT
+    // FETCH FRIEND REQUESTS
     // ============================================================
 
     const fetchFriendRequestCount =
@@ -189,17 +172,9 @@ export default function ChatSideBar({
             }
         }, []);
 
-    // ============================================================
-    // INITIAL FRIEND REQUEST COUNT
-    // ============================================================
-
     useEffect(() => {
         fetchFriendRequestCount();
     }, [fetchFriendRequestCount]);
-
-    // ============================================================
-    // REFRESH FRIEND REQUEST COUNT
-    // ============================================================
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -218,9 +193,8 @@ export default function ChatSideBar({
     const getOtherUser = useCallback(
         (conversation) => {
             if (
-                !conversation?.members ||
                 !Array.isArray(
-                    conversation.members
+                    conversation?.members
                 )
             ) {
                 return null;
@@ -345,7 +319,7 @@ export default function ChatSideBar({
     };
 
     // ============================================================
-    // LOGOUT MODAL
+    // LOGOUT
     // ============================================================
 
     const handleOpenLogoutModal = () => {
@@ -363,10 +337,6 @@ export default function ChatSideBar({
 
         setShowLogoutModal(false);
     };
-
-    // ============================================================
-    // LOGOUT
-    // ============================================================
 
     const handleLogout = async () => {
         if (loggingOut) {
@@ -447,10 +417,10 @@ export default function ChatSideBar({
                     border-border
                     bg-background
                     text-foreground
-
+                    transition-colors
+                    duration-200
                     md:w-[360px]
                     lg:w-[400px]
-
                     ${
                         activeConversation
                             ? "hidden md:flex"
@@ -459,7 +429,7 @@ export default function ChatSideBar({
                 `}
             >
                 {/* ====================================================
-                    HEADER
+                    TOP HEADER
                 ==================================================== */}
 
                 <div
@@ -472,18 +442,32 @@ export default function ChatSideBar({
                         bg-surface
                     "
                 >
-                    {/* SUBTLE HEADER GLOW */}
+                    {/* subtle decorative glow */}
 
                     <div
                         className="
                             pointer-events-none
                             absolute
-                            -right-16
-                            -top-20
-                            h-40
-                            w-40
+                            -right-12
+                            -top-16
+                            h-32
+                            w-32
                             rounded-full
-                            bg-indigo-500/10
+                            bg-blue-500/10
+                            blur-3xl
+                        "
+                    />
+
+                    <div
+                        className="
+                            pointer-events-none
+                            absolute
+                            -left-16
+                            top-8
+                            h-24
+                            w-24
+                            rounded-full
+                            bg-purple-500/10
                             blur-3xl
                         "
                     />
@@ -492,13 +476,14 @@ export default function ChatSideBar({
                         className="
                             relative
                             flex
-                            h-[76px]
                             items-center
                             justify-between
                             px-4
+                            pb-4
+                            pt-5
                         "
                     >
-                        {/* USER PROFILE */}
+                        {/* USER */}
 
                         <button
                             type="button"
@@ -514,9 +499,8 @@ export default function ChatSideBar({
                                 rounded-2xl
                                 pr-3
                                 text-left
-                                transition-all
-                                duration-200
-                                hover:bg-hover
+                                transition
+                                active:scale-[0.98]
                             "
                             title="Open your profile"
                             aria-label="Open your profile"
@@ -526,33 +510,29 @@ export default function ChatSideBar({
                             <div
                                 className="
                                     relative
-                                    flex
                                     h-11
                                     w-11
                                     shrink-0
-                                    items-center
-                                    justify-center
-                                    overflow-hidden
-                                    rounded-full
-                                    bg-gradient-to-br
-                                    from-blue-500
-                                    via-indigo-500
-                                    to-purple-600
-                                    p-[2px]
-                                    shadow-lg
-                                    shadow-indigo-500/10
                                 "
                             >
                                 <div
                                     className="
                                         flex
-                                        h-full
-                                        w-full
+                                        h-11
+                                        w-11
                                         items-center
                                         justify-center
                                         overflow-hidden
                                         rounded-full
-                                        bg-surface
+                                        bg-gradient-to-br
+                                        from-blue-500
+                                        via-indigo-500
+                                        to-purple-600
+                                        text-white
+                                        shadow-lg
+                                        shadow-blue-500/10
+                                        ring-2
+                                        ring-white/10
                                     "
                                 >
                                     {sidebarUser?.avatar &&
@@ -578,17 +558,19 @@ export default function ChatSideBar({
                                     ) : (
                                         <span
                                             className="
+                                                select-none
                                                 text-sm
                                                 font-bold
-                                                text-foreground
                                             "
                                         >
-                                            {userInitial}
+                                            {
+                                                userInitial
+                                            }
                                         </span>
                                     )}
                                 </div>
 
-                                {/* ONLINE INDICATOR */}
+                                {/* online dot */}
 
                                 <span
                                     className="
@@ -600,71 +582,45 @@ export default function ChatSideBar({
                                         rounded-full
                                         border-2
                                         border-surface
-                                        bg-green-500
+                                        bg-emerald-500
                                     "
                                 />
                             </div>
 
-                            {/* USER DETAILS */}
+                            {/* NAME */}
 
                             <div className="min-w-0">
-                                <div
+                                <p
                                     className="
-                                        flex
-                                        items-center
-                                        gap-2
+                                        truncate
+                                        text-sm
+                                        font-semibold
+                                        text-foreground
                                     "
                                 >
-                                    <p
-                                        className="
-                                            max-w-[150px]
-                                            truncate
-                                            text-sm
-                                            font-semibold
-                                            text-foreground
-                                        "
-                                    >
-                                        {displayName}
-                                    </p>
-
-                                    <span
-                                        className="
-                                            rounded-full
-                                            bg-green-500/10
-                                            px-1.5
-                                            py-0.5
-                                            text-[9px]
-                                            font-semibold
-                                            uppercase
-                                            tracking-wide
-                                            text-green-500
-                                        "
-                                    >
-                                        Online
-                                    </span>
-                                </div>
+                                    {displayName}
+                                </p>
 
                                 <p
                                     className="
                                         mt-0.5
-                                        max-w-[170px]
                                         truncate
                                         text-[11px]
                                         text-muted
                                     "
                                 >
-                                    {username ||
-                                        "Your ChatHub account"}
+                                    {username
+                                        ? `@${username}`
+                                        : "Your profile"}
                                 </p>
                             </div>
                         </button>
 
-                        {/* HEADER ACTIONS */}
+                        {/* ACTIONS */}
 
                         <div
                             className="
                                 flex
-                                shrink-0
                                 items-center
                                 gap-1
                             "
@@ -685,22 +641,21 @@ export default function ChatSideBar({
                                     justify-center
                                     rounded-xl
                                     text-muted
-                                    transition-all
-                                    duration-200
+                                    transition
                                     hover:bg-hover
                                     hover:text-foreground
                                     active:scale-95
                                 "
-                                title="Friends & requests"
-                                aria-label="Friends and friend requests"
+                                title="Friends"
+                                aria-label="Friends"
                             >
                                 <svg
                                     xmlns="http://www.w3.org/2000/svg"
                                     viewBox="0 0 24 24"
                                     fill="none"
                                     stroke="currentColor"
-                                    strokeWidth="1.8"
-                                    className="h-[20px] w-[20px]"
+                                    strokeWidth="1.7"
+                                    className="h-[21px] w-[21px]"
                                 >
                                     <path
                                         strokeLinecap="round"
@@ -735,7 +690,7 @@ export default function ChatSideBar({
                                             right-0
                                             top-0
                                             flex
-                                            h-[17px]
+                                            min-h-[17px]
                                             min-w-[17px]
                                             items-center
                                             justify-center
@@ -744,6 +699,7 @@ export default function ChatSideBar({
                                             px-1
                                             text-[9px]
                                             font-bold
+                                            leading-none
                                             text-white
                                             ring-2
                                             ring-surface
@@ -774,10 +730,9 @@ export default function ChatSideBar({
                                     bg-foreground
                                     text-background
                                     shadow-sm
-                                    transition-all
-                                    duration-200
+                                    transition
                                     hover:scale-105
-                                    hover:shadow-lg
+                                    hover:opacity-90
                                     active:scale-95
                                 "
                                 title="New chat"
@@ -809,11 +764,9 @@ export default function ChatSideBar({
                 <div
                     className="
                         shrink-0
-                        border-b
-                        border-border
-                        bg-background
                         px-3
                         py-3
+                        bg-background
                     "
                 >
                     <div
@@ -822,17 +775,16 @@ export default function ChatSideBar({
                             flex
                             h-11
                             items-center
+                            gap-2.5
                             rounded-xl
                             border
-                            border-transparent
+                            border-border
                             bg-surface
                             px-3
-                            transition-all
-                            duration-200
-                            focus-within:border-indigo-500/30
-                            focus-within:bg-surface
+                            transition
+                            focus-within:border-blue-500/40
                             focus-within:ring-2
-                            focus-within:ring-indigo-500/10
+                            focus-within:ring-blue-500/10
                         "
                     >
                         <svg
@@ -842,15 +794,11 @@ export default function ChatSideBar({
                             stroke="currentColor"
                             strokeWidth="1.8"
                             className="
-                                mr-2.5
                                 h-[18px]
                                 w-[18px]
                                 shrink-0
                                 text-muted
-                                transition-colors
-                                group-focus-within:text-indigo-500
                             "
-                            aria-hidden="true"
                         >
                             <circle
                                 cx="11"
@@ -874,6 +822,7 @@ export default function ChatSideBar({
                             }
                             placeholder="Search conversations..."
                             className="
+                                h-full
                                 min-w-0
                                 flex-1
                                 bg-transparent
@@ -897,9 +846,9 @@ export default function ChatSideBar({
                                     items-center
                                     justify-center
                                     rounded-full
+                                    bg-hover
                                     text-muted
                                     transition
-                                    hover:bg-hover
                                     hover:text-foreground
                                 "
                                 aria-label="Clear search"
@@ -914,7 +863,6 @@ export default function ChatSideBar({
                                 >
                                     <path
                                         strokeLinecap="round"
-                                        strokeLinejoin="round"
                                         d="M6 6l12 12M18 6 6 18"
                                     />
                                 </svg>
@@ -924,17 +872,14 @@ export default function ChatSideBar({
                 </div>
 
                 {/* ====================================================
-                    STATUS
+                    STATUS CARD
                 ==================================================== */}
 
                 <div
                     className="
                         shrink-0
-                        border-b
-                        border-border
-                        bg-background
                         px-3
-                        py-3
+                        pb-3
                     "
                 >
                     <button
@@ -944,89 +889,77 @@ export default function ChatSideBar({
                         }
                         className="
                             group
-                            relative
                             flex
                             w-full
                             items-center
                             gap-3
-                            overflow-hidden
                             rounded-2xl
                             border
                             border-border
                             bg-surface
-                            px-3
-                            py-3
+                            p-3
                             text-left
-                            transition-all
-                            duration-200
-                            hover:border-indigo-500/20
+                            transition
+                            hover:border-blue-500/20
                             hover:bg-hover
-                            hover:shadow-sm
+                            active:scale-[0.99]
                         "
-                        title="Open Status"
-                        aria-label="Open Status"
                     >
-                        {/* CARD GLOW */}
-
-                        <div
-                            className="
-                                pointer-events-none
-                                absolute
-                                -right-8
-                                -top-8
-                                h-20
-                                w-20
-                                rounded-full
-                                bg-green-500/10
-                                blur-2xl
-                            "
-                        />
-
                         {/* STATUS AVATAR */}
 
                         <div
                             className="
                                 relative
-                                flex
                                 h-11
                                 w-11
                                 shrink-0
-                                items-center
-                                justify-center
-                                overflow-hidden
                                 rounded-full
-                                border-2
-                                border-dashed
-                                border-green-500
-                                bg-background
                             "
                         >
-                            {sidebarUser?.avatar &&
-                            !avatarError ? (
-                                <img
-                                    src={
-                                        sidebarUser.avatar
-                                    }
-                                    alt={
-                                        displayName
-                                    }
-                                    className="
-                                        h-full
-                                        w-full
-                                        object-cover
-                                    "
-                                />
-                            ) : (
-                                <span
-                                    className="
-                                        text-sm
-                                        font-bold
-                                        text-foreground
-                                    "
-                                >
-                                    {userInitial}
-                                </span>
-                            )}
+                            <div
+                                className="
+                                    flex
+                                    h-11
+                                    w-11
+                                    items-center
+                                    justify-center
+                                    overflow-hidden
+                                    rounded-full
+                                    border-2
+                                    border-dashed
+                                    border-blue-500
+                                    bg-background
+                                "
+                            >
+                                {sidebarUser?.avatar &&
+                                !avatarError ? (
+                                    <img
+                                        src={
+                                            sidebarUser.avatar
+                                        }
+                                        alt={
+                                            displayName
+                                        }
+                                        className="
+                                            h-full
+                                            w-full
+                                            object-cover
+                                        "
+                                    />
+                                ) : (
+                                    <span
+                                        className="
+                                            text-sm
+                                            font-bold
+                                            text-foreground
+                                        "
+                                    >
+                                        {
+                                            userInitial
+                                        }
+                                    </span>
+                                )}
+                            </div>
 
                             <span
                                 className="
@@ -1034,15 +967,15 @@ export default function ChatSideBar({
                                     bottom-0
                                     right-0
                                     flex
-                                    h-4
-                                    w-4
+                                    h-[17px]
+                                    w-[17px]
                                     items-center
                                     justify-center
                                     rounded-full
                                     border-2
-                                    border-background
-                                    bg-green-500
-                                    text-[10px]
+                                    border-surface
+                                    bg-blue-500
+                                    text-[11px]
                                     font-bold
                                     text-white
                                 "
@@ -1051,30 +984,49 @@ export default function ChatSideBar({
                             </span>
                         </div>
 
-                        {/* STATUS TEXT */}
-
-                        <div className="relative min-w-0 flex-1">
-                            <p
+                        <div className="min-w-0 flex-1">
+                            <div
                                 className="
-                                    truncate
-                                    text-sm
-                                    font-semibold
-                                    text-foreground
+                                    flex
+                                    items-center
+                                    justify-between
+                                    gap-2
                                 "
                             >
-                                My Status
-                            </p>
+                                <p
+                                    className="
+                                        truncate
+                                        text-sm
+                                        font-semibold
+                                        text-foreground
+                                    "
+                                >
+                                    My Status
+                                </p>
+
+                                <span
+                                    className="
+                                        text-[10px]
+                                        font-medium
+                                        text-blue-500
+                                        opacity-0
+                                        transition
+                                        group-hover:opacity-100
+                                    "
+                                >
+                                    View
+                                </span>
+                            </div>
 
                             <p
                                 className="
                                     mt-0.5
                                     truncate
-                                    text-[11px]
+                                    text-xs
                                     text-muted
                                 "
                             >
-                                Share an update with
-                                your friends
+                                Share an update with friends
                             </p>
                         </div>
 
@@ -1085,15 +1037,12 @@ export default function ChatSideBar({
                             stroke="currentColor"
                             strokeWidth="1.8"
                             className="
-                                relative
                                 h-4
                                 w-4
                                 shrink-0
                                 text-muted
-                                transition-transform
-                                duration-200
+                                transition
                                 group-hover:translate-x-0.5
-                                group-hover:text-foreground
                             "
                         >
                             <path
@@ -1117,37 +1066,51 @@ export default function ChatSideBar({
                         justify-between
                         px-4
                         pb-2
-                        pt-3
                     "
                 >
-                    <p
-                        className="
-                            text-[11px]
-                            font-semibold
-                            uppercase
-                            tracking-[0.12em]
-                            text-muted
-                        "
-                    >
-                        Messages
-                    </p>
-
-                    {filteredConversations.length >
-                        0 && (
-                        <span
+                    <div className="flex items-center gap-2">
+                        <h2
                             className="
-                                rounded-full
-                                bg-surface
-                                px-2
-                                py-0.5
-                                text-[10px]
-                                font-medium
+                                text-xs
+                                font-bold
+                                uppercase
+                                tracking-[0.12em]
                                 text-muted
                             "
                         >
-                            {
-                                filteredConversations.length
-                            }
+                            Messages
+                        </h2>
+
+                        {conversations.length > 0 && (
+                            <span
+                                className="
+                                    rounded-full
+                                    bg-surface
+                                    px-2
+                                    py-0.5
+                                    text-[10px]
+                                    font-semibold
+                                    text-muted
+                                "
+                            >
+                                {conversations.length}
+                            </span>
+                        )}
+                    </div>
+
+                    {search && (
+                        <span
+                            className="
+                                text-[10px]
+                                text-muted
+                            "
+                        >
+                            {filteredConversations.length}{" "}
+                            result
+                            {filteredConversations.length ===
+                            1
+                                ? ""
+                                : "s"}
                         </span>
                     )}
                 </div>
@@ -1180,109 +1143,7 @@ export default function ChatSideBar({
                 </div>
 
                 {/* ====================================================
-                    VIEW STATUS
-                ==================================================== */}
-
-                <div
-                    className="
-                        shrink-0
-                        border-t
-                        border-border
-                        bg-background
-                        px-3
-                        py-2
-                    "
-                >
-                    <button
-                        type="button"
-                        onClick={
-                            handleOpenStatus
-                        }
-                        className="
-                            group
-                            flex
-                            w-full
-                            items-center
-                            gap-3
-                            rounded-xl
-                            px-3
-                            py-2
-                            text-left
-                            text-foreground
-                            transition-all
-                            duration-200
-                            hover:bg-hover
-                        "
-                        title="View Status"
-                        aria-label="View Status"
-                    >
-                        <span
-                            className="
-                                flex
-                                h-9
-                                w-9
-                                shrink-0
-                                items-center
-                                justify-center
-                                rounded-lg
-                                bg-surface
-                                text-muted
-                                transition-colors
-                                group-hover:text-foreground
-                            "
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.8"
-                                className="h-5 w-5"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"
-                                />
-
-                                <circle
-                                    cx="12"
-                                    cy="12"
-                                    r="2.5"
-                                />
-                            </svg>
-                        </span>
-
-                        <span className="text-sm font-medium">
-                            View Status
-                        </span>
-
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            className="
-                                ml-auto
-                                h-4
-                                w-4
-                                text-muted
-                                transition-transform
-                                group-hover:translate-x-0.5
-                            "
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="m9 18 6-6-6-6"
-                            />
-                        </svg>
-                    </button>
-                </div>
-
-                {/* ====================================================
-                    FOOTER
+                    BOTTOM QUICK ACTIONS
                 ==================================================== */}
 
                 <div
@@ -1318,47 +1179,37 @@ export default function ChatSideBar({
                                 rounded-xl
                                 py-2
                                 text-muted
-                                transition-all
-                                duration-200
+                                transition
                                 hover:bg-hover
                                 hover:text-foreground
                             "
                             title="My Profile"
                         >
-                            <span
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
                                 className="
-                                    flex
-                                    h-8
-                                    w-8
-                                    items-center
-                                    justify-center
-                                    rounded-lg
-                                    bg-background
-                                    transition-transform
+                                    h-[19px]
+                                    w-[19px]
+                                    transition
                                     group-hover:scale-105
                                 "
                             >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="1.8"
-                                    className="h-[18px] w-[18px]"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M20 21a8 8 0 0 0-16 0"
-                                    />
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M20 21a8 8 0 0 0-16 0"
+                                />
 
-                                    <circle
-                                        cx="12"
-                                        cy="7"
-                                        r="4"
-                                    />
-                                </svg>
-                            </span>
+                                <circle
+                                    cx="12"
+                                    cy="7"
+                                    r="4"
+                                />
+                            </svg>
 
                             <span className="text-[10px] font-medium">
                                 Profile
@@ -1382,48 +1233,37 @@ export default function ChatSideBar({
                                 rounded-xl
                                 py-2
                                 text-muted
-                                transition-all
-                                duration-200
+                                transition
                                 hover:bg-hover
                                 hover:text-foreground
                             "
                             title="Settings"
                         >
-                            <span
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
                                 className="
-                                    flex
-                                    h-8
-                                    w-8
-                                    items-center
-                                    justify-center
-                                    rounded-lg
-                                    bg-background
-                                    transition-transform
-                                    duration-200
-                                    group-hover:rotate-12
+                                    h-[19px]
+                                    w-[19px]
+                                    transition
+                                    group-hover:rotate-45
                                 "
                             >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="1.8"
-                                    className="h-[18px] w-[18px]"
-                                >
-                                    <circle
-                                        cx="12"
-                                        cy="12"
-                                        r="3"
-                                    />
+                                <circle
+                                    cx="12"
+                                    cy="12"
+                                    r="3"
+                                />
 
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-1.77 1.77-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V20h-2.5v-.23a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06-1.77-1.77.06-.06A1.65 1.65 0 0 0 8.4 15a1.65 1.65 0 0 0-1.51-1H6.7v-2.5h.19a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06 1.77-1.77.06.06a1.65 1.65 0 0 0 1.82.33 1.65 1.65 0 0 0 1-1.51V5.5h2.5v.23a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06 1.77 1.77-.06.06a1.65 1.65 0 0 0-.33 1.82 1.65 1.65 0 0 0 1.51 1h.19V14h-.19a1.65 1.65 0 0 0-1.51 1Z"
-                                    />
-                                </svg>
-                            </span>
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 1.7-.06-.06A1.7 1.7 0 0 0 16.2 18a1.7 1.7 0 0 0-1.03 1.56V20h-2.4v-.2A1.7 1.7 0 0 0 11.74 18a1.7 1.7 0 0 0-1.88.34l-.06.06-1.7-1.7.06-.06A1.7 1.7 0 0 0 8.14 15a1.7 1.7 0 0 0-1.56-1.03H6.4v-2.4h.18A1.7 1.7 0 0 0 8.14 10a1.7 1.7 0 0 0-.34-1.88l-.06-.06 1.7-1.7.06.06a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1.03-1.56V4h2.4v.2A1.7 1.7 0 0 0 14.03 5.76a1.7 1.7 0 0 0 1.88-.34l.06-.06 1.7 1.7-.06.06A1.7 1.7 0 0 0 17.94 9a1.7 1.7 0 0 0 1.56 1.03h.2v2.4h-.2A1.7 1.7 0 0 0 17.94 15Z"
+                                />
+                            </svg>
 
                             <span className="text-[10px] font-medium">
                                 Settings
@@ -1437,7 +1277,9 @@ export default function ChatSideBar({
                             onClick={
                                 handleOpenLogoutModal
                             }
-                            disabled={loggingOut}
+                            disabled={
+                                loggingOut
+                            }
                             className="
                                 group
                                 flex
@@ -1448,55 +1290,44 @@ export default function ChatSideBar({
                                 rounded-xl
                                 py-2
                                 text-muted
-                                transition-all
-                                duration-200
+                                transition
                                 hover:bg-red-500/10
                                 hover:text-red-500
-                                disabled:cursor-not-allowed
                                 disabled:opacity-50
                             "
                             title="Logout"
                         >
-                            <span
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
                                 className="
-                                    flex
-                                    h-8
-                                    w-8
-                                    items-center
-                                    justify-center
-                                    rounded-lg
-                                    bg-background
-                                    transition-transform
+                                    h-[19px]
+                                    w-[19px]
+                                    transition
                                     group-hover:translate-x-0.5
                                 "
                             >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="1.8"
-                                    className="h-[18px] w-[18px]"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"
-                                    />
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"
+                                />
 
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="m10 17 5-5-5-5"
-                                    />
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M10 17l5-5-5-5"
+                                />
 
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        d="M15 12H3"
-                                    />
-                                </svg>
-                            </span>
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M15 12H3"
+                                />
+                            </svg>
 
                             <span className="text-[10px] font-medium">
                                 Logout
@@ -1559,8 +1390,6 @@ export default function ChatSideBar({
                         aria-modal="true"
                         aria-labelledby="logout-title"
                     >
-                        {/* MODAL CONTENT */}
-
                         <div className="px-6 pb-6 pt-7">
                             <div
                                 className="
@@ -1593,7 +1422,7 @@ export default function ChatSideBar({
                                     <path
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
-                                        d="m10 17 5-5-5-5"
+                                        d="M10 17l5-5-5-5"
                                     />
 
                                     <path
@@ -1609,7 +1438,7 @@ export default function ChatSideBar({
                                 className="
                                     text-center
                                     text-lg
-                                    font-semibold
+                                    font-bold
                                     text-foreground
                                 "
                             >
@@ -1631,8 +1460,6 @@ export default function ChatSideBar({
                             </p>
                         </div>
 
-                        {/* MODAL ACTIONS */}
-
                         <div
                             className="
                                 flex
@@ -1640,7 +1467,7 @@ export default function ChatSideBar({
                                 border-t
                                 border-border
                                 bg-background
-                                px-5
+                                px-6
                                 py-4
                             "
                         >
@@ -1689,23 +1516,15 @@ export default function ChatSideBar({
                                     text-sm
                                     font-semibold
                                     text-white
-                                    shadow-sm
                                     transition
                                     hover:bg-red-700
-                                    hover:shadow-lg
+                                    active:scale-[0.98]
                                     disabled:cursor-not-allowed
                                     disabled:opacity-60
                                 "
                             >
                                 {loggingOut ? (
-                                    <span
-                                        className="
-                                            flex
-                                            items-center
-                                            justify-center
-                                            gap-2
-                                        "
-                                    >
+                                    <span className="flex items-center justify-center gap-2">
                                         <span
                                             className="
                                                 h-4
