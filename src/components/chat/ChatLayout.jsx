@@ -40,12 +40,11 @@ function updateConversationPreview(
         Number(activeConversationId) ===
         conversationId;
 
-    const existing =
-        conversations.find(
-            (conversation) =>
-                Number(conversation.id) ===
-                conversationId
-        );
+    const existing = conversations.find(
+        (conversation) =>
+            Number(conversation.id) ===
+            conversationId
+    );
 
     if (!existing) {
         return conversations;
@@ -366,6 +365,12 @@ export default function ChatLayout({
             initialConversations || []
         );
 
+    // IMPORTANT:
+    // Keeps the latest call state immediately available
+    // inside CallManager callbacks.
+    const callStateRef =
+        useRef("idle");
+
     const currentUserId =
         Number(currentUser?.id);
 
@@ -382,6 +387,13 @@ export default function ChatLayout({
         conversationsRef.current =
             conversations;
     }, [conversations]);
+
+    // IMPORTANT:
+    // Keep callStateRef synchronized with React state.
+    useEffect(() => {
+        callStateRef.current =
+            callState;
+    }, [callState]);
 
     // ========================================================
     // LOAD SAVED CHAT THEMES
@@ -540,6 +552,10 @@ export default function ChatLayout({
             socket.connect();
         }
 
+        // --------------------------------------------------------
+        // CONNECT
+        // --------------------------------------------------------
+
         const onConnect = () => {
             console.log(
                 "🟢 Chat socket connected:",
@@ -548,6 +564,10 @@ export default function ChatLayout({
 
             setSocketConnected(true);
         };
+
+        // --------------------------------------------------------
+        // DISCONNECT
+        // --------------------------------------------------------
 
         const onDisconnect = (
             reason
@@ -560,6 +580,10 @@ export default function ChatLayout({
             setSocketConnected(false);
         };
 
+        // --------------------------------------------------------
+        // CONNECT ERROR
+        // --------------------------------------------------------
+
         const onConnectError = (
             error
         ) => {
@@ -570,6 +594,10 @@ export default function ChatLayout({
 
             setSocketConnected(false);
         };
+
+        // --------------------------------------------------------
+        // PRESENCE STATE
+        // --------------------------------------------------------
 
         const onPresenceState = (
             data
@@ -640,6 +668,10 @@ export default function ChatLayout({
             );
         };
 
+        // --------------------------------------------------------
+        // USER ONLINE
+        // --------------------------------------------------------
+
         const onUserOnline = ({
             userId,
             showOnlineStatus,
@@ -707,6 +739,10 @@ export default function ChatLayout({
                     )
             );
         };
+
+        // --------------------------------------------------------
+        // USER OFFLINE
+        // --------------------------------------------------------
 
         const onUserOffline = ({
             userId,
@@ -787,6 +823,10 @@ export default function ChatLayout({
             );
         };
 
+        // --------------------------------------------------------
+        // LAST SEEN
+        // --------------------------------------------------------
+
         const onUserLastSeenUpdated = ({
             userId,
             lastSeen,
@@ -833,6 +873,10 @@ export default function ChatLayout({
                     )
             );
         };
+
+        // --------------------------------------------------------
+        // PRIVACY SETTINGS
+        // --------------------------------------------------------
 
         const onPrivacySettingsUpdated = ({
             userId,
@@ -885,6 +929,10 @@ export default function ChatLayout({
                     )
             );
         };
+
+        // --------------------------------------------------------
+        // REGISTER
+        // --------------------------------------------------------
 
         socket.on(
             "connect",
@@ -1003,7 +1051,8 @@ export default function ChatLayout({
                 );
 
             const member = (
-                conversation?.members || []
+                conversation?.members ||
+                []
             ).find(
                 (item) =>
                     Number(
@@ -1037,7 +1086,6 @@ export default function ChatLayout({
         // --------------------------------------------------------
 
         callManager.setCallbacks({
-
             // ====================================================
             // INCOMING CALL
             // ====================================================
@@ -1081,6 +1129,11 @@ export default function ChatLayout({
 
                     setCallError(null);
 
+                    // IMPORTANT:
+                    // This user is the RECEIVER.
+                    callStateRef.current =
+                        "incoming";
+
                     setCallState(
                         "incoming"
                     );
@@ -1116,6 +1169,11 @@ export default function ChatLayout({
                     setIncomingCall(null);
                     setCallError(null);
 
+                    // IMPORTANT:
+                    // This user is the CALLER/SENDER.
+                    callStateRef.current =
+                        "outgoing";
+
                     setCallState(
                         "outgoing"
                     );
@@ -1150,6 +1208,9 @@ export default function ChatLayout({
                     setIncomingCall(null);
                     setCallError(null);
 
+                    callStateRef.current =
+                        "connecting";
+
                     setCallState(
                         "connecting"
                     );
@@ -1183,6 +1244,9 @@ export default function ChatLayout({
 
                     setIncomingCall(null);
                     setCallError(null);
+
+                    callStateRef.current =
+                        "connected";
 
                     setCallState(
                         "connected"
@@ -1223,99 +1287,146 @@ export default function ChatLayout({
 
             // ====================================================
             // REJECTED
-            //
-            // IMPORTANT:
-            // ONLY THE CALLER/SENDER SHOULD SEE
-            // "CALL DECLINED".
-            //
-            // The receiver who clicked Decline must
-            // NOT enter the "declined" UI.
             // ====================================================
 
             onCallRejected:
                 (data) => {
                     console.log(
-                        "📞 CALL REJECTED EVENT:",
+                        "📞 CALL REJECTED:",
                         data
                     );
 
-                    const callerId =
-                        Number(
-                            data?.callerId ??
-                            data?.fromUserId ??
-                            data?.senderId
-                        );
-
-                    const receiverId =
-                        Number(
-                            data?.receiverId ??
-                            data?.toUserId
-                        );
-
-                    // ------------------------------------------------
-                    // RECEIVER SIDE
-                    //
-                    // If the current user is the receiver, they are
-                    // the person who clicked "Decline".
-                    //
-                    // Do NOT show "Call declined" to them.
-                    // ------------------------------------------------
-
-                    if (
-                        Number.isInteger(
-                            receiverId
-                        ) &&
-                        receiverId ===
-                            currentUserId
-                    ) {
-                        console.log(
-                            "📞 Current user is receiver — ignoring declined UI."
-                        );
-
-                        return;
-                    }
-
-                    // ------------------------------------------------
-                    // CALLER/SENDER SIDE
-                    //
-                    // Only the caller should see the declined state.
-                    // ------------------------------------------------
-
-                    if (
-                        Number.isInteger(
-                            callerId
-                        ) &&
-                        callerId !==
-                            currentUserId
-                    ) {
-                        console.log(
-                            "📞 Current user is not caller — ignoring declined UI."
-                        );
-
-                        return;
-                    }
+                    const currentCallState =
+                        callStateRef.current;
 
                     console.log(
-                        "📞 Caller received rejection — showing declined UI."
+                        "📞 Local call state when rejection received:",
+                        currentCallState
+                    );
+
+                    // ==================================================
+                    // RECEIVER SIDE
+                    //
+                    // The receiver pressed Decline.
+                    //
+                    // Receiver must NOT see:
+                    // "Call declined"
+                    //
+                    // Receiver simply closes the call UI.
+                    // ==================================================
+
+                    if (
+                        currentCallState ===
+                        "incoming"
+                    ) {
+                        console.log(
+                            "📞 Receiver declined the call. Closing receiver UI."
+                        );
+
+                        setIncomingCall(null);
+                        setLocalStream(null);
+                        setRemoteStream(null);
+
+                        setIsMuted(false);
+                        setIsCameraOff(false);
+
+                        setCallError(null);
+                        setCallType("audio");
+
+                        callStateRef.current =
+                            "idle";
+
+                        setCallState(
+                            "idle"
+                        );
+
+                        return;
+                    }
+
+                    // ==================================================
+                    // SENDER / CALLER SIDE
+                    //
+                    // The other user rejected our outgoing call.
+                    //
+                    // ONLY the sender sees:
+                    // "Call declined"
+                    // ==================================================
+
+                    if (
+                        currentCallState ===
+                        "outgoing"
+                    ) {
+                        console.log(
+                            "📞 Receiver declined our outgoing call. Showing declined UI to sender."
+                        );
+
+                        setIncomingCall(null);
+                        setLocalStream(null);
+                        setRemoteStream(null);
+
+                        setIsMuted(false);
+                        setIsCameraOff(false);
+
+                        setCallError(null);
+
+                        const rejectedType =
+                            data?.callType ||
+                            data?.type;
+
+                        if (
+                            rejectedType ===
+                                "video" ||
+                            rejectedType ===
+                                "audio"
+                        ) {
+                            setCallType(
+                                rejectedType
+                            );
+                        }
+
+                        callStateRef.current =
+                            "declined";
+
+                        setCallState(
+                            "declined"
+                        );
+
+                        return;
+                    }
+
+                    // ==================================================
+                    // SAFETY FALLBACK
+                    //
+                    // If we don't know the local call direction,
+                    // do NOT show "Call declined".
+                    //
+                    // This prevents the receiver from accidentally
+                    // seeing the declined screen.
+                    // ==================================================
+
+                    console.warn(
+                        "⚠️ Unable to determine local call direction:",
+                        {
+                            data,
+                            currentCallState,
+                        }
                     );
 
                     setIncomingCall(null);
-
                     setLocalStream(null);
-
                     setRemoteStream(null);
 
                     setIsMuted(false);
-
                     setIsCameraOff(false);
 
                     setCallError(null);
+                    setCallType("audio");
 
-                    // Keep declined state so
-                    // CallOverlay can show:
-                    // "Call declined"
+                    callStateRef.current =
+                        "idle";
+
                     setCallState(
-                        "declined"
+                        "idle"
                     );
                 },
 
@@ -1331,18 +1442,17 @@ export default function ChatLayout({
                     );
 
                     setIncomingCall(null);
-
                     setLocalStream(null);
-
                     setRemoteStream(null);
 
                     setIsMuted(false);
-
                     setIsCameraOff(false);
 
                     setCallError(null);
-
                     setCallType("audio");
+
+                    callStateRef.current =
+                        "idle";
 
                     setCallState(
                         "idle"
@@ -1399,6 +1509,9 @@ export default function ChatLayout({
             );
 
             callManager.destroy();
+
+            callStateRef.current =
+                "idle";
         };
     }, [
         currentUserId,
@@ -1414,37 +1527,24 @@ export default function ChatLayout({
                 "👋 Dismissing call overlay"
             );
 
-            setCallState(
-                "idle"
-            );
+            callStateRef.current =
+                "idle";
 
-            setIncomingCall(
-                null
-            );
+            setCallState("idle");
 
-            setLocalStream(
-                null
-            );
+            setIncomingCall(null);
 
-            setRemoteStream(
-                null
-            );
+            setLocalStream(null);
 
-            setIsMuted(
-                false
-            );
+            setRemoteStream(null);
 
-            setIsCameraOff(
-                false
-            );
+            setIsMuted(false);
 
-            setCallError(
-                null
-            );
+            setIsCameraOff(false);
 
-            setCallType(
-                "audio"
-            );
+            setCallError(null);
+
+            setCallType("audio");
         }, []);
 
     // ============================================================
@@ -1914,9 +2014,7 @@ export default function ChatLayout({
                     "audio"
                 );
 
-                setCallError(
-                    null
-                );
+                setCallError(null);
 
                 return callManager.startAudioCall(
                     Number(
@@ -1969,9 +2067,7 @@ export default function ChatLayout({
                     "video"
                 );
 
-                setCallError(
-                    null
-                );
+                setCallError(null);
 
                 return callManager.startVideoCall(
                     Number(
@@ -1992,9 +2088,7 @@ export default function ChatLayout({
     const acceptIncomingCall =
         useCallback(
             async () => {
-                setCallError(
-                    null
-                );
+                setCallError(null);
 
                 return callManager.acceptCall();
             },
@@ -2010,6 +2104,29 @@ export default function ChatLayout({
             (
                 reason = "rejected"
             ) => {
+                console.log(
+                    "📞 Rejecting incoming call"
+                );
+
+                // IMPORTANT:
+                // The receiver is dismissing the incoming
+                // call. The receiver must NOT show
+                // "Call declined".
+                callStateRef.current =
+                    "idle";
+
+                setCallState(
+                    "idle"
+                );
+
+                setIncomingCall(
+                    null
+                );
+
+                setCallError(
+                    null
+                );
+
                 callManager.rejectCall(
                     reason
                 );
@@ -2335,6 +2452,10 @@ export default function ChatLayout({
             }
         };
 
+        // ========================================================
+        // RECEIPT UPDATED
+        // ========================================================
+
         const onReceiptUpdated = (
             receipt
         ) => {
@@ -2409,6 +2530,10 @@ export default function ChatLayout({
             );
         };
 
+        // ========================================================
+        // MESSAGE UPDATED
+        // ========================================================
+
         const onMessageUpdated = (
             updatedMessage
         ) => {
@@ -2449,6 +2574,10 @@ export default function ChatLayout({
                     )
             );
         };
+
+        // ========================================================
+        // MESSAGE DELETED
+        // ========================================================
 
         const onMessageDeleted = (
             deletedMessage
@@ -2499,6 +2628,10 @@ export default function ChatLayout({
                     )
             );
         };
+
+        // ========================================================
+        // REACTION ADDED
+        // ========================================================
 
         const onReactionAdded = (
             reaction
@@ -2556,6 +2689,10 @@ export default function ChatLayout({
             );
         };
 
+        // ========================================================
+        // REACTION REMOVED
+        // ========================================================
+
         const onReactionRemoved = (
             reaction
         ) => {
@@ -2595,6 +2732,10 @@ export default function ChatLayout({
                     )
             );
         };
+
+        // ========================================================
+        // USER TYPING
+        // ========================================================
 
         const onUserTyping = ({
             userId,
@@ -2653,6 +2794,10 @@ export default function ChatLayout({
             );
         };
 
+        // ========================================================
+        // USER STOPPED TYPING
+        // ========================================================
+
         const onUserStoppedTyping = ({
             userId,
             conversationId,
@@ -2685,6 +2830,10 @@ export default function ChatLayout({
                     )
             );
         };
+
+        // ========================================================
+        // REGISTER
+        // ========================================================
 
         socket.on(
             "new_message",
@@ -2725,6 +2874,10 @@ export default function ChatLayout({
             "user_stopped_typing",
             onUserStoppedTyping
         );
+
+        // ========================================================
+        // CLEANUP
+        // ========================================================
 
         return () => {
             socket.off(
@@ -2816,6 +2969,10 @@ export default function ChatLayout({
             }
 
             stopTyping();
+
+            // ====================================================
+            // TEXT MESSAGE
+            // ====================================================
 
             if (!file) {
                 const optimisticMessage =
@@ -2943,6 +3100,10 @@ export default function ChatLayout({
 
                 return;
             }
+
+            // ====================================================
+            // FILE MESSAGE
+            // ====================================================
 
             const optimisticFileMessage =
                 createOptimisticMessage({
@@ -3770,6 +3931,14 @@ export default function ChatLayout({
 
             {/* ==================================================
                 CALL OVERLAY
+
+                IMPORTANT:
+                This is intentionally OUTSIDE ChatWindow.
+
+                CallOverlay uses:
+                    fixed inset-0 z-[100]
+
+                Therefore it can cover the entire ChatHub UI.
             ================================================== */}
 
             <CallOverlay
