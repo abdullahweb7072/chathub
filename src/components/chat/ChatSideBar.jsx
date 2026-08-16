@@ -42,7 +42,6 @@ export default function ChatSideBar({
     const [avatarError, setAvatarError] =
         useState(false);
 
-    // Profile data fetched from /api/users/[id]
     const [profileUser, setProfileUser] =
         useState(null);
 
@@ -67,7 +66,8 @@ export default function ChatSideBar({
                         credentials: "include",
                         cache: "no-store",
                         headers: {
-                            Accept: "application/json",
+                            Accept:
+                                "application/json",
                         },
                     }
                 );
@@ -90,8 +90,6 @@ export default function ChatSideBar({
                     return;
                 }
 
-                // Your API may return user directly
-                // or inside data.user.
                 const user =
                     data?.user ||
                     data?.data ||
@@ -122,12 +120,6 @@ export default function ChatSideBar({
     // CURRENT USER DISPLAY DATA
     // ============================================================
 
-    /*
-     * Prefer the user returned by /api/users/[id].
-     * Fall back to currentUser so the sidebar still works
-     * while the API request is loading.
-     */
-
     const sidebarUser =
         profileUser || currentUser || {};
 
@@ -144,7 +136,7 @@ export default function ChatSideBar({
         displayName.charAt(0).toUpperCase() || "?";
 
     // ============================================================
-    // RESET AVATAR ERROR WHEN USER AVATAR CHANGES
+    // RESET AVATAR ERROR
     // ============================================================
 
     useEffect(() => {
@@ -207,7 +199,7 @@ export default function ChatSideBar({
     }, [fetchFriendRequestCount]);
 
     // ============================================================
-    // REFRESH REQUEST COUNT
+    // REFRESH FRIEND REQUEST COUNT
     // ============================================================
 
     useEffect(() => {
@@ -583,7 +575,7 @@ export default function ChatSideBar({
                             )}
                         </div>
 
-                        {/* USER DISPLAY NAME + PRESENCE */}
+                        {/* USER NAME */}
 
                         <div className="min-w-0">
                             <p
@@ -596,42 +588,6 @@ export default function ChatSideBar({
                             >
                                 {displayName}
                             </p>
-
-                            <div
-                                className="
-                                    mt-0.5
-                                    flex
-                                    items-center
-                                    gap-1.5
-                                    text-xs
-                                "
-                            >
-                                <span
-                                    className="
-                                        h-1.5
-                                        w-1.5
-                                        rounded-full
-                                    "
-                                    style={{
-                                        background:
-                                            sidebarUser?.isOnline
-                                                ? "#22c55e"
-                                                : "#64748b",
-                                    }}
-                                />
-
-                                <span
-                                    className={
-                                        sidebarUser?.isOnline
-                                            ? "text-green-500"
-                                            : "text-muted"
-                                    }
-                                >
-                                    {sidebarUser?.isOnline
-                                        ? "Online"
-                                        : "Offline"}
-                                </span>
-                            </div>
                         </div>
                     </button>
 
@@ -830,7 +786,7 @@ export default function ChatSideBar({
                 </div>
 
                 {/* ====================================================
-                    STATUS
+                    MY STATUS
                 ==================================================== */}
 
                 <div
@@ -909,8 +865,6 @@ export default function ChatSideBar({
                                 </span>
                             )}
 
-                            {/* PLUS */}
-
                             <span
                                 className="
                                     absolute
@@ -960,8 +914,6 @@ export default function ChatSideBar({
                                 Add a status
                             </p>
                         </div>
-
-                        {/* STATUS ARROW */}
 
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -1015,8 +967,6 @@ export default function ChatSideBar({
 
                 {/* ====================================================
                     VIEW STATUS
-                    Added below conversations
-                    and above sidebar footer
                 ==================================================== */}
 
                 <div
@@ -1050,8 +1000,6 @@ export default function ChatSideBar({
                         title="View Status"
                         aria-label="View Status"
                     >
-                        {/* VIEW STATUS ICON */}
-
                         <span
                             className="
                                 flex
@@ -1086,8 +1034,6 @@ export default function ChatSideBar({
                                 />
                             </svg>
                         </span>
-
-                        {/* VIEW STATUS TEXT */}
 
                         <span className="text-sm font-medium">
                             View Status
@@ -1222,7 +1168,7 @@ export default function ChatSideBar({
                                 <path
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
-                                    d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 1.7-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20h-2.4v-.2a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.7-1.7.06-.06A1.7 1.7 0 0 0 8.46 15a1.7 1.7 0 0 0-1.56-1.03H6.7v-2.4h.2A1.7 1.7 0 0 0 8.46 10a1.7 1.7 0 0 0-.34-1.88l-.06-.06 1.7-1.7.06.06a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1.88-.34l.06-.06 1.7 1.7-.06.06A1.7 1.7 0 0 0 19.4 10a1.7 1.7 0 0 0 1.56 1.03h.2v2.4h-.2A1.7 1.7 0 0 0 19.4 15Z"
+                                    d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 1.7-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20h-2.4v-.2a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.7-1.7.06-.06A1.7 1.7 0 0 0 8.46 15a1.7 1.7 0 0 0-1.56-1.03H6.7v-2.4h.2A1.7 1.7 0 0 0 8.46 10a1.7 1.7 0 0 0-.34-1.88l-.06-.06 1.7-1.7.06.06a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1.88.34l.06-.06 1.7 1.7-.06.06A1.7 1.7 0 0 0 19.4 10a1.7 1.7 0 0 0 1.56 1.03h.2v2.4h-.2A1.7 1.7 0 0 0 19.4 15Z"
                                 />
                             </svg>
                         </span>

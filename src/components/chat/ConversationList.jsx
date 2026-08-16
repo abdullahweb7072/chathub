@@ -50,6 +50,8 @@ export default function ConversationList({
                     member?.user?.id ??
                     member?.userId;
 
+                // IMPORTANT:
+                // Never consider the current user here.
                 return (
                     Number(memberUserId) !==
                     Number(currentUserId)
@@ -162,10 +164,13 @@ export default function ConversationList({
                                             {
                                                 method:
                                                     "GET",
+
                                                 credentials:
                                                     "include",
+
                                                 cache:
                                                     "no-store",
+
                                                 headers: {
                                                     Accept:
                                                         "application/json",
@@ -215,7 +220,9 @@ export default function ConversationList({
                                         id: userId,
                                         user,
                                     };
-                                } catch (error) {
+                                } catch (
+                                    error
+                                ) {
                                     console.error(
                                         `❌ USER FETCH ERROR (${userId}):`,
                                         error
@@ -300,10 +307,122 @@ export default function ConversationList({
                 numericUserId
             ];
 
+        /*
+         * API profile is merged over the conversation
+         * user so that fresh profile information such
+         * as avatar and isOnline can be used.
+         */
         return {
             ...conversationUser,
             ...(apiUser || {}),
         };
+    };
+
+    // ============================================================
+    // CHECK IF USER IS ONLINE
+    // ============================================================
+    //
+    // IMPORTANT:
+    //
+    // This function receives ONLY the OTHER USER'S ID.
+    //
+    // Therefore the current user's own online status can
+    // never be displayed in ConversationItem.
+    //
+    // Socket.IO presence has priority because it represents
+    // the current real-time connection state.
+    //
+    // Database/API is only used as a fallback.
+    // ============================================================
+
+    const isUserOnline = (
+        userId,
+        fallbackOnline = false
+    ) => {
+        const numericUserId =
+            Number(userId);
+
+        // Invalid user ID = offline
+        if (
+            !Number.isInteger(
+                numericUserId
+            ) ||
+            numericUserId <= 0
+        ) {
+            return false;
+        }
+
+        // --------------------------------------------------------
+        // SOCKET.IO SET
+        // --------------------------------------------------------
+
+        if (
+            onlineUsers instanceof Set
+        ) {
+            return onlineUsers.has(
+                numericUserId
+            );
+        }
+
+        // --------------------------------------------------------
+        // SOCKET.IO ARRAY
+        // --------------------------------------------------------
+
+        if (
+            Array.isArray(
+                onlineUsers
+            )
+        ) {
+            return onlineUsers.some(
+                (id) =>
+                    Number(id) ===
+                    numericUserId
+            );
+        }
+
+        // --------------------------------------------------------
+        // SOCKET.IO OBJECT
+        // --------------------------------------------------------
+
+        if (
+            onlineUsers &&
+            typeof onlineUsers ===
+                "object"
+        ) {
+            const onlineValue =
+                onlineUsers[
+                    numericUserId
+                ] ??
+                onlineUsers[
+                    String(
+                        numericUserId
+                    )
+                ];
+
+            if (
+                typeof onlineValue ===
+                "boolean"
+            ) {
+                return onlineValue;
+            }
+
+            if (
+                onlineValue !==
+                undefined
+            ) {
+                return Boolean(
+                    onlineValue
+                );
+            }
+        }
+
+        // --------------------------------------------------------
+        // DATABASE / API FALLBACK
+        // --------------------------------------------------------
+
+        return Boolean(
+            fallbackOnline
+        );
     };
 
     // ============================================================
@@ -377,74 +496,6 @@ export default function ConversationList({
         return (
             otherUser?.avatar ||
             null
-        );
-    };
-
-    // ============================================================
-    // ONLINE STATUS
-    //
-    // IMPORTANT:
-    // Socket.IO onlineUsers has priority.
-    // Database is fallback.
-    // ============================================================
-
-    const isUserOnline = (
-        userId,
-        fallbackOnline = false
-    ) => {
-        const numericUserId =
-            Number(userId);
-
-        if (
-            !Number.isInteger(
-                numericUserId
-            )
-        ) {
-            return Boolean(
-                fallbackOnline
-            );
-        }
-
-        if (
-            onlineUsers instanceof
-            Set
-        ) {
-            return onlineUsers.has(
-                numericUserId
-            );
-        }
-
-        if (
-            Array.isArray(
-                onlineUsers
-            )
-        ) {
-            return onlineUsers.some(
-                (id) =>
-                    Number(id) ===
-                    numericUserId
-            );
-        }
-
-        if (
-            onlineUsers &&
-            typeof onlineUsers ===
-                "object"
-        ) {
-            return Boolean(
-                onlineUsers[
-                    numericUserId
-                ] ??
-                    onlineUsers[
-                        String(
-                            numericUserId
-                        )
-                    ]
-            );
-        }
-
-        return Boolean(
-            fallbackOnline
         );
     };
 
@@ -545,7 +596,10 @@ export default function ConversationList({
 
         const now = new Date();
 
-        // Today
+        // --------------------------------------------------------
+        // TODAY
+        // --------------------------------------------------------
+
         if (
             messageDate.toDateString() ===
             now.toDateString()
@@ -559,7 +613,10 @@ export default function ConversationList({
             );
         }
 
-        // Yesterday
+        // --------------------------------------------------------
+        // YESTERDAY
+        // --------------------------------------------------------
+
         const yesterday =
             new Date(now);
 
@@ -574,7 +631,10 @@ export default function ConversationList({
             return "Yesterday";
         }
 
-        // Older
+        // --------------------------------------------------------
+        // OLDER
+        // --------------------------------------------------------
+
         return messageDate.toLocaleDateString(
             [],
             {
@@ -588,7 +648,10 @@ export default function ConversationList({
     // EMPTY STATE
     // ============================================================
 
-    if (conversations.length === 0) {
+    if (
+        conversations.length ===
+        0
+    ) {
         return (
             <div
                 className="
@@ -670,14 +733,26 @@ export default function ConversationList({
         >
             {conversations.map(
                 (conversation) => {
+                    // =================================================
+                    // OTHER USER
+                    // =================================================
+
                     const otherUser =
                         getResolvedUser(
                             conversation
                         );
 
+                    // =================================================
+                    // OTHER USER ID
+                    // =================================================
+
                     const otherUserId =
                         otherUser?.id ??
                         otherUser?.userId;
+
+                    // =================================================
+                    // CONVERSATION DATA
+                    // =================================================
 
                     const name =
                         getConversationName(
@@ -687,12 +762,6 @@ export default function ConversationList({
                     const avatar =
                         getAvatar(
                             conversation
-                        );
-
-                    const online =
-                        isUserOnline(
-                            otherUserId,
-                            otherUser?.isOnline
                         );
 
                     const latestMessage =
@@ -717,6 +786,26 @@ export default function ConversationList({
                             conversation
                         );
 
+                    // =================================================
+                    // ONLINE STATUS
+                    // =================================================
+                    //
+                    // IMPORTANT:
+                    //
+                    // `otherUserId` is obtained from
+                    // getOtherUser(), which explicitly excludes
+                    // currentUserId.
+                    //
+                    // So this online value belongs ONLY to
+                    // the friend shown in this conversation.
+                    // =================================================
+
+                    const online =
+                        isUserOnline(
+                            otherUserId,
+                            otherUser?.isOnline
+                        );
+
                     return (
                         <ConversationItem
                             key={
@@ -724,9 +813,6 @@ export default function ConversationList({
                             }
                             conversation={{
                                 ...conversation,
-
-                                // Give ConversationItem
-                                // the resolved user.
                                 members:
                                     conversation.members,
                             }}
@@ -747,7 +833,9 @@ export default function ConversationList({
                             userId={
                                 otherUserId
                             }
-                            name={name}
+                            name={
+                                name
+                            }
                             avatar={
                                 avatar
                             }
