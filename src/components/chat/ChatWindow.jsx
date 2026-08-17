@@ -217,6 +217,25 @@ export default function ChatWindow({
     ] = useState(null);
 
     // ========================================================
+    // GAMES
+    // ========================================================
+
+    const [
+        showGamesMenu,
+        setShowGamesMenu,
+    ] = useState(false);
+
+    const [
+        creatingGame,
+        setCreatingGame,
+    ] = useState(false);
+
+    const [
+        gameError,
+        setGameError,
+    ] = useState(null);
+
+    // ========================================================
     // REFS
     // ========================================================
 
@@ -264,6 +283,8 @@ export default function ChatWindow({
             setMessage("");
             setShowReactionFor(null);
             setShowEmojiPicker(false);
+            setShowGamesMenu(false);
+            setGameError(null);
 
             removeSelectedFile();
         };
@@ -388,6 +409,91 @@ export default function ChatWindow({
             }
         };
     }, [attachmentPreview]);
+
+    // ========================================================
+    // CLOSE GAMES MENU
+    // ========================================================
+
+    useEffect(() => {
+        const handleGamesOutsideClick = (event) => {
+            if (!event.target.closest("[data-games-menu]")) {
+                setShowGamesMenu(false);
+            }
+        };
+
+        document.addEventListener("mousedown", handleGamesOutsideClick);
+
+        return () => {
+            document.removeEventListener("mousedown", handleGamesOutsideClick);
+        };
+    }, []);
+
+    // ========================================================
+    // CREATE GAME
+    // ========================================================
+
+    const handleCreateGame = async (gameType) => {
+        const conversationId = Number(conversation?.id);
+
+        if (!Number.isInteger(conversationId) || conversationId <= 0) {
+            setGameError("Please open a conversation first.");
+            return;
+        }
+
+        if (creatingGame) {
+            return;
+        }
+
+        setCreatingGame(true);
+        setGameError(null);
+
+        try {
+            const response = await fetch("/api/games", {
+                method: "POST",
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    conversationId,
+                    type: gameType,
+                }),
+            });
+
+            const rawText = await response.text();
+            let data = null;
+
+            try {
+                data = rawText ? JSON.parse(rawText) : null;
+            } catch {
+                throw new Error(`Invalid server response (${response.status}).`);
+            }
+
+            if (!response.ok || !data?.success) {
+                throw new Error(
+                    data?.message ||
+                        `Failed to create game (${response.status}).`
+                );
+            }
+
+            console.log("🎮 GAME CREATED:", data.game);
+
+            setShowGamesMenu(false);
+
+            window.dispatchEvent(
+                new CustomEvent("chathub:game-created", {
+                    detail: { game: data.game },
+                })
+            );
+        } catch (error) {
+            console.error("❌ CREATE GAME ERROR:", error);
+            setGameError(
+                error?.message || "Unable to create game."
+            );
+        } finally {
+            setCreatingGame(false);
+        }
+    };
 
     // ========================================================
     // INPUT CHANGE
@@ -813,6 +919,8 @@ export default function ChatWindow({
             setMessage("");
 
             setShowEmojiPicker(false);
+            setShowGamesMenu(false);
+            setGameError(null);
 
             setShowReactionFor(null);
 
@@ -1336,6 +1444,67 @@ export default function ChatWindow({
                                             )
                                         )}
                                     </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* ==================================================
+                            GAMES
+                        ================================================== */}
+
+                        <div
+                            data-games-menu="true"
+                            className="relative shrink-0"
+                        >
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowGamesMenu((previous) => !previous);
+                                    setGameError(null);
+                                }}
+                                disabled={creatingGame}
+                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl text-secondary transition hover:bg-hover disabled:cursor-not-allowed disabled:opacity-40"
+                                title="Games"
+                            >
+                                🎮
+                            </button>
+
+                            {showGamesMenu && (
+                                <div className="absolute bottom-12 left-0 z-50 w-64 overflow-hidden rounded-2xl border border-border bg-surface p-2 shadow-2xl">
+                                    <div className="border-b border-border px-3 py-2">
+                                        <p className="text-sm font-semibold text-foreground">Play a game</p>
+                                        <p className="mt-0.5 text-[11px] text-muted">Challenge someone in this chat</p>
+                                    </div>
+
+                                    {gameError && (
+                                        <div className="mx-2 mt-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+                                            {gameError}
+                                        </div>
+                                    )}
+
+                                    <div className="mt-1 space-y-1">
+                                        <button type="button" disabled={creatingGame} onClick={() => handleCreateGame("TIC_TAC_TOE")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50">
+                                            <span className="text-xl">⭕</span>
+                                            <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-foreground">Tic Tac Toe</span><span className="block text-[11px] text-muted">Quick 1v1 game</span></span>
+                                        </button>
+
+                                        <button type="button" disabled={creatingGame} onClick={() => handleCreateGame("CONNECT_FOUR")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50">
+                                            <span className="text-xl">🔴</span>
+                                            <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-foreground">Connect Four</span><span className="block text-[11px] text-muted">Drop pieces and connect four</span></span>
+                                        </button>
+
+                                        <button type="button" disabled={creatingGame} onClick={() => handleCreateGame("ROCK_PAPER_SCISSORS")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50">
+                                            <span className="text-xl">✊</span>
+                                            <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-foreground">Rock Paper Scissors</span><span className="block text-[11px] text-muted">Best of luck!</span></span>
+                                        </button>
+                                    </div>
+
+                                    {creatingGame && (
+                                        <div className="flex items-center justify-center gap-2 px-3 py-2 text-xs text-muted">
+                                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-border border-t-primary" />
+                                            Creating game...
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

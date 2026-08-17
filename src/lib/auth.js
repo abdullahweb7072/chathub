@@ -12,73 +12,154 @@ import { auth } from "@/auth";
 // 2. NextAuth session
 //    → Google login
 // ============================================================
-
 export async function verifyAuth(request) {
     // ========================================================
-    // 1. TRY CUSTOM TOKEN FIRST
+    // 1. CUSTOM TOKEN
     // ========================================================
 
     try {
         const token = request.cookies.get("Token")?.value;
 
+        console.log("========================================");
+        console.log("🔐 AUTH DEBUG");
+        console.log("========================================");
+
+        console.log(
+            "🍪 Token cookie exists:",
+            !!token
+        );
+
+        console.log(
+            "🍪 Token length:",
+            token?.length || 0
+        );
+
         if (token) {
-            const decoded = jwt.verify(
-                token,
-                process.env.JWT_SECRET
-            );
+            try {
+                const decoded = jwt.verify(
+                    token,
+                    process.env.JWT_SECRET
+                );
 
-            if (!decoded?.id) {
-                throw new Error("Invalid token");
-            }
+                console.log(
+                    "✅ JWT VERIFIED:",
+                    decoded
+                );
 
-            const user = await prisma.user.findUnique({
-                where: {
-                    id: Number(decoded.id),
-                },
-            });
+                if (!decoded?.id) {
+                    console.log(
+                        "❌ JWT has no user ID"
+                    );
+                } else {
+                    const user =
+                        await prisma.user.findUnique({
+                            where: {
+                                id: Number(decoded.id),
+                            },
+                        });
 
-            if (user) {
-                return user;
+                    console.log(
+                        "👤 DB USER FOUND:",
+                        !!user
+                    );
+
+                    if (user) {
+                        console.log(
+                            "👤 USER ID:",
+                            user.id
+                        );
+
+                        console.log(
+                            "👤 USERNAME:",
+                            user.username
+                        );
+
+                        console.log(
+                            "========================================"
+                        );
+
+                        return user;
+                    }
+                }
+            } catch (jwtError) {
+                console.error(
+                    "❌ JWT VERIFICATION FAILED:",
+                    jwtError?.message
+                );
             }
         }
     } catch (error) {
-        console.log(
-            "Custom Token authentication failed, trying NextAuth..."
+        console.error(
+            "❌ TOKEN AUTH ERROR:",
+            error?.message
         );
     }
 
     // ========================================================
-    // 2. TRY NEXTAUTH SESSION
+    // 2. NEXTAUTH
     // ========================================================
 
     try {
+        console.log(
+            "🔎 Trying NextAuth..."
+        );
+
         const session = await auth();
 
-        if (session?.user?.email) {
-            const cleanEmail = session.user.email
-                .trim()
-                .toLowerCase();
+        console.log(
+            "🔐 NextAuth session exists:",
+            !!session
+        );
 
-            const user = await prisma.user.findUnique({
-                where: {
-                    email: cleanEmail,
-                },
-            });
+        console.log(
+            "📧 NextAuth email:",
+            session?.user?.email || "NONE"
+        );
+
+        if (session?.user?.email) {
+            const cleanEmail =
+                session.user.email
+                    .trim()
+                    .toLowerCase();
+
+            const user =
+                await prisma.user.findUnique({
+                    where: {
+                        email: cleanEmail,
+                    },
+                });
+
+            console.log(
+                "👤 NextAuth DB user:",
+                !!user
+            );
 
             if (user) {
+                console.log(
+                    "========================================"
+                );
+
                 return user;
             }
         }
     } catch (error) {
         console.error(
-            "NextAuth authentication error:",
-            error
+            "❌ NEXTAUTH ERROR:",
+            error?.message
         );
     }
 
     // ========================================================
-    // 3. NO AUTHENTICATION
+    // 3. FAILED
     // ========================================================
+
+    console.error(
+        "❌❌❌ AUTH FAILED COMPLETELY ❌❌❌"
+    );
+
+    console.log(
+        "========================================"
+    );
 
     throw new Error("Unauthorized");
 }
