@@ -114,6 +114,138 @@ function getNotificationSettings(user) {
     };
 }
 
+
+// ============================================================
+// GAME HELPERS
+// ============================================================
+
+function getGameRoom(gameId) {
+    return `game:${gameId}`;
+}
+
+// ============================================================
+// TIC TAC TOE
+// ============================================================
+
+function checkTicTacToeWinner(board) {
+    const winningLines = [
+        [0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8],
+
+        [0, 3, 6],
+        [1, 4, 7],
+        [2, 5, 8],
+
+        [0, 4, 8],
+        [2, 4, 6],
+    ];
+
+    for (const [a, b, c] of winningLines) {
+        if (
+            board[a] &&
+            board[a] === board[b] &&
+            board[a] === board[c]
+        ) {
+            return board[a];
+        }
+    }
+
+    return null;
+}
+
+function isTicTacToeDraw(board) {
+    return board.every((cell) => cell !== null);
+}
+
+// ============================================================
+// CONNECT FOUR
+// ============================================================
+
+function checkConnectFourWinner(board, row, col, player) {
+    const directions = [
+        [0, 1],  // horizontal
+        [1, 0],  // vertical
+        [1, 1],  // diagonal
+        [1, -1], // diagonal
+    ];
+
+    for (const [rowDirection, colDirection] of directions) {
+        let count = 1;
+
+        // Forward
+        let r = row + rowDirection;
+        let c = col + colDirection;
+
+        while (
+            r >= 0 &&
+            r < 6 &&
+            c >= 0 &&
+            c < 7 &&
+            board[r][c] === player
+        ) {
+            count++;
+
+            r += rowDirection;
+            c += colDirection;
+        }
+
+        // Backward
+        r = row - rowDirection;
+        c = col - colDirection;
+
+        while (
+            r >= 0 &&
+            r < 6 &&
+            c >= 0 &&
+            c < 7 &&
+            board[r][c] === player
+        ) {
+            count++;
+
+            r -= rowDirection;
+            c -= colDirection;
+        }
+
+        if (count >= 4) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function isConnectFourDraw(board) {
+    return board.every((row) =>
+        row.every((cell) => cell !== null)
+    );
+}
+
+// ============================================================
+// ROCK PAPER SCISSORS
+// ============================================================
+
+const VALID_RPS_CHOICES = [
+    "rock",
+    "paper",
+    "scissors",
+];
+
+function getRpsWinner(choice1, choice2) {
+    if (choice1 === choice2) {
+        return "DRAW";
+    }
+
+    if (
+        (choice1 === "rock" && choice2 === "scissors") ||
+        (choice1 === "paper" && choice2 === "rock") ||
+        (choice1 === "scissors" && choice2 === "paper")
+    ) {
+        return "PLAYER1";
+    }
+
+    return "PLAYER2";
+}
 // ============================================================
 // COOKIE PARSER
 // ============================================================
@@ -268,6 +400,30 @@ function getUserRoom(userId) {
 
 function getConversationRoom(conversationId) {
     return `conversation:${conversationId}`;
+}
+
+
+// ============================================================
+// GAME HELPERS
+// ============================================================
+
+function getGameRoom(gameId) {
+    return `game:${gameId}`;
+}
+
+function emitGameEvent(conversationId, event, game) {
+    if (!globalThis.io) {
+        console.warn(
+            "⚠️ Socket.IO instance is not available for game event:",
+            event
+        );
+
+        return;
+    }
+
+    globalThis.io
+        .to(getConversationRoom(conversationId))
+        .emit(event, game);
 }
 
 // ============================================================
@@ -3581,6 +3737,1051 @@ socket.on(
                     }
                 );
 
+
+// ============================================================
+// ============================================================
+// GAME FEATURE
+// ============================================================
+// ============================================================
+
+// ============================================================
+// JOIN GAME ROOM
+// ============================================================
+
+socket.on(
+    "join_game",
+    async (data, callback) => {
+        try {
+            const gameId = Number(data?.gameId);
+
+            if (
+                !Number.isInteger(gameId) ||
+                gameId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message: "Invalid game ID.",
+                });
+            }
+
+            const game =
+                await prisma.game.findUnique({
+                    where: {
+                        id: gameId,
+                    },
+                });
+
+            if (!game) {
+                return callback?.({
+                    success: false,
+                    message: "Game not found.",
+                });
+            }
+
+            if (
+                game.status === "FINISHED" ||
+                game.status === "CANCELLED"
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "This game is no longer active.",
+                });
+            }
+
+            const isMember =
+                await isConversationMember(
+                    userId,
+                    game.conversationId
+                );
+
+            if (!isMember) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "You are not a member of this conversation.",
+                });
+            }
+
+            // Join dedicated game room
+            socket.join(
+                getGameRoom(game.id)
+            );
+
+            console.log(
+                `🎮 User ${userId} joined game room ${game.id}`
+            );
+
+            callback?.({
+                success: true,
+                gameId: game.id,
+                conversationId:
+                    game.conversationId,
+                game,
+            });
+        } catch (error) {
+            console.error(
+                "❌ JOIN GAME SOCKET ERROR:",
+                error
+            );
+
+            callback?.({
+                success: false,
+                message:
+                    "Failed to join game room.",
+            });
+        }
+    }
+);
+
+// ============================================================
+// LEAVE GAME ROOM
+// ============================================================
+
+socket.on(
+    "leave_game",
+    async (data, callback) => {
+        try {
+            const gameId =
+                Number(data?.gameId);
+
+            if (
+                !Number.isInteger(gameId) ||
+                gameId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid game ID.",
+                });
+            }
+
+            socket.leave(
+                getGameRoom(gameId)
+            );
+
+            console.log(
+                `🎮 User ${userId} left game room ${gameId}`
+            );
+
+            callback?.({
+                success: true,
+                gameId,
+            });
+        } catch (error) {
+            console.error(
+                "❌ LEAVE GAME SOCKET ERROR:",
+                error
+            );
+
+            callback?.({
+                success: false,
+                message:
+                    "Failed to leave game room.",
+            });
+        }
+    }
+);
+
+// ============================================================
+// GAME MOVE
+// ============================================================
+
+socket.on(
+    "game_move",
+    async (data, callback) => {
+        try {
+            const gameId =
+                Number(data?.gameId);
+
+            const currentUserId =
+                Number(socket.user?.id);
+
+            // ========================================================
+            // VALIDATION
+            // ========================================================
+
+            if (
+                !Number.isInteger(gameId) ||
+                gameId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid game ID.",
+                });
+            }
+
+            if (
+                !Number.isInteger(
+                    currentUserId
+                ) ||
+                currentUserId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Unauthorized.",
+                });
+            }
+
+            // ========================================================
+            // FIND GAME
+            // ========================================================
+
+            const game =
+                await prisma.game.findUnique({
+                    where: {
+                        id: gameId,
+                    },
+                });
+
+            if (!game) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Game not found.",
+                });
+            }
+
+            // ========================================================
+            // CHECK GAME STATUS
+            // ========================================================
+
+            if (
+                game.status !== "PLAYING"
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "This game is not currently playing.",
+                });
+            }
+
+            // ========================================================
+            // CHECK CONVERSATION MEMBERSHIP
+            // ========================================================
+
+            const isMember =
+                await isConversationMember(
+                    currentUserId,
+                    game.conversationId
+                );
+
+            if (!isMember) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "You are not a member of this conversation.",
+                });
+            }
+
+            // ========================================================
+            // CURRENT STATE
+            // ========================================================
+
+            const currentState =
+                game.state &&
+                typeof game.state === "object"
+                    ? game.state
+                    : {};
+
+            const players =
+                currentState.players || {};
+
+            // ========================================================
+            // CHECK PLAYER
+            // ========================================================
+
+            const isPlayer =
+                Object.values(
+                    players
+                ).some(
+                    (playerId) =>
+                        Number(playerId) ===
+                        currentUserId
+                );
+
+            if (!isPlayer) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "You are not a player in this game.",
+                });
+            }
+
+            let updatedState = {
+                ...currentState,
+            };
+
+            let gameFinished = false;
+
+            // ========================================================
+            // TIC TAC TOE
+            // ========================================================
+
+            if (
+                game.type ===
+                "TIC_TAC_TOE"
+            ) {
+                const index =
+                    Number(data?.index);
+
+                const board =
+                    Array.isArray(
+                        currentState.board
+                    )
+                        ? [
+                              ...currentState.board,
+                          ]
+                        : [];
+
+                if (
+                    !Number.isInteger(
+                        index
+                    ) ||
+                    index < 0 ||
+                    index > 8
+                ) {
+                    return callback?.({
+                        success: false,
+                        message:
+                            "Invalid Tic-Tac-Toe position.",
+                    });
+                }
+
+                if (
+                    board.length !== 9
+                ) {
+                    return callback?.({
+                        success: false,
+                        message:
+                            "Invalid game board.",
+                    });
+                }
+
+                const playerSymbol =
+                    Object.entries(
+                        players
+                    ).find(
+                        ([, playerId]) =>
+                            Number(
+                                playerId
+                            ) ===
+                            currentUserId
+                    )?.[0];
+
+                if (
+                    !playerSymbol ||
+                    ![
+                        "X",
+                        "O",
+                    ].includes(
+                        playerSymbol
+                    )
+                ) {
+                    return callback?.({
+                        success: false,
+                        message:
+                            "Invalid player.",
+                    });
+                }
+
+                // Turn validation
+                if (
+                    currentState.turn !==
+                    playerSymbol
+                ) {
+                    return callback?.({
+                        success: false,
+                        message:
+                            "It is not your turn.",
+                    });
+                }
+
+                // Cell validation
+                if (
+                    board[index] !== null
+                ) {
+                    return callback?.({
+                        success: false,
+                        message:
+                            "That position is already occupied.",
+                    });
+                }
+
+                board[index] =
+                    playerSymbol;
+
+                const winner =
+                    checkTicTacToeWinner(
+                        board
+                    );
+
+                const draw =
+                    !winner &&
+                    isTicTacToeDraw(
+                        board
+                    );
+
+                updatedState = {
+                    ...currentState,
+
+                    board,
+
+                    winner,
+
+                    draw,
+
+                    turn:
+                        winner || draw
+                            ? currentState.turn
+                            : playerSymbol ===
+                              "X"
+                            ? "O"
+                            : "X",
+                };
+
+                gameFinished =
+                    Boolean(
+                        winner ||
+                            draw
+                    );
+            }
+
+            // ========================================================
+            // CONNECT FOUR
+            // ========================================================
+
+            else if (
+                game.type ===
+                "CONNECT_FOUR"
+            ) {
+                const column =
+                    Number(
+                        data?.column
+                    );
+
+                const board =
+                    Array.isArray(
+                        currentState.board
+                    )
+                        ? currentState.board.map(
+                              (row) =>
+                                  Array.isArray(
+                                      row
+                                  )
+                                      ? [
+                                            ...row,
+                                        ]
+                                      : []
+                          )
+                        : [];
+
+                if (
+                    !Number.isInteger(
+                        column
+                    ) ||
+                    column < 0 ||
+                    column > 6
+                ) {
+                    return callback?.({
+                        success: false,
+                        message:
+                            "Invalid Connect Four column.",
+                    });
+                }
+
+                if (
+                    board.length !==
+                        6 ||
+                    board.some(
+                        (row) =>
+                            row.length !==
+                            7
+                    )
+                ) {
+                    return callback?.({
+                        success: false,
+                        message:
+                            "Invalid game board.",
+                    });
+                }
+
+                const player =
+                    Object.entries(
+                        players
+                    ).find(
+                        ([, playerId]) =>
+                            Number(
+                                playerId
+                            ) ===
+                            currentUserId
+                    )?.[0];
+
+                if (
+                    !player ||
+                    ![
+                        "RED",
+                        "YELLOW",
+                    ].includes(
+                        player
+                    )
+                ) {
+                    return callback?.({
+                        success: false,
+                        message:
+                            "Invalid player.",
+                    });
+                }
+
+                // Turn validation
+                if (
+                    currentState.turn !==
+                    player
+                ) {
+                    return callback?.({
+                        success: false,
+                        message:
+                            "It is not your turn.",
+                    });
+                }
+
+                // Find lowest available row
+                let targetRow = -1;
+
+                for (
+                    let row = 5;
+                    row >= 0;
+                    row--
+                ) {
+                    if (
+                        board[row][
+                            column
+                        ] === null
+                    ) {
+                        targetRow =
+                            row;
+                        break;
+                    }
+                }
+
+                if (
+                    targetRow === -1
+                ) {
+                    return callback?.({
+                        success: false,
+                        message:
+                            "That column is full.",
+                    });
+                }
+
+                board[targetRow][
+                    column
+                ] = player;
+
+                const winner =
+                    checkConnectFourWinner(
+                        board,
+                        targetRow,
+                        column,
+                        player
+                    )
+                        ? player
+                        : null;
+
+                const draw =
+                    !winner &&
+                    isConnectFourDraw(
+                        board
+                    );
+
+                updatedState = {
+                    ...currentState,
+
+                    board,
+
+                    winner,
+
+                    draw,
+
+                    turn:
+                        winner || draw
+                            ? currentState.turn
+                            : player ===
+                              "RED"
+                            ? "YELLOW"
+                            : "RED",
+                };
+
+                gameFinished =
+                    Boolean(
+                        winner ||
+                            draw
+                    );
+            }
+
+            // ========================================================
+            // ROCK PAPER SCISSORS
+            // ========================================================
+
+            else if (
+                game.type ===
+                "ROCK_PAPER_SCISSORS"
+            ) {
+                const choice =
+                    String(
+                        data?.choice ||
+                            ""
+                    ).toLowerCase();
+
+                if (
+                    !VALID_RPS_CHOICES.includes(
+                        choice
+                    )
+                ) {
+                    return callback?.({
+                        success: false,
+                        message:
+                            "Invalid choice. Use rock, paper, or scissors.",
+                    });
+                }
+
+                const player1 =
+                    Number(
+                        players.player1
+                    );
+
+                const player2 =
+                    Number(
+                        players.player2
+                    );
+
+                if (
+                    !player1 ||
+                    !player2
+                ) {
+                    return callback?.({
+                        success: false,
+                        message:
+                            "The game does not have two players yet.",
+                    });
+                }
+
+                if (
+                    currentUserId !==
+                        player1 &&
+                    currentUserId !==
+                        player2
+                ) {
+                    return callback?.({
+                        success: false,
+                        message:
+                            "You are not a player in this game.",
+                    });
+                }
+
+                const choices = {
+                    ...(currentState.choices ||
+                        {}),
+                };
+
+                // Prevent duplicate choice
+                if (
+                    choices[
+                        String(
+                            currentUserId
+                        )
+                    ]
+                ) {
+                    return callback?.({
+                        success: false,
+                        message:
+                            "You already selected a choice.",
+                    });
+                }
+
+                choices[
+                    String(
+                        currentUserId
+                    )
+                ] = choice;
+
+                const player1Choice =
+                    choices[
+                        String(
+                            player1
+                        )
+                    ];
+
+                const player2Choice =
+                    choices[
+                        String(
+                            player2
+                        )
+                    ];
+
+                let winner = null;
+                let draw = false;
+                let roundFinished =
+                    false;
+
+                if (
+                    player1Choice &&
+                    player2Choice
+                ) {
+                    roundFinished =
+                        true;
+
+                    const result =
+                        getRpsWinner(
+                            player1Choice,
+                            player2Choice
+                        );
+
+                    if (
+                        result ===
+                        "PLAYER1"
+                    ) {
+                        winner =
+                            player1;
+                    } else if (
+                        result ===
+                        "PLAYER2"
+                    ) {
+                        winner =
+                            player2;
+                    } else {
+                        draw = true;
+                    }
+
+                    gameFinished =
+                        true;
+                }
+
+                updatedState = {
+                    ...currentState,
+
+                    choices,
+
+                    winner,
+
+                    draw,
+
+                    roundFinished,
+                };
+            }
+
+            // ========================================================
+            // UNSUPPORTED GAME
+            // ========================================================
+
+            else {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Unsupported game type.",
+                });
+            }
+
+            // ========================================================
+            // UPDATE GAME STATUS
+            // ========================================================
+
+            const newStatus =
+                gameFinished
+                    ? "FINISHED"
+                    : "PLAYING";
+
+            const updatedGame =
+                await prisma.game.update({
+                    where: {
+                        id: gameId,
+                    },
+
+                    data: {
+                        status:
+                            newStatus,
+
+                        state:
+                            updatedState,
+                    },
+                });
+
+            // ========================================================
+            // EMIT GAME UPDATED
+            // ========================================================
+
+            io.to(
+                getGameRoom(
+                    gameId
+                )
+            ).emit(
+                "game_updated",
+                updatedGame
+            );
+
+            io.to(
+                getConversationRoom(
+                    game.conversationId
+                )
+            ).emit(
+                "game_updated",
+                updatedGame
+            );
+
+            // ========================================================
+            // GAME FINISHED
+            // ========================================================
+
+            if (
+                gameFinished
+            ) {
+                io.to(
+                    getGameRoom(
+                        gameId
+                    )
+                ).emit(
+                    "game_finished",
+                    updatedGame
+                );
+
+                io.to(
+                    getConversationRoom(
+                        game.conversationId
+                    )
+                ).emit(
+                    "game_finished",
+                    updatedGame
+                );
+
+                console.log(
+                    `🏆 GAME FINISHED: ${game.type} #${gameId}`
+                );
+            } else {
+                console.log(
+                    `🎮 GAME UPDATED: ${game.type} #${gameId}`
+                );
+            }
+
+            callback?.({
+                success: true,
+                game:
+                    updatedGame,
+            });
+        } catch (error) {
+            console.error(
+                "❌ GAME MOVE SOCKET ERROR:",
+                error
+            );
+
+            callback?.({
+                success: false,
+                message:
+                    "Failed to process game move.",
+            });
+        }
+    }
+);
+
+// ============================================================
+// CANCEL GAME
+// ============================================================
+
+socket.on(
+    "cancel_game",
+    async (data, callback) => {
+        try {
+            const gameId =
+                Number(data?.gameId);
+
+            const currentUserId =
+                Number(socket.user?.id);
+
+            if (
+                !Number.isInteger(
+                    gameId
+                ) ||
+                gameId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid game ID.",
+                });
+            }
+
+            if (
+                !Number.isInteger(
+                    currentUserId
+                ) ||
+                currentUserId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Unauthorized.",
+                });
+            }
+
+            const game =
+                await prisma.game.findUnique({
+                    where: {
+                        id: gameId,
+                    },
+                });
+
+            if (!game) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Game not found.",
+                });
+            }
+
+            if (
+                game.status ===
+                    "FINISHED" ||
+                game.status ===
+                    "CANCELLED"
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "This game is already closed.",
+                });
+            }
+
+            const isMember =
+                await isConversationMember(
+                    currentUserId,
+                    game.conversationId
+                );
+
+            if (!isMember) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "You are not a member of this conversation.",
+                });
+            }
+
+            const state =
+                game.state &&
+                typeof game.state ===
+                    "object"
+                    ? game.state
+                    : {};
+
+            const players =
+                state.players ||
+                {};
+
+            const isPlayer =
+                Object.values(
+                    players
+                ).some(
+                    (playerId) =>
+                        Number(
+                            playerId
+                        ) ===
+                        currentUserId
+                );
+
+            if (!isPlayer) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "You are not a player in this game.",
+                });
+            }
+
+            const updatedGame =
+                await prisma.game.update({
+                    where: {
+                        id: gameId,
+                    },
+
+                    data: {
+                        status:
+                            "CANCELLED",
+
+                        state: {
+                            ...state,
+
+                            endedBy:
+                                currentUserId,
+
+                            endReason:
+                                "PLAYER_LEFT",
+                        },
+                    },
+                });
+
+            // ========================================================
+            // GAME CANCELLED
+            // ========================================================
+
+            io.to(
+                getGameRoom(
+                    gameId
+                )
+            ).emit(
+                "game_cancelled",
+                updatedGame
+            );
+
+            io.to(
+                getConversationRoom(
+                    game.conversationId
+                )
+            ).emit(
+                "game_cancelled",
+                updatedGame
+            );
+
+            // Also update game state
+            io.to(
+                getGameRoom(
+                    gameId
+                )
+            ).emit(
+                "game_updated",
+                updatedGame
+            );
+
+            io.to(
+                getConversationRoom(
+                    game.conversationId
+                )
+            ).emit(
+                "game_updated",
+                updatedGame
+            );
+
+            console.log(
+                `🚫 GAME CANCELLED: ${game.type} #${gameId} by user ${currentUserId}`
+            );
+
+            callback?.({
+                success: true,
+                game:
+                    updatedGame,
+            });
+        } catch (error) {
+            console.error(
+                "❌ CANCEL GAME SOCKET ERROR:",
+                error
+            );
+
+            callback?.({
+                success: false,
+                message:
+                    "Failed to cancel game.",
+            });
+        }
+    }
+);
                 // ====================================================
                 // TYPING START
                 // ====================================================

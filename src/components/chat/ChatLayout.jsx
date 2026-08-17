@@ -13,6 +13,7 @@ import { callManager } from "@/lib/callManager";
 import ChatSideBar from "./ChatSideBar";
 import ChatWindow from "./ChatWindow";
 import CallOverlay from "./CallOverlay";
+import GameOverlay from "../games/GameOverlay";
 
 // ============================================================
 // HELPERS
@@ -284,6 +285,7 @@ export default function ChatLayout({
     ] = useState(
         socket.connected
     );
+    const [activeGame, setActiveGame] = useState(null);
 
     // ========================================================
     // CHAT THEME
@@ -398,7 +400,31 @@ export default function ChatLayout({
     // ========================================================
     // LOAD SAVED CHAT THEMES
     // ========================================================
+    useEffect(() => {
+    const handleGameCreated = (event) => {
+        const game = event.detail?.game;
 
+        if (!game?.id) {
+            return;
+        }
+
+        console.log("🎮 Activating game:", game);
+
+        setActiveGame(game);
+    };
+
+    window.addEventListener(
+        "chathub:game-created",
+        handleGameCreated
+    );
+
+    return () => {
+        window.removeEventListener(
+            "chathub:game-created",
+            handleGameCreated
+        );
+    };
+}, []);
     useEffect(() => {
         try {
             const stored =
@@ -3926,6 +3952,7 @@ export default function ChatLayout({
                     onStartVideoCall={
                         startVideoCall
                     }
+                    onOpenGame={(game) => setActiveGame(game)}
                 />
             </main>
 
@@ -4006,6 +4033,11 @@ export default function ChatLayout({
                     dismissCallOverlay
                 }
             />
+            <GameOverlay
+    game={activeGame}
+    currentUser={currentUser}
+    onClose={() => setActiveGame(null)}
+/>
         </div>
     );
 }

@@ -143,7 +143,7 @@ export default function ChatWindow({
     onSelectTheme,
 
     // ========================================================
-    // AUDIO CALL
+    // AUDIO / VIDEO CALL
     // ========================================================
 
     onStartAudioCall,
@@ -184,6 +184,10 @@ export default function ChatWindow({
                       "var(--background)",
               }
             : undefined;
+
+    // ========================================================
+    // MESSAGE STATE
+    // ========================================================
 
     const [message, setMessage] =
         useState("");
@@ -257,9 +261,7 @@ export default function ChatWindow({
     // IMPORTANT:
     // Use "auto" instead of "smooth".
     //
-    // When ChatLayout optimistically adds a message to the
-    // messages array, this makes the new message appear
-    // immediately without waiting for a smooth scroll.
+    // This makes optimistic messages appear immediately.
     // ========================================================
 
     useEffect(() => {
@@ -415,16 +417,28 @@ export default function ChatWindow({
     // ========================================================
 
     useEffect(() => {
-        const handleGamesOutsideClick = (event) => {
-            if (!event.target.closest("[data-games-menu]")) {
+        const handleGamesOutsideClick = (
+            event
+        ) => {
+            if (
+                !event.target.closest(
+                    "[data-games-menu]"
+                )
+            ) {
                 setShowGamesMenu(false);
             }
         };
 
-        document.addEventListener("mousedown", handleGamesOutsideClick);
+        document.addEventListener(
+            "mousedown",
+            handleGamesOutsideClick
+        );
 
         return () => {
-            document.removeEventListener("mousedown", handleGamesOutsideClick);
+            document.removeEventListener(
+                "mousedown",
+                handleGamesOutsideClick
+            );
         };
     }, []);
 
@@ -432,11 +446,23 @@ export default function ChatWindow({
     // CREATE GAME
     // ========================================================
 
-    const handleCreateGame = async (gameType) => {
-        const conversationId = Number(conversation?.id);
+    const handleCreateGame = async (
+        gameType
+    ) => {
+        const conversationId = Number(
+            conversation?.id
+        );
 
-        if (!Number.isInteger(conversationId) || conversationId <= 0) {
-            setGameError("Please open a conversation first.");
+        if (
+            !Number.isInteger(
+                conversationId
+            ) ||
+            conversationId <= 0
+        ) {
+            setGameError(
+                "Please open a conversation first."
+            );
+
             return;
         }
 
@@ -448,47 +474,77 @@ export default function ChatWindow({
         setGameError(null);
 
         try {
-            const response = await fetch("/api/games", {
-                method: "POST",
-                credentials: "include",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    conversationId,
-                    type: gameType,
-                }),
-            });
+            const response = await fetch(
+                "/api/games",
+                {
+                    method: "POST",
+                    credentials: "include",
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                    },
+                    body: JSON.stringify({
+                        conversationId,
+                        type: gameType,
+                    }),
+                }
+            );
 
-            const rawText = await response.text();
+            const rawText =
+                await response.text();
+
             let data = null;
 
             try {
-                data = rawText ? JSON.parse(rawText) : null;
+                data = rawText
+                    ? JSON.parse(rawText)
+                    : null;
             } catch {
-                throw new Error(`Invalid server response (${response.status}).`);
+                throw new Error(
+                    `Invalid server response (${response.status}).`
+                );
             }
 
-            if (!response.ok || !data?.success) {
+            if (
+                !response.ok ||
+                !data?.success
+            ) {
                 throw new Error(
                     data?.message ||
                         `Failed to create game (${response.status}).`
                 );
             }
 
-            console.log("🎮 GAME CREATED:", data.game);
+            console.log(
+                "🎮 GAME CREATED:",
+                data.game
+            );
 
             setShowGamesMenu(false);
 
+            // ==================================================
+            // NOTIFY CHATHUB ABOUT THE NEW GAME
+            // ==================================================
+
             window.dispatchEvent(
-                new CustomEvent("chathub:game-created", {
-                    detail: { game: data.game },
-                })
+                new CustomEvent(
+                    "chathub:game-created",
+                    {
+                        detail: {
+                            game: data.game,
+                        },
+                    }
+                )
             );
         } catch (error) {
-            console.error("❌ CREATE GAME ERROR:", error);
+            console.error(
+                "❌ CREATE GAME ERROR:",
+                error
+            );
+
             setGameError(
-                error?.message || "Unable to create game."
+                error?.message ||
+                    "Unable to create game."
             );
         } finally {
             setCreatingGame(false);
@@ -577,7 +633,7 @@ export default function ChatWindow({
             MAX_FILE_SIZE
         ) {
             alert(
-                "File size cannot exceed 25 MB."
+                "File size cannot exceed 50 MB."
             );
 
             event.target.value = "";
@@ -670,14 +726,8 @@ export default function ChatWindow({
     // ========================================================
     // SEND MESSAGE
     //
-    // IMPORTANT:
     // ChatWindow does NOT wait for the server.
-    //
-    // It immediately passes the message data to
-    // ChatLayout through onSendMessage().
-    //
-    // ChatLayout is responsible for adding the optimistic
-    // message immediately.
+    // It immediately passes message data to ChatLayout.
     // ========================================================
 
     const handleSubmit = () => {
@@ -733,7 +783,6 @@ export default function ChatWindow({
 
         removeSelectedFile();
 
-        // Restore focus immediately.
         requestAnimationFrame(() => {
             inputRef.current?.focus();
         });
@@ -1266,6 +1315,10 @@ export default function ChatWindow({
                     )}
 
                     <div className="flex items-end gap-2">
+                        {/* ==================================================
+                            FILE INPUT
+                        ================================================== */}
+
                         <input
                             ref={
                                 fileInputRef
@@ -1277,6 +1330,10 @@ export default function ChatWindow({
                             }
                             accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip,.rar"
                         />
+
+                        {/* ==================================================
+                            ATTACHMENT
+                        ================================================== */}
 
                         <button
                             type="button"
@@ -1305,6 +1362,10 @@ export default function ChatWindow({
                         >
                             📎
                         </button>
+
+                        {/* ==================================================
+                            EMOJI
+                        ================================================== */}
 
                         <div
                             ref={
@@ -1459,55 +1520,316 @@ export default function ChatWindow({
                             <button
                                 type="button"
                                 onClick={() => {
-                                    setShowGamesMenu((previous) => !previous);
-                                    setGameError(null);
+                                    setShowGamesMenu(
+                                        (
+                                            previous
+                                        ) =>
+                                            !previous
+                                    );
+
+                                    setGameError(
+                                        null
+                                    );
                                 }}
-                                disabled={creatingGame}
-                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl text-secondary transition hover:bg-hover disabled:cursor-not-allowed disabled:opacity-40"
+                                disabled={
+                                    creatingGame
+                                }
+                                className="
+                                    flex
+                                    h-10
+                                    w-10
+                                    shrink-0
+                                    items-center
+                                    justify-center
+                                    rounded-full
+                                    text-xl
+                                    text-secondary
+                                    transition
+                                    hover:bg-hover
+                                    disabled:cursor-not-allowed
+                                    disabled:opacity-40
+                                "
                                 title="Games"
                             >
                                 🎮
                             </button>
 
                             {showGamesMenu && (
-                                <div className="absolute bottom-12 left-0 z-50 w-64 overflow-hidden rounded-2xl border border-border bg-surface p-2 shadow-2xl">
-                                    <div className="border-b border-border px-3 py-2">
-                                        <p className="text-sm font-semibold text-foreground">Play a game</p>
-                                        <p className="mt-0.5 text-[11px] text-muted">Challenge someone in this chat</p>
+                                <div
+                                    className="
+                                        absolute
+                                        bottom-12
+                                        left-0
+                                        z-50
+                                        w-64
+                                        overflow-hidden
+                                        rounded-2xl
+                                        border
+                                        border-border
+                                        bg-surface
+                                        p-2
+                                        shadow-2xl
+                                    "
+                                >
+                                    <div
+                                        className="
+                                            border-b
+                                            border-border
+                                            px-3
+                                            py-2
+                                        "
+                                    >
+                                        <p
+                                            className="
+                                                text-sm
+                                                font-semibold
+                                                text-foreground
+                                            "
+                                        >
+                                            Play a game
+                                        </p>
+
+                                        <p
+                                            className="
+                                                mt-0.5
+                                                text-[11px]
+                                                text-muted
+                                            "
+                                        >
+                                            Challenge someone
+                                            in this chat
+                                        </p>
                                     </div>
 
+                                    {/* GAME ERROR */}
+
                                     {gameError && (
-                                        <div className="mx-2 mt-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
-                                            {gameError}
+                                        <div
+                                            className="
+                                                mx-2
+                                                mt-2
+                                                rounded-lg
+                                                border
+                                                border-red-500/20
+                                                bg-red-500/10
+                                                px-3
+                                                py-2
+                                                text-xs
+                                                text-red-400
+                                            "
+                                        >
+                                            {
+                                                gameError
+                                            }
                                         </div>
                                     )}
 
                                     <div className="mt-1 space-y-1">
-                                        <button type="button" disabled={creatingGame} onClick={() => handleCreateGame("TIC_TAC_TOE")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50">
-                                            <span className="text-xl">⭕</span>
-                                            <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-foreground">Tic Tac Toe</span><span className="block text-[11px] text-muted">Quick 1v1 game</span></span>
+                                        {/* TIC TAC TOE */}
+
+                                        <button
+                                            type="button"
+                                            disabled={
+                                                creatingGame
+                                            }
+                                            onClick={() =>
+                                                handleCreateGame(
+                                                    "TIC_TAC_TOE"
+                                                )
+                                            }
+                                            className="
+                                                flex
+                                                w-full
+                                                items-center
+                                                gap-3
+                                                rounded-xl
+                                                px-3
+                                                py-2.5
+                                                text-left
+                                                transition
+                                                hover:bg-hover
+                                                disabled:cursor-not-allowed
+                                                disabled:opacity-50
+                                            "
+                                        >
+                                            <span className="text-xl">
+                                                ⭕
+                                            </span>
+
+                                            <span className="min-w-0 flex-1">
+                                                <span
+                                                    className="
+                                                        block
+                                                        text-sm
+                                                        font-medium
+                                                        text-foreground
+                                                    "
+                                                >
+                                                    Tic Tac Toe
+                                                </span>
+
+                                                <span
+                                                    className="
+                                                        block
+                                                        text-[11px]
+                                                        text-muted
+                                                    "
+                                                >
+                                                    Quick 1v1 game
+                                                </span>
+                                            </span>
                                         </button>
 
-                                        <button type="button" disabled={creatingGame} onClick={() => handleCreateGame("CONNECT_FOUR")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50">
-                                            <span className="text-xl">🔴</span>
-                                            <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-foreground">Connect Four</span><span className="block text-[11px] text-muted">Drop pieces and connect four</span></span>
+                                        {/* CONNECT FOUR */}
+
+                                        <button
+                                            type="button"
+                                            disabled={
+                                                creatingGame
+                                            }
+                                            onClick={() =>
+                                                handleCreateGame(
+                                                    "CONNECT_FOUR"
+                                                )
+                                            }
+                                            className="
+                                                flex
+                                                w-full
+                                                items-center
+                                                gap-3
+                                                rounded-xl
+                                                px-3
+                                                py-2.5
+                                                text-left
+                                                transition
+                                                hover:bg-hover
+                                                disabled:cursor-not-allowed
+                                                disabled:opacity-50
+                                            "
+                                        >
+                                            <span className="text-xl">
+                                                🔴
+                                            </span>
+
+                                            <span className="min-w-0 flex-1">
+                                                <span
+                                                    className="
+                                                        block
+                                                        text-sm
+                                                        font-medium
+                                                        text-foreground
+                                                    "
+                                                >
+                                                    Connect Four
+                                                </span>
+
+                                                <span
+                                                    className="
+                                                        block
+                                                        text-[11px]
+                                                        text-muted
+                                                    "
+                                                >
+                                                    Drop pieces and
+                                                    connect four
+                                                </span>
+                                            </span>
                                         </button>
 
-                                        <button type="button" disabled={creatingGame} onClick={() => handleCreateGame("ROCK_PAPER_SCISSORS")} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50">
-                                            <span className="text-xl">✊</span>
-                                            <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-foreground">Rock Paper Scissors</span><span className="block text-[11px] text-muted">Best of luck!</span></span>
+                                        {/* ROCK PAPER SCISSORS */}
+
+                                        <button
+                                            type="button"
+                                            disabled={
+                                                creatingGame
+                                            }
+                                            onClick={() =>
+                                                handleCreateGame(
+                                                    "ROCK_PAPER_SCISSORS"
+                                                )
+                                            }
+                                            className="
+                                                flex
+                                                w-full
+                                                items-center
+                                                gap-3
+                                                rounded-xl
+                                                px-3
+                                                py-2.5
+                                                text-left
+                                                transition
+                                                hover:bg-hover
+                                                disabled:cursor-not-allowed
+                                                disabled:opacity-50
+                                            "
+                                        >
+                                            <span className="text-xl">
+                                                ✊
+                                            </span>
+
+                                            <span className="min-w-0 flex-1">
+                                                <span
+                                                    className="
+                                                        block
+                                                        text-sm
+                                                        font-medium
+                                                        text-foreground
+                                                    "
+                                                >
+                                                    Rock Paper
+                                                    Scissors
+                                                </span>
+
+                                                <span
+                                                    className="
+                                                        block
+                                                        text-[11px]
+                                                        text-muted
+                                                    "
+                                                >
+                                                    Best of luck!
+                                                </span>
+                                            </span>
                                         </button>
                                     </div>
 
+                                    {/* CREATING INDICATOR */}
+
                                     {creatingGame && (
-                                        <div className="flex items-center justify-center gap-2 px-3 py-2 text-xs text-muted">
-                                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-border border-t-primary" />
+                                        <div
+                                            className="
+                                                flex
+                                                items-center
+                                                justify-center
+                                                gap-2
+                                                px-3
+                                                py-2
+                                                text-xs
+                                                text-muted
+                                            "
+                                        >
+                                            <span
+                                                className="
+                                                    h-3.5
+                                                    w-3.5
+                                                    animate-spin
+                                                    rounded-full
+                                                    border-2
+                                                    border-border
+                                                    border-t-primary
+                                                "
+                                            />
+
                                             Creating game...
                                         </div>
                                     )}
                                 </div>
                             )}
                         </div>
+
+                        {/* ==================================================
+                            MESSAGE INPUT
+                        ================================================== */}
 
                         <textarea
                             ref={
@@ -1546,6 +1868,10 @@ export default function ChatWindow({
                                 focus:ring-border
                             "
                         />
+
+                        {/* ==================================================
+                            SEND
+                        ================================================== */}
 
                         <button
                             type="button"
