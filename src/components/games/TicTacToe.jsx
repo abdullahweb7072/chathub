@@ -30,13 +30,11 @@ export default function TicTacToe({
         }
 
         setCurrentGame((previous) => {
-            // Prevent incoming prop updates from flipping isReceiver back to true if already joined locally
             const alreadyJoined = previous?.isReceiver === false;
 
             return {
                 ...game,
 
-                // Preserve role information if it already exists.
                 isCreator:
                     game.isCreator ??
                     previous?.isCreator ??
@@ -52,12 +50,23 @@ export default function TicTacToe({
     }, [game]);
 
     // ========================================================
-    // GAME STATE
+    // GAME STATE & SAFE PARSING
     // ========================================================
 
-    const state = currentGame?.state || {};
+    const state = useMemo(() => {
+        if (!currentGame?.state) return {};
+        if (typeof currentGame.state === "string") {
+            try {
+                return JSON.parse(currentGame.state);
+            } catch (err) {
+                console.error("Failed to parse game state:", err);
+                return {};
+            }
+        }
+        return currentGame.state;
+    }, [currentGame?.state]);
 
-    const players = state?.players || {};
+    const players = state?.players || currentGame?.players || {};
 
     const board = Array.isArray(state?.board)
         ? state.board
@@ -78,7 +87,6 @@ export default function TicTacToe({
             return null;
         }
 
-        // Safely parse IDs as strings to prevent String vs Number mismatches
         const currentIdStr = String(currentUser.id);
         const playerXStr = players.X != null ? String(players.X) : null;
         const playerOStr = players.O != null ? String(players.O) : null;
@@ -102,7 +110,6 @@ export default function TicTacToe({
         currentGame?.isCreator
     );
 
-    // If mySymbol exists (meaning user is officially registered in players list), force isReceiver to false.
     const isReceiver =
         Boolean(currentGame?.isReceiver) && !mySymbol;
 
@@ -165,10 +172,6 @@ export default function TicTacToe({
 
     // ========================================================
     // JOIN GAME
-    //
-    // IMPORTANT:
-    // Receiver does NOT automatically join anymore.
-    // The receiver must explicitly click JOIN GAME.
     // ========================================================
 
     const joinGame = () => {
@@ -209,10 +212,6 @@ export default function TicTacToe({
                     response
                 );
 
-                /*
-                 * If the server returns the updated game,
-                 * use it immediately.
-                 */
                 if (response?.game) {
                     setCurrentGame((previous) => ({
                         ...response.game,
@@ -224,12 +223,6 @@ export default function TicTacToe({
                         isReceiver: false,
                     }));
                 } else {
-                    /*
-                     * The server may instead emit
-                     * game_joined / game_updated.
-                     * Those socket listeners below will
-                     * update the state.
-                     */
                     setCurrentGame((previous) => ({
                         ...previous,
                         isReceiver: false,
@@ -311,8 +304,6 @@ export default function TicTacToe({
                     previous?.isCreator ??
                     false,
 
-                // Once this event arrives, this
-                // user has joined the game.
                 isReceiver: false,
             }));
 
@@ -618,10 +609,6 @@ export default function TicTacToe({
 
     // ========================================================
     // RECEIVER INVITATION
-    //
-    // IMPORTANT:
-    // This is rendered BEFORE the actual game board.
-    // Receiver must explicitly click JOIN GAME.
     // ========================================================
 
     if (
@@ -630,10 +617,6 @@ export default function TicTacToe({
     ) {
         return (
             <div className="flex max-h-[90vh] flex-col">
-                {/* ==================================================
-                    HEADER
-                ================================================== */}
-
                 <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
                     <div>
                         <h2 className="text-lg font-semibold text-white">
@@ -653,10 +636,6 @@ export default function TicTacToe({
                         ✕
                     </button>
                 </div>
-
-                {/* ==================================================
-                    INVITATION
-                ================================================== */}
 
                 <div className="overflow-y-auto p-6">
                     <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 text-center">
@@ -719,10 +698,6 @@ export default function TicTacToe({
 
     return (
         <div className="flex max-h-[90vh] flex-col">
-            {/* ==================================================
-                HEADER
-            ================================================== */}
-
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
                 <div>
                     <h2 className="text-lg font-semibold text-white">
@@ -743,18 +718,9 @@ export default function TicTacToe({
                 </button>
             </div>
 
-            {/* ==================================================
-                GAME
-            ================================================== */}
-
             <div className="overflow-y-auto p-5">
-                {/* ==================================================
-                    PLAYERS
-                ================================================== */}
-
                 <div className="mb-5 grid grid-cols-2 gap-3">
                     {/* PLAYER X */}
-
                     <div
                         className={`rounded-xl border p-3 ${
                             mySymbol === "X"
@@ -778,7 +744,6 @@ export default function TicTacToe({
                     </div>
 
                     {/* PLAYER O */}
-
                     <div
                         className={`rounded-xl border p-3 ${
                             mySymbol === "O"
@@ -802,10 +767,6 @@ export default function TicTacToe({
                     </div>
                 </div>
 
-                {/* ==================================================
-                    STATUS
-                ================================================== */}
-
                 <div className="mb-5 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-center">
                     <div className="font-semibold text-white">
                         {status.title}
@@ -815,10 +776,6 @@ export default function TicTacToe({
                         {status.description}
                     </div>
                 </div>
-
-                {/* ==================================================
-                    BOARD
-                ================================================== */}
 
                 <div className="mx-auto grid w-full max-w-[360px] grid-cols-3 gap-2">
                     {board.map(
@@ -874,19 +831,11 @@ export default function TicTacToe({
                     )}
                 </div>
 
-                {/* ==================================================
-                    ERROR
-                ================================================== */}
-
                 {error && (
                     <div className="mt-5 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-center text-sm text-red-300">
                         {error}
                     </div>
                 )}
-
-                {/* ==================================================
-                    ACTIONS
-                ================================================== */}
 
                 <div className="mt-6 flex justify-center">
                     <button
