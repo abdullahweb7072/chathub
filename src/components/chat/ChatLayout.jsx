@@ -410,69 +410,79 @@ export default function ChatLayout({
     //
     // This is what makes the receiver see GameOverlay too.
     // ========================================================
-
-    useEffect(() => {
-        const handleLocalGameCreated = (event) => {
-            const game = event.detail?.game;
-
-            if (!game?.id) {
-                console.warn(
-                    "⚠️ chathub:game-created received without a valid game"
-                );
-                return;
-            }
-
-            console.log(
-                "🎮 Local game created:",
-                game
+useEffect(() => {
+    const handleGameCreated = (game) => {
+        if (!game?.id) {
+            console.warn(
+                "⚠️ game_created received without valid game"
             );
+            return;
+        }
 
-            // Open immediately for the creator.
-            setActiveGame(game);
-
-            // Tell the server so the other conversation member(s)
-            // receive the invitation in real time.
-            if (!socket.connected) {
-                console.warn(
-                    "⚠️ Cannot announce game: socket is not connected."
-                );
-                return;
-            }
-
-            socket.emit(
-                "game_created",
-                {
-                    game,
-                },
-                (response) => {
-                    if (!response?.success) {
-                        console.error(
-                            "❌ GAME INVITATION BROADCAST FAILED:",
-                            response?.message
-                        );
-                        return;
-                    }
-
-                    console.log(
-                        "🎮 GAME INVITATION BROADCASTED:",
-                        response.game
-                    );
-                }
-            );
-        };
-
-        window.addEventListener(
-            "chathub:game-created",
-            handleLocalGameCreated
+        const creatorId = Number(
+            game.createdBy
         );
 
-        return () => {
-            window.removeEventListener(
-                "chathub:game-created",
-                handleLocalGameCreated
+        const myId = Number(
+            currentUserId
+        );
+
+        console.log(
+            "🎮 GAME INVITATION RECEIVED:",
+            {
+                game,
+                creatorId,
+                myId,
+                isCreator:
+                    creatorId === myId,
+            }
+        );
+
+        // ========================================================
+        // CREATOR
+        // ========================================================
+
+        if (creatorId === myId) {
+            console.log(
+                "🎮 I created this game → opening game directly"
             );
-        };
-    }, []);
+
+            setActiveGame({
+                ...game,
+                isCreator: true,
+                isReceiver: false,
+            });
+
+            return;
+        }
+
+        // ========================================================
+        // RECEIVER
+        // ========================================================
+
+        console.log(
+            "🎮 I received this game → showing JOIN invitation"
+        );
+
+        setActiveGame({
+            ...game,
+            isCreator: false,
+            isReceiver: true,
+        });
+    };
+
+    socket.on(
+        "game_created",
+        handleGameCreated
+    );
+
+    return () => {
+        socket.off(
+            "game_created",
+            handleGameCreated
+        );
+    };
+}, [currentUserId]);
 
     // ========================================================
     // RECEIVE GAME INVITATION FROM SERVER
@@ -482,35 +492,6 @@ export default function ChatLayout({
     // so every connected member receives the game.
     // ========================================================
 
-    useEffect(() => {
-        const handleGameCreated = (game) => {
-            if (!game?.id) {
-                console.warn(
-                    "⚠️ game_created received without a valid game"
-                );
-                return;
-            }
-
-            console.log(
-                "🎮 GAME INVITATION RECEIVED:",
-                game
-            );
-
-            setActiveGame(game);
-        };
-
-        socket.on(
-            "game_created",
-            handleGameCreated
-        );
-
-        return () => {
-            socket.off(
-                "game_created",
-                handleGameCreated
-            );
-        };
-    }, []);
 
     // ========================================================
     // OPTIONAL: KEEP GAME UPDATED IF SERVER SENDS AN UPDATE
