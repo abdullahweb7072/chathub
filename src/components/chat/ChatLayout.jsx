@@ -492,11 +492,17 @@ export default function ChatLayout({
                     return previous;
                 }
 
+                const isCreator = String(game.createdBy) === String(currentUserId);
+                const state = typeof game.state === "string" 
+                    ? JSON.parse(game.state) 
+                    : game.state || {};
+                const players = state?.players || game.players || {};
+
                 return {
                     ...previous,
                     ...game,
-                    isCreator: Number(game.createdBy) === Number(currentUserId),
-                    isReceiver: Number(game.createdBy) !== Number(currentUserId),
+                    isCreator,
+                    isReceiver: !isCreator && !players?.O,
                 };
             });
         };
@@ -507,12 +513,17 @@ export default function ChatLayout({
             console.log("🎮 GAME JOINED EVENT RECEIVED:", game);
 
             setActiveGame((previous) => {
-                const isCreator = Number(game.createdBy) === Number(currentUserId);
+                const isCreator = String(game.createdBy) === String(currentUserId);
+                const state = typeof game.state === "string" 
+                    ? JSON.parse(game.state) 
+                    : game.state || {};
+                const players = state?.players || game.players || {};
+
                 return {
                     ...(previous || {}),
                     ...game,
                     isCreator,
-                    isReceiver: !isCreator,
+                    isReceiver: !isCreator && !players?.O,
                 };
             });
         };
@@ -526,6 +537,28 @@ export default function ChatLayout({
             socket.off("game_updated", handleGameUpdated);
             socket.off("game_finished", handleGameUpdated);
         };
+    }, [currentUserId]);
+
+    // ========================================================
+    // HANDLE OPEN GAME FROM CHAT MESSAGE
+    // ========================================================
+
+    const handleOpenGame = useCallback((game) => {
+        if (!game) return;
+
+        const isCreator = String(game.createdBy) === String(currentUserId);
+        const state = typeof game.state === "string" 
+            ? JSON.parse(game.state) 
+            : game.state || {};
+        const players = state?.players || game.players || {};
+
+        const isReceiver = !isCreator && !players?.O;
+
+        setActiveGame({
+            ...game,
+            isCreator,
+            isReceiver,
+        });
     }, [currentUserId]);
 
     // ========================================================
@@ -3448,7 +3481,7 @@ export default function ChatLayout({
                                           failed:
                                               true,
                                       }
-                                    : message
+                                : message
                         )
                 );
             }
@@ -3928,7 +3961,7 @@ export default function ChatLayout({
                     onStartVideoCall={
                         startVideoCall
                     }
-                    onOpenGame={(game) => setActiveGame(game)}
+                    onOpenGame={handleOpenGame}
                 />
             </main>
 
