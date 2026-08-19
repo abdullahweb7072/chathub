@@ -1,58 +1,36 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-
 import { socket } from "@/lib/socket";
 
-// ============================================================
-// TIC TAC TOE
-// ============================================================
-
-export default function TicTacToe({
-    game,
-    currentUser,
-    onClose,
-}) {
+export default function TicTacToe({ game, currentUser, onClose }) {
     const [currentGame, setCurrentGame] = useState(game);
     const [error, setError] = useState("");
     const [leaving, setLeaving] = useState(false);
     const [joining, setJoining] = useState(false);
 
-    const userId = Number(currentUser?.id);
+    const userId = currentUser?.id != null ? String(currentUser.id) : null;
 
     // ========================================================
     // KEEP GAME STATE IN SYNC WITH PROP
     // ========================================================
-
     useEffect(() => {
-        if (!game) {
-            return;
-        }
+        if (!game) return;
 
-        setCurrentGame((previous) => {
-            const alreadyJoined = previous?.isReceiver === false;
-
-            return {
-                ...game,
-
-                isCreator:
-                    game.isCreator ??
-                    previous?.isCreator ??
-                    false,
-
-                isReceiver: alreadyJoined
+        setCurrentGame((previous) => ({
+            ...game,
+            isCreator: game.isCreator ?? previous?.isCreator ?? false,
+            // Force isReceiver to false if the user has joined or has a symbol assigned
+            isReceiver:
+                previous?.isReceiver === false
                     ? false
-                    : (game.isReceiver ??
-                      previous?.isReceiver ??
-                      false),
-            };
-        });
+                    : (game.isReceiver ?? previous?.isReceiver ?? false),
+        }));
     }, [game]);
 
     // ========================================================
-    // GAME STATE & SAFE PARSING
+    // SAFE PARSING GAME STATE
     // ========================================================
-
     const state = useMemo(() => {
         if (!currentGame?.state) return {};
         if (typeof currentGame.state === "string") {
@@ -67,63 +45,31 @@ export default function TicTacToe({
     }, [currentGame?.state]);
 
     const players = state?.players || currentGame?.players || {};
-
-    const board = Array.isArray(state?.board)
-        ? state.board
-        : Array(9).fill(null);
-
+    const board = Array.isArray(state?.board) ? state.board : Array(9).fill(null);
     const turn = state?.turn || null;
-
     const winner = state?.winner || null;
-
     const draw = Boolean(state?.draw);
 
     // ========================================================
     // MY SYMBOL
     // ========================================================
-
     const mySymbol = useMemo(() => {
-        if (!currentUser?.id) {
-            return null;
-        }
+        if (!userId) return null;
 
-        const currentIdStr = String(currentUser.id);
         const playerXStr = players.X != null ? String(players.X) : null;
         const playerOStr = players.O != null ? String(players.O) : null;
 
-        if (playerXStr === currentIdStr) {
-            return "X";
-        }
-
-        if (playerOStr === currentIdStr) {
-            return "O";
-        }
+        if (playerXStr === userId) return "X";
+        if (playerOStr === userId) return "O";
 
         return null;
-    }, [players.X, players.O, currentUser?.id]);
+    }, [players.X, players.O, userId]);
 
-    // ========================================================
-    // ROLE
-    // ========================================================
-
-    const isCreator = Boolean(
-        currentGame?.isCreator
-    );
-
+    // Force receiver mode off if mySymbol is resolved or players.O exists
     const isReceiver =
-        Boolean(currentGame?.isReceiver) && !mySymbol;
+        Boolean(currentGame?.isReceiver) && !mySymbol && !players.O;
 
-    // ========================================================
-    // OPPONENT JOINED
-    // ========================================================
-
-    const opponentJoined =
-        players.X != null &&
-        players.O != null;
-
-    // ========================================================
-    // MY TURN
-    // ========================================================
+    const opponentJoined = players.X != null && players.O != null;
 
     const isMyTurn =
         mySymbol !== null &&
@@ -134,117 +80,41 @@ export default function TicTacToe({
         currentGame?.status === "PLAYING";
 
     // ========================================================
-    // WINNING CELLS
-    // ========================================================
-
-    const winningCells = useMemo(() => {
-        if (!winner) {
-            return [];
-        }
-
-        const winningLines = [
-            [0, 1, 2],
-            [3, 4, 5],
-            [6, 7, 8],
-
-            [0, 3, 6],
-            [1, 4, 7],
-            [2, 5, 8],
-
-            [0, 4, 8],
-            [2, 4, 6],
-        ];
-
-        for (const line of winningLines) {
-            const [a, b, c] = line;
-
-            if (
-                board[a] === winner &&
-                board[b] === winner &&
-                board[c] === winner
-            ) {
-                return line;
-            }
-        }
-
-        return [];
-    }, [board, winner]);
-
-    // ========================================================
     // JOIN GAME
     // ========================================================
-
     const joinGame = () => {
-        if (
-            !currentGame?.id ||
-            joining
-        ) {
-            return;
-        }
+        if (!currentGame?.id || joining) return;
 
         setJoining(true);
         setError("");
 
-        // Optimistically set local state so UI updates instantly
-        setCurrentGame((previous) => {
-            const prevState =
-                typeof previous?.state === "string"
-                    ? JSON.parse(previous.state)
-                    : previous?.state || {};
-
-            return {
-                ...previous,
-                status: "PLAYING",
-                isReceiver: false,
-                state: {
-                    ...prevState,
-                    turn: prevState.turn || "X",
-                    players: {
-                        ...prevState.players,
-                        O: currentUser?.id,
-                    },
-                },
-            };
-        });
-
         socket.emit(
             "join_game",
-            {
-                gameId: currentGame.id,
-            },
+            { gameId: currentGame.id },
             (response) => {
                 if (!response?.success) {
-                    console.error(
-                        "❌ JOIN GAME FAILED:",
-                        response?.message
-                    );
-
-                    setError(
-                        response?.message ||
-                            "Failed to join game."
-                    );
-
+                    setError(response?.message || "Failed to join game.");
                     setJoining(false);
-
                     return;
                 }
 
-                console.log(
-                    "🎮 GAME JOINED SUCCESSFULLY:",
-                    response
-                );
+                const updatedGame = response.game || currentGame;
+                const parsedState =
+                    typeof updatedGame.state === "string"
+                        ? JSON.parse(updatedGame.state)
+                        : updatedGame.state || {};
 
-                if (response?.game) {
-                    setCurrentGame((previous) => ({
-                        ...response.game,
-
-                        isCreator:
-                            previous?.isCreator ??
-                            false,
-
-                        isReceiver: false,
-                    }));
-                }
+                setCurrentGame({
+                    ...updatedGame,
+                    isReceiver: false,
+                    state: {
+                        ...parsedState,
+                        players: {
+                            ...parsedState.players,
+                            O: currentUser?.id,
+                        },
+                    },
+                });
 
                 setJoining(false);
             }
@@ -254,614 +124,146 @@ export default function TicTacToe({
     // ========================================================
     // SOCKET EVENTS
     // ========================================================
-
     useEffect(() => {
-        const gameId = Number(
-            currentGame?.id
-        );
+        const gameId = currentGame?.id ? String(currentGame.id) : null;
+        if (!gameId) return;
 
-        if (!gameId) {
-            return;
-        }
-
-        // ----------------------------------------------------
-        // GAME UPDATED
-        // ----------------------------------------------------
-
-        const handleGameUpdated = (
-            updatedGame
-        ) => {
-            if (
-                Number(updatedGame?.id) !==
-                gameId
-            ) {
-                return;
-            }
+        const handleGameUpdated = (updatedGame) => {
+            if (String(updatedGame?.id) !== gameId) return;
 
             setCurrentGame((previous) => ({
                 ...updatedGame,
-
-                isCreator:
-                    previous?.isCreator ??
-                    false,
-
-                isReceiver:
-                    previous?.isReceiver === false
-                        ? false
-                        : (previous?.isReceiver ?? false),
-            }));
-
-            setError("");
-            setJoining(false);
-        };
-
-        // ----------------------------------------------------
-        // GAME JOINED
-        // ----------------------------------------------------
-
-        const handleGameJoined = (
-            joinedGame
-        ) => {
-            if (
-                Number(joinedGame?.id) !==
-                gameId
-            ) {
-                return;
-            }
-
-            console.log(
-                "🎮 GAME JOINED:",
-                joinedGame
-            );
-
-            setCurrentGame((previous) => ({
-                ...joinedGame,
-
-                isCreator:
-                    previous?.isCreator ??
-                    false,
-
                 isReceiver: false,
             }));
-
             setError("");
-            setJoining(false);
         };
 
-        // ----------------------------------------------------
-        // GAME FINISHED
-        // ----------------------------------------------------
-
-        const handleGameFinished = (
-            finishedGame
-        ) => {
-            if (
-                Number(finishedGame?.id) !==
-                gameId
-            ) {
-                return;
-            }
-
-            setCurrentGame((previous) => ({
-                ...finishedGame,
-
-                isCreator:
-                    previous?.isCreator ??
-                    false,
-
-                isReceiver:
-                    previous?.isReceiver ??
-                    false,
-            }));
-        };
-
-        // ----------------------------------------------------
-        // GAME CANCELLED
-        // ----------------------------------------------------
-
-        const handleGameCancelled = (
-            cancelledGame
-        ) => {
-            if (
-                Number(cancelledGame?.id) !==
-                gameId
-            ) {
-                return;
-            }
-
-            setCurrentGame((previous) => ({
-                ...cancelledGame,
-
-                isCreator:
-                    previous?.isCreator ??
-                    false,
-
-                isReceiver:
-                    previous?.isReceiver ??
-                    false,
-            }));
-
-            setError(
-                "This game has been cancelled."
-            );
-
-            setJoining(false);
-        };
-
-        socket.on(
-            "game_updated",
-            handleGameUpdated
-        );
-
-        socket.on(
-            "game_joined",
-            handleGameJoined
-        );
-
-        socket.on(
-            "game_finished",
-            handleGameFinished
-        );
-
-        socket.on(
-            "game_cancelled",
-            handleGameCancelled
-        );
+        socket.on("game_updated", handleGameUpdated);
+        socket.on("game_joined", handleGameUpdated);
 
         return () => {
-            socket.off(
-                "game_updated",
-                handleGameUpdated
-            );
-
-            socket.off(
-                "game_joined",
-                handleGameJoined
-            );
-
-            socket.off(
-                "game_finished",
-                handleGameFinished
-            );
-
-            socket.off(
-                "game_cancelled",
-                handleGameCancelled
-            );
+            socket.off("game_updated", handleGameUpdated);
+            socket.off("game_joined", handleGameUpdated);
         };
     }, [currentGame?.id]);
 
     // ========================================================
-    // MAKE MOVE
-    // ========================================================
-
-    const makeMove = (index) => {
-        if (!isMyTurn) {
-            return;
-        }
-
-        if (board[index] !== null) {
-            return;
-        }
-
-        setError("");
-
-        socket.emit(
-            "game_move",
-            {
-                gameId: currentGame.id,
-                index,
-            },
-            (response) => {
-                if (!response?.success) {
-                    setError(
-                        response?.message ||
-                            "Move could not be made."
-                    );
-                }
-            }
-        );
-    };
-
-    // ========================================================
     // LEAVE GAME
     // ========================================================
-
     const leaveGame = async () => {
-        if (
-            !currentGame?.id ||
-            leaving
-        ) {
-            return;
-        }
+        const targetId = currentGame?.id;
+        if (!targetId || leaving) return;
 
         try {
             setLeaving(true);
             setError("");
 
-            const response = await fetch(
-                `/api/games/${currentGame.id}/leave`,
-                {
-                    method: "POST",
-                    credentials: "include",
-                }
-            );
+            const response = await fetch(`/api/games/${targetId}/leave`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ gameId: targetId }),
+                credentials: "include",
+            });
 
-            const data =
-                await response.json();
+            const data = await response.json();
 
-            if (
-                !response.ok ||
-                !data?.success
-            ) {
-                throw new Error(
-                    data?.message ||
-                        "Failed to leave game."
-                );
-            }
-
-            if (data?.game) {
-                setCurrentGame((previous) => ({
-                    ...data.game,
-
-                    isCreator:
-                        previous?.isCreator ??
-                        false,
-
-                    isReceiver:
-                        previous?.isReceiver ??
-                        false,
-                }));
+            if (!response.ok || !data?.success) {
+                throw new Error(data?.message || "Failed to leave game.");
             }
 
             onClose?.();
-        } catch (error) {
-            console.error(
-                "❌ LEAVE GAME ERROR:",
-                error
-            );
-
-            setError(
-                error?.message ||
-                    "Failed to leave game."
-            );
+        } catch (err) {
+            console.error("❌ LEAVE GAME ERROR:", err);
+            setError(err?.message || "Failed to leave game.");
         } finally {
             setLeaving(false);
         }
     };
 
     // ========================================================
-    // STATUS
+    // INVITATION SCREEN
     // ========================================================
-
-    const getStatus = () => {
-        if (
-            currentGame?.status ===
-            "CANCELLED"
-        ) {
-            return {
-                title: "Game Cancelled",
-                description:
-                    "This game is no longer active.",
-            };
-        }
-
-        if (
-            currentGame?.status ===
-            "FINISHED"
-        ) {
-            if (winner === mySymbol) {
-                return {
-                    title: "You Win! 🎉",
-                    description:
-                        `You won as ${mySymbol}.`,
-                };
-            }
-
-            if (winner) {
-                return {
-                    title: "You Lose",
-                    description:
-                        `Player ${winner} won the game.`,
-                };
-            }
-
-            if (draw) {
-                return {
-                    title: "Draw",
-                    description:
-                        "The game ended in a draw.",
-                };
-            }
-        }
-
-        if (winner) {
-            if (winner === mySymbol) {
-                return {
-                    title: "You Win! 🎉",
-                    description:
-                        `You won as ${mySymbol}.`,
-                };
-            }
-
-            return {
-                title: "You Lose",
-                description:
-                    `Player ${winner} won the game.`,
-            };
-        }
-
-        if (draw) {
-            return {
-                title: "Draw",
-                description:
-                    "The board is full.",
-            };
-        }
-
-        if (!opponentJoined) {
-            return {
-                title: "Waiting for Opponent",
-                description:
-                    "Another player needs to join.",
-            };
-        }
-
-        if (isMyTurn) {
-            return {
-                title: "Your Turn",
-                description:
-                    `You are playing as ${mySymbol}.`,
-            };
-        }
-
-        return {
-            title: "Opponent's Turn",
-            description:
-                `You are playing as ${mySymbol}.`,
-        };
-    };
-
-    const status = getStatus();
-
-    // ========================================================
-    // RECEIVER INVITATION
-    // ========================================================
-
-    if (
-        isReceiver &&
-        !mySymbol
-    ) {
+    if (isReceiver) {
         return (
-            <div className="flex max-h-[90vh] flex-col">
-                <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-                    <div>
-                        <h2 className="text-lg font-semibold text-white">
-                            Tic-Tac-Toe
-                        </h2>
-
-                        <p className="text-xs text-gray-400">
-                            Game Invitation
-                        </p>
-                    </div>
-
+            <div className="flex max-h-[90vh] flex-col p-6 text-center">
+                <h3 className="text-xl font-semibold text-white">Game Invitation</h3>
+                <p className="mt-2 text-sm text-gray-400">You have been invited to play Tic-Tac-Toe.</p>
+                {error && <div className="mt-4 text-sm text-red-400">{error}</div>}
+                <div className="mt-6 flex flex-col gap-3">
                     <button
-                        type="button"
-                        onClick={onClose}
-                        className="rounded-lg px-3 py-2 text-gray-400 transition hover:bg-white/10 hover:text-white"
+                        onClick={joinGame}
+                        disabled={joining}
+                        className="rounded-xl bg-blue-500 py-3 text-sm font-semibold text-white hover:bg-blue-400"
                     >
-                        ✕
+                        {joining ? "Joining..." : "🎮 Join Game"}
                     </button>
-                </div>
-
-                <div className="overflow-y-auto p-6">
-                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 text-center">
-                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-500/10 text-3xl">
-                            🎮
-                        </div>
-
-                        <h3 className="mt-5 text-xl font-semibold text-white">
-                            Game Invitation
-                        </h3>
-
-                        <p className="mt-2 text-sm leading-6 text-gray-400">
-                            You have been invited
-                            to play Tic-Tac-Toe.
-                        </p>
-
-                        {currentGame?.createdBy && (
-                            <p className="mt-2 text-xs text-gray-500">
-                                Player ID:{" "}
-                                {currentGame.createdBy}
-                            </p>
-                        )}
-
-                        {error && (
-                            <div className="mt-5 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                                {error}
-                            </div>
-                        )}
-
-                        <div className="mt-6 flex flex-col gap-3">
-                            <button
-                                type="button"
-                                onClick={joinGame}
-                                disabled={joining}
-                                className="w-full rounded-xl bg-blue-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                {joining
-                                    ? "Joining..."
-                                    : "🎮 Join Game"}
-                            </button>
-
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                disabled={joining}
-                                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-medium text-gray-300 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-50"
-                            >
-                                Decline
-                            </button>
-                        </div>
-                    </div>
+                    <button
+                        onClick={onClose}
+                        className="rounded-xl border border-white/10 py-3 text-sm text-gray-300"
+                    >
+                        Decline
+                    </button>
                 </div>
             </div>
         );
     }
 
     // ========================================================
-    // NORMAL GAME UI
+    // MAIN GAME UI
     // ========================================================
-
     return (
-        <div className="flex max-h-[90vh] flex-col">
-            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-                <div>
-                    <h2 className="text-lg font-semibold text-white">
-                        Tic-Tac-Toe
-                    </h2>
-
-                    <p className="text-xs text-gray-400">
-                        Best of one
-                    </p>
+        <div className="flex max-h-[90vh] flex-col p-5">
+            <div className="mb-5 grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-white/10 p-3">
+                    <div className="text-xs text-gray-400">Player X</div>
+                    <div className="font-semibold text-white">
+                        {players.X && String(players.X) === userId
+                            ? "You"
+                            : players.X
+                            ? "Opponent"
+                            : "Waiting..."}
+                    </div>
                 </div>
-
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="rounded-lg px-3 py-2 text-gray-400 transition hover:bg-white/10 hover:text-white"
-                >
-                    ✕
-                </button>
+                <div className="rounded-xl border border-white/10 p-3">
+                    <div className="text-xs text-gray-400">Player O</div>
+                    <div className="font-semibold text-white">
+                        {players.O && String(players.O) === userId
+                            ? "You"
+                            : players.O
+                            ? "Opponent"
+                            : "Waiting..."}
+                    </div>
+                </div>
             </div>
 
-            <div className="overflow-y-auto p-5">
-                <div className="mb-5 grid grid-cols-2 gap-3">
-                    {/* PLAYER X */}
-                    <div
-                        className={`rounded-xl border p-3 ${
-                            mySymbol === "X"
-                                ? "border-blue-400/40 bg-blue-400/10"
-                                : "border-white/10 bg-white/[0.03]"
-                        }`}
-                    >
-                        <div className="text-xs text-gray-400">
-                            Player X
-                        </div>
-
-                        <div className="mt-1 font-semibold text-white">
-                            {players.X && String(players.X) === String(currentUser?.id)
-                                ? "You"
-                                : players.X
-                                ? "Opponent"
-                                : "Waiting..."}
-                        </div>
-                    </div>
-
-                    {/* PLAYER O */}
-                    <div
-                        className={`rounded-xl border p-3 ${
-                            mySymbol === "O"
-                                ? "border-purple-400/40 bg-purple-400/10"
-                                : "border-white/10 bg-white/[0.03]"
-                        }`}
-                    >
-                        <div className="text-xs text-gray-400">
-                            Player O
-                        </div>
-
-                        <div className="mt-1 font-semibold text-white">
-                            {players.O && String(players.O) === String(currentUser?.id)
-                                ? "You"
-                                : players.O
-                                ? "Opponent"
-                                : "Waiting..."}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="mb-5 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-center">
-                    <div className="font-semibold text-white">
-                        {status.title}
-                    </div>
-
-                    <div className="mt-1 text-sm text-gray-400">
-                        {status.description}
-                    </div>
-                </div>
-
-                <div className="mx-auto grid w-full max-w-[360px] grid-cols-3 gap-2">
-                    {board.map(
-                        (cell, index) => {
-                            const isWinningCell =
-                                winningCells.includes(
-                                    index
-                                );
-
-                            return (
-                                <button
-                                    key={index}
-                                    type="button"
-                                    disabled={
-                                        !isMyTurn ||
-                                        cell !==
-                                            null
-                                    }
-                                    onClick={() =>
-                                        makeMove(
-                                            index
-                                        )
-                                    }
-                                    className={`aspect-square rounded-xl border text-4xl font-bold transition ${
-                                        isWinningCell
-                                            ? "border-green-400 bg-green-400/20 shadow-[0_0_20px_rgba(74,222,128,0.15)]"
-                                            : "border-white/10 bg-white/[0.04]"
-                                    } ${
-                                        cell ===
-                                        null
-                                            ? isMyTurn
-                                                ? "cursor-pointer hover:border-white/20 hover:bg-white/[0.10]"
-                                                : "cursor-not-allowed"
-                                            : ""
-                                    }`}
-                                >
-                                    {cell ===
-                                        "X" && (
-                                        <span className="text-blue-400">
-                                            X
-                                        </span>
-                                    )}
-
-                                    {cell ===
-                                        "O" && (
-                                        <span className="text-purple-400">
-                                            O
-                                        </span>
-                                    )}
-                                </button>
-                            );
-                        }
-                    )}
-                </div>
-
-                {error && (
-                    <div className="mt-5 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-center text-sm text-red-300">
-                        {error}
-                    </div>
-                )}
-
-                <div className="mt-6 flex justify-center">
+            <div className="mx-auto grid w-full max-w-[360px] grid-cols-3 gap-2">
+                {board.map((cell, idx) => (
                     <button
-                        type="button"
-                        onClick={leaveGame}
-                        disabled={leaving}
-                        className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
+                        key={idx}
+                        disabled={!isMyTurn || cell !== null}
+                        onClick={() =>
+                            socket.emit("game_move", {
+                                gameId: currentGame.id,
+                                index: idx,
+                            })
+                        }
+                        className="aspect-square rounded-xl border border-white/10 text-4xl font-bold text-white"
                     >
-                        {leaving
-                            ? "Leaving..."
-                            : "Leave Game"}
+                        {cell}
                     </button>
-                </div>
+                ))}
+            </div>
+
+            {error && <div className="mt-4 text-center text-sm text-red-400">{error}</div>}
+
+            <div className="mt-6 flex justify-center">
+                <button
+                    onClick={leaveGame}
+                    disabled={leaving}
+                    className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm text-red-300 hover:bg-red-500/20"
+                >
+                    {leaving ? "Leaving..." : "Leave Game"}
+                </button>
             </div>
         </div>
     );
