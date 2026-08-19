@@ -29,20 +29,26 @@ export default function TicTacToe({
             return;
         }
 
-        setCurrentGame((previous) => ({
-            ...game,
+        setCurrentGame((previous) => {
+            // Prevent incoming prop updates from flipping isReceiver back to true if already joined locally
+            const alreadyJoined = previous?.isReceiver === false;
 
-            // Preserve role information if it already exists.
-            isCreator:
-                game.isCreator ??
-                previous?.isCreator ??
-                false,
+            return {
+                ...game,
 
-            isReceiver:
-                game.isReceiver ??
-                previous?.isReceiver ??
-                false,
-        }));
+                // Preserve role information if it already exists.
+                isCreator:
+                    game.isCreator ??
+                    previous?.isCreator ??
+                    false,
+
+                isReceiver: alreadyJoined
+                    ? false
+                    : (game.isReceiver ??
+                      previous?.isReceiver ??
+                      false),
+            };
+        });
     }, [game]);
 
     // ========================================================
@@ -64,6 +70,31 @@ export default function TicTacToe({
     const draw = Boolean(state?.draw);
 
     // ========================================================
+    // MY SYMBOL
+    // ========================================================
+
+    const mySymbol = useMemo(() => {
+        if (!currentUser?.id) {
+            return null;
+        }
+
+        // Safely parse IDs as strings to prevent String vs Number mismatches
+        const currentIdStr = String(currentUser.id);
+        const playerXStr = players.X != null ? String(players.X) : null;
+        const playerOStr = players.O != null ? String(players.O) : null;
+
+        if (playerXStr === currentIdStr) {
+            return "X";
+        }
+
+        if (playerOStr === currentIdStr) {
+            return "O";
+        }
+
+        return null;
+    }, [players.X, players.O, currentUser?.id]);
+
+    // ========================================================
     // ROLE
     // ========================================================
 
@@ -71,25 +102,9 @@ export default function TicTacToe({
         currentGame?.isCreator
     );
 
-    const isReceiver = Boolean(
-        currentGame?.isReceiver
-    );
-
-    // ========================================================
-    // MY SYMBOL
-    // ========================================================
-
-    const mySymbol = useMemo(() => {
-        if (Number(players.X) === userId) {
-            return "X";
-        }
-
-        if (Number(players.O) === userId) {
-            return "O";
-        }
-
-        return null;
-    }, [players.X, players.O, userId]);
+    // If mySymbol exists (meaning user is officially registered in players list), force isReceiver to false.
+    const isReceiver =
+        Boolean(currentGame?.isReceiver) && !mySymbol;
 
     // ========================================================
     // OPPONENT JOINED
@@ -261,8 +276,9 @@ export default function TicTacToe({
                     false,
 
                 isReceiver:
-                    previous?.isReceiver ??
-                    false,
+                    previous?.isReceiver === false
+                        ? false
+                        : (previous?.isReceiver ?? false),
             }));
 
             setError("");
