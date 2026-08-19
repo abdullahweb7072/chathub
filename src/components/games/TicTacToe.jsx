@@ -185,6 +185,28 @@ export default function TicTacToe({
         setJoining(true);
         setError("");
 
+        // Optimistically set local state so UI updates instantly
+        setCurrentGame((previous) => {
+            const prevState =
+                typeof previous?.state === "string"
+                    ? JSON.parse(previous.state)
+                    : previous?.state || {};
+
+            return {
+                ...previous,
+                status: "PLAYING",
+                isReceiver: false,
+                state: {
+                    ...prevState,
+                    turn: prevState.turn || "X",
+                    players: {
+                        ...prevState.players,
+                        O: currentUser?.id,
+                    },
+                },
+            };
+        });
+
         socket.emit(
             "join_game",
             {
@@ -220,11 +242,6 @@ export default function TicTacToe({
                             previous?.isCreator ??
                             false,
 
-                        isReceiver: false,
-                    }));
-                } else {
-                    setCurrentGame((previous) => ({
-                        ...previous,
                         isReceiver: false,
                     }));
                 }
@@ -733,9 +750,7 @@ export default function TicTacToe({
                         </div>
 
                         <div className="mt-1 font-semibold text-white">
-                            {Number(
-                                players.X
-                            ) === userId
+                            {players.X && String(players.X) === String(currentUser?.id)
                                 ? "You"
                                 : players.X
                                 ? "Opponent"
@@ -756,9 +771,7 @@ export default function TicTacToe({
                         </div>
 
                         <div className="mt-1 font-semibold text-white">
-                            {Number(
-                                players.O
-                            ) === userId
+                            {players.O && String(players.O) === String(currentUser?.id)
                                 ? "You"
                                 : players.O
                                 ? "Opponent"
