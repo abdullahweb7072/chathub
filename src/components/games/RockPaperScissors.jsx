@@ -4,93 +4,97 @@ import { useEffect, useMemo, useState } from "react";
 import { socket } from "@/lib/socket";
 
 // ============================================================
-// ROCK PAPER SCISSORS
+// CONFIGURATION
 // ============================================================
 
 const CHOICES = [
-    {
-        value: "rock",
-        label: "Rock",
-        emoji: "✊",
-    },
-    {
-        value: "paper",
-        label: "Paper",
-        emoji: "✋",
-    },
-    {
-        value: "scissors",
-        label: "Scissors",
-        emoji: "✌️",
-    },
+    { value: "rock", label: "Rock", emoji: "✊" },
+    { value: "paper", label: "Paper", emoji: "✋" },
+    { value: "scissors", label: "Scissors", emoji: "✌️" },
 ];
 
 // ============================================================
 // COMPONENT
 // ============================================================
 
-export default function RockPaperScissors({
-    game,
-    currentUser,
-    onClose,
-}) {
+export default function RockPaperScissors({ game, currentUser, onClose }) {
     const [currentGame, setCurrentGame] = useState(game);
     const [error, setError] = useState("");
     const [leaving, setLeaving] = useState(false);
+    const [joining, setJoining] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
-    // Keep internal game state synchronized when parent prop updates
+    // Normalize IDs to strings for robust comparison
+    const userId = currentUser?.id != null ? String(currentUser.id) : null;
+
+    // ========================================================
+    // KEEP GAME STATE IN SYNC WITH PROP
+    // ========================================================
     useEffect(() => {
-        if (game) {
-            setCurrentGame(game);
-        }
+        if (!game) return;
+
+        setCurrentGame((previous) => ({
+            ...game,
+            isReceiver: game.isReceiver ?? previous?.isReceiver ?? false,
+        }));
     }, [game]);
 
     // ========================================================
-    // USER & GAME STATE
+    // SAFE PARSING GAME STATE
     // ========================================================
+    const state = useMemo(() => {
+        if (!currentGame?.state) return {};
+        if (typeof currentGame.state === "string") {
+            try {
+                return JSON.parse(currentGame.state);
+            } catch (err) {
+                console.error("Failed to parse game state:", err);
+                return {};
+            }
+        }
+        return currentGame.state;
+    }, [currentGame?.state]);
 
-    const userId = Number(currentUser?.id);
-    const state = currentGame?.state || {};
-    const players = state?.players || {};
+    const players = state?.players || currentGame?.players || {};
     const choices = state?.choices || {};
     const winner = state?.winner || null;
     const roundFinished = Boolean(state?.roundFinished);
+    const gameStatus = (currentGame?.status || "").toUpperCase();
+
+    // Normalized player IDs
+    const player1Id = players.player1 != null ? String(players.player1) : null;
+    const player2Id = players.player2 != null ? String(players.player2) : null;
+    const createdById = currentGame?.createdBy != null ? String(currentGame.createdBy) : null;
 
     // ========================================================
-    // MY PLAYER IDENTIFICATION
+    // MY PLAYER IDENTIFICATION & RECEIVER DETERMINATION
     // ========================================================
-
     const myPlayer = useMemo(() => {
-        if (Number(players.player1) === userId) {
-            return "player1";
-        }
-        if (Number(players.player2) === userId) {
-            return "player2";
-        }
+        if (!userId) return null;
+        if (player1Id === userId) return "player1";
+        if (player2Id === userId) return "player2";
         return null;
-    }, [players.player1, players.player2, userId]);
+    }, [player1Id, player2Id, userId]);
 
-    // ========================================================
-    // OPPONENT & CHOICES
-    // ========================================================
+    const isReceiver = useMemo(() => {
+        if (myPlayer !== null) return false;
+        if (currentGame?.isReceiver) return true;
 
-    const opponentJoined =
-        players.player1 != null && players.player2 != null;
+        const isCreator = createdById === userId;
+        const player2HasNotJoined = player2Id === null;
 
-    const myChoice = choices?.[String(userId)] ?? null;
+        return !isCreator && player2HasNotJoined;
+    }, [myPlayer, currentGame?.isReceiver, createdById, userId, player2Id]);
+
+    const opponentJoined = player1Id !== null && player2Id !== null;
+
+    // Choices mapping
+    const myChoice = userId ? choices[userId] ?? null : null;
 
     const opponentId =
-        myPlayer === "player1"
-            ? players.player2
-            : myPlayer === "player2"
-            ? players.player1
-            : null;
+        myPlayer === "player1" ? player2Id : myPlayer === "player2" ? player1Id : null;
 
-    const opponentChoice =
-        opponentId != null
-            ? choices?.[String(opponentId)] ?? null
-            : null;
+    const opponentChoice = opponentId ? choices[opponentId] ?? null : null;
 
     const hasSubmitted = myChoice !== null;
 
@@ -100,82 +104,106 @@ export default function RockPaperScissors({
         !roundFinished &&
         !winner &&
         !hasSubmitted &&
-        !submitting;
+        !submitting &&
+        gameStatus === "PLAYING";
 
     // ========================================================
-    // JOIN / LEAVE GAME ROOM
+    // SOCKET EVENTS
     // ========================================================
-
     useEffect(() => {
-        if (!currentGame?.id) return;
+        const gameId = currentGame?.id ? String(currentGame.id) : null;
+        if (!gameId) return;
 
-        socket.emit(
-            "join_game",
-            { gameId: currentGame.id },
-            (response) => {
-                if (!response?.success) {
-                    console.error(
-                        "❌ JOIN GAME ROOM FAILED:",
-                        response?.message
-                    );
-                    setError(
-                        response?.message || "Failed to join game room."
-                    );
-                }
-            }
-        );
-
-        return () => {
-            socket.emit("leave_game", { gameId: currentGame.id });
-        };
-    }, [currentGame?.id]);
-
-    // ========================================================
-    // LISTEN TO SOCKET EVENTS
-    // ========================================================
-
-    useEffect(() => {
         const handleGameUpdated = (updatedGame) => {
-            if (Number(updatedGame?.id) !== Number(currentGame?.id)) return;
-            setCurrentGame(updatedGame);
+            if (String(updatedGame?.id) !== gameId) return;
+
+            setCurrentGame((previous) => ({
+                ...updatedGame,
+                isReceiver: previous.isReceiver && !updatedGame?.players?.player2 ? true : false,
+            }));
             setSubmitting(false);
             setError("");
         };
 
         const handleGameFinished = (finishedGame) => {
-            if (Number(finishedGame?.id) !== Number(currentGame?.id)) return;
+            if (String(finishedGame?.id) !== gameId) return;
             setCurrentGame(finishedGame);
             setSubmitting(false);
         };
 
         const handleGameCancelled = (cancelledGame) => {
-            if (Number(cancelledGame?.id) !== Number(currentGame?.id)) return;
+            if (String(cancelledGame?.id) !== gameId) return;
             setCurrentGame(cancelledGame);
             setSubmitting(false);
             setError("This game has been cancelled.");
         };
 
+        const handleGameError = (err) => {
+            if (err?.gameId && String(err.gameId) !== gameId) return;
+            setError(err?.message || "An error occurred.");
+            setSubmitting(false);
+        };
+
         socket.on("game_updated", handleGameUpdated);
+        socket.on("game_joined", handleGameUpdated);
         socket.on("game_finished", handleGameFinished);
         socket.on("game_cancelled", handleGameCancelled);
+        socket.on("game_error", handleGameError);
 
         return () => {
             socket.off("game_updated", handleGameUpdated);
+            socket.off("game_joined", handleGameUpdated);
             socket.off("game_finished", handleGameFinished);
             socket.off("game_cancelled", handleGameCancelled);
+            socket.off("game_error", handleGameError);
         };
     }, [currentGame?.id]);
 
     // ========================================================
+    // JOIN GAME
+    // ========================================================
+    const joinGame = () => {
+        if (!currentGame?.id || joining) return;
+
+        setJoining(true);
+        setError("");
+
+        socket.emit("join_game", { gameId: currentGame.id }, (response) => {
+            if (!response?.success) {
+                setError(response?.message || "Failed to join game.");
+                setJoining(false);
+                return;
+            }
+
+            const updatedGame = response.game || currentGame;
+            const parsedState =
+                typeof updatedGame.state === "string"
+                    ? JSON.parse(updatedGame.state)
+                    : updatedGame.state || {};
+
+            setCurrentGame({
+                ...updatedGame,
+                isReceiver: false,
+                state: {
+                    ...parsedState,
+                    players: {
+                        ...parsedState.players,
+                        player2: currentUser?.id,
+                    },
+                },
+            });
+
+            setJoining(false);
+        });
+    };
+
+    // ========================================================
     // MAKE MOVE
     // ========================================================
-
     const makeMove = (choice) => {
         if (!canChoose) return;
 
-        if (!CHOICES.some((item) => item.value === choice)) {
-            return;
-        }
+        if (!CHOICES.some((item) => item.value === choice)) return;
 
         setError("");
         setSubmitting(true);
@@ -187,44 +215,38 @@ export default function RockPaperScissors({
                 choice,
             },
             (response) => {
-                if (!response?.success) {
+                if (response && !response.success) {
                     setSubmitting(false);
-                    setError(
-                        response?.message || "Choice could not be submitted."
-                    );
+                    setError(response.message || "Choice could not be submitted.");
                 }
             }
         );
     };
 
     // ========================================================
-    // LEAVE GAME
+    // LEAVE / DECLINE GAME
     // ========================================================
-
     const leaveGame = async () => {
-        if (!currentGame?.id || leaving) return;
+        const targetId = currentGame?.id;
+        if (!targetId || leaving) return;
 
         try {
             setLeaving(true);
             setError("");
 
-            const response = await fetch(
-                `/api/games/${currentGame.id}/leave`,
-                {
-                    method: "POST",
-                    credentials: "include",
-                }
-            );
+            const response = await fetch(`/api/games/${targetId}/leave`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ gameId: targetId }),
+                credentials: "include",
+            });
 
             const data = await response.json();
 
             if (!response.ok || !data?.success) {
-                throw new Error(
-                    data?.message || "Failed to leave game."
-                );
+                throw new Error(data?.message || "Failed to leave game.");
             }
 
-            setCurrentGame(data.game);
             onClose?.();
         } catch (err) {
             console.error("❌ LEAVE GAME ERROR:", err);
@@ -237,12 +259,10 @@ export default function RockPaperScissors({
     // ========================================================
     // HELPERS
     // ========================================================
-
-    const getChoice = (val) =>
-        CHOICES.find((item) => item.value === val);
+    const getChoice = (val) => CHOICES.find((item) => item.value === val);
 
     const getResult = () => {
-        if (currentGame?.status === "CANCELLED") {
+        if (gameStatus === "CANCELLED") {
             return {
                 title: "Game Cancelled",
                 description: "This game is no longer active.",
@@ -256,29 +276,39 @@ export default function RockPaperScissors({
             };
         }
 
-        if (winner === "DRAW") {
+        const upperWinner = String(winner || "").toUpperCase();
+
+        if (upperWinner === "DRAW") {
             return {
                 title: "Draw 🤝",
                 description: "Both players selected the same choice.",
             };
         }
 
-        if (winner === "PLAYER1") {
+        if (upperWinner === "PLAYER1") {
             return myPlayer === "player1"
                 ? { title: "You Win! 🎉", description: "You won the round." }
-                : { title: "You Lose", description: "Your opponent won the round." };
+                : { title: "You Lose ❌", description: "Your opponent won the round." };
         }
 
-        if (winner === "PLAYER2") {
+        if (upperWinner === "PLAYER2") {
             return myPlayer === "player2"
                 ? { title: "You Win! 🎉", description: "You won the round." }
-                : { title: "You Lose", description: "Your opponent won the round." };
+                : { title: "You Lose ❌", description: "Your opponent won the round." };
+        }
+
+        // Winner check by userId if string match
+        if (winner && userId) {
+            if (String(winner) === userId) {
+                return { title: "You Win! 🎉", description: "You won the round." };
+            }
+            return { title: "You Lose ❌", description: "Your opponent won the round." };
         }
 
         if (hasSubmitted && !opponentChoice) {
             return {
-                title: "Waiting for Opponent",
-                description: "Your choice has been submitted.",
+                title: "Choice Submitted",
+                description: "Waiting for your opponent to choose...",
             };
         }
 
@@ -298,20 +328,61 @@ export default function RockPaperScissors({
     const result = getResult();
 
     // ========================================================
-    // RENDER
+    // INVITATION SCREEN (RECEIVER VIEW)
     // ========================================================
+    if (isReceiver) {
+        return (
+            <div className="flex max-h-[90vh] flex-col p-6 text-center">
+                <div className="flex justify-end">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-lg px-3 py-1.5 text-gray-400 transition hover:bg-white/10 hover:text-white"
+                    >
+                        ✕
+                    </button>
+                </div>
 
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-purple-500/10 text-2xl">
+                    ✂️
+                </div>
+                <h3 className="text-xl font-semibold text-white">Game Invitation</h3>
+                <p className="mt-2 text-sm text-gray-400">
+                    You have been invited to play Rock Paper Scissors.
+                </p>
+
+                {error && <div className="mt-4 text-sm text-red-400">{error}</div>}
+
+                <div className="mt-6 flex flex-col gap-3">
+                    <button
+                        onClick={joinGame}
+                        disabled={joining}
+                        className="rounded-xl bg-purple-600 py-3 text-sm font-semibold text-white transition hover:bg-purple-500 disabled:opacity-50"
+                    >
+                        {joining ? "Joining..." : "Accept & Join Game"}
+                    </button>
+                    <button
+                        onClick={leaveGame}
+                        disabled={leaving}
+                        className="rounded-xl border border-red-500/20 bg-red-500/10 py-3 text-sm font-medium text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
+                    >
+                        {leaving ? "Declining..." : "Decline & Cancel"}
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // ========================================================
+    // MAIN GAME UI
+    // ========================================================
     return (
         <div className="flex max-h-[90vh] flex-col">
             {/* HEADER */}
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
                 <div>
-                    <h2 className="text-lg font-semibold text-white">
-                        Rock Paper Scissors
-                    </h2>
-                    <p className="text-xs text-gray-400">
-                        Best of one
-                    </p>
+                    <h2 className="text-lg font-semibold text-white">Rock Paper Scissors</h2>
+                    <p className="text-xs text-gray-400">Best of one</p>
                 </div>
 
                 <button
@@ -325,7 +396,7 @@ export default function RockPaperScissors({
 
             {/* GAME CONTENT */}
             <div className="overflow-y-auto p-5">
-                {/* PLAYERS */}
+                {/* PLAYERS CARD */}
                 <div className="mb-5 grid grid-cols-2 gap-3">
                     {/* PLAYER 1 */}
                     <div
@@ -337,17 +408,12 @@ export default function RockPaperScissors({
                     >
                         <div className="text-xs text-gray-400">Player 1</div>
                         <div className="mt-1 font-semibold text-white">
-                            {Number(players.player1) === userId
+                            {player1Id && player1Id === userId
                                 ? "You"
-                                : players.player1
+                                : player1Id
                                 ? "Opponent"
                                 : "Waiting..."}
                         </div>
-                        {myPlayer === "player1" && (
-                            <div className="mt-1 text-xs text-blue-300">
-                                You
-                            </div>
-                        )}
                     </div>
 
                     {/* PLAYER 2 */}
@@ -360,28 +426,19 @@ export default function RockPaperScissors({
                     >
                         <div className="text-xs text-gray-400">Player 2</div>
                         <div className="mt-1 font-semibold text-white">
-                            {Number(players.player2) === userId
+                            {player2Id && player2Id === userId
                                 ? "You"
-                                : players.player2
+                                : player2Id
                                 ? "Opponent"
                                 : "Waiting..."}
                         </div>
-                        {myPlayer === "player2" && (
-                            <div className="mt-1 text-xs text-purple-300">
-                                You
-                            </div>
-                        )}
                     </div>
                 </div>
 
                 {/* STATUS BAR */}
                 <div className="mb-5 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-center">
-                    <div className="font-semibold text-white">
-                        {result.title}
-                    </div>
-                    <div className="mt-1 text-sm text-gray-400">
-                        {result.description}
-                    </div>
+                    <div className="font-semibold text-white text-base">{result.title}</div>
+                    <div className="mt-1 text-sm text-gray-400">{result.description}</div>
                 </div>
 
                 {/* CHOICES BUTTONS */}
@@ -401,7 +458,7 @@ export default function RockPaperScissors({
                                         : "border-white/10 bg-white/[0.04]"
                                 } ${
                                     canChoose
-                                        ? "cursor-pointer hover:border-white/20 hover:bg-white/[0.10]"
+                                        ? "cursor-pointer hover:border-white/20 hover:bg-white/[0.10] active:scale-95"
                                         : "cursor-not-allowed opacity-70"
                                 }`}
                             >
@@ -410,9 +467,7 @@ export default function RockPaperScissors({
                                     {item.label}
                                 </span>
                                 {selected && (
-                                    <span className="mt-1 text-xs text-blue-300">
-                                        Selected
-                                    </span>
+                                    <span className="mt-1 text-xs text-blue-300">Selected</span>
                                 )}
                             </button>
                         );
@@ -424,28 +479,20 @@ export default function RockPaperScissors({
                     <div className="mt-5 grid grid-cols-2 gap-3">
                         {/* MY CHOICE */}
                         <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-center">
-                            <div className="text-xs text-gray-400">
-                                Your Choice
-                            </div>
+                            <div className="text-xs text-gray-400">Your Choice</div>
                             <div className="mt-2 text-3xl">
                                 {myChoice ? getChoice(myChoice)?.emoji : "❔"}
                             </div>
                             <div className="mt-1 text-sm font-medium text-white">
-                                {myChoice
-                                    ? getChoice(myChoice)?.label
-                                    : "Not selected"}
+                                {myChoice ? getChoice(myChoice)?.label : "Not selected"}
                             </div>
                         </div>
 
                         {/* OPPONENT CHOICE */}
                         <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-center">
-                            <div className="text-xs text-gray-400">
-                                Opponent's Choice
-                            </div>
+                            <div className="text-xs text-gray-400">Opponent's Choice</div>
                             <div className="mt-2 text-3xl">
-                                {opponentChoice
-                                    ? getChoice(opponentChoice)?.emoji
-                                    : "❔"}
+                                {opponentChoice ? getChoice(opponentChoice)?.emoji : "❔"}
                             </div>
                             <div className="mt-1 text-sm font-medium text-white">
                                 {opponentChoice
@@ -455,16 +502,6 @@ export default function RockPaperScissors({
                         </div>
                     </div>
                 )}
-
-                {/* WAITING OVERLAY */}
-                {hasSubmitted &&
-                    !opponentChoice &&
-                    !roundFinished &&
-                    !winner && (
-                        <div className="mt-5 rounded-xl border border-blue-400/20 bg-blue-400/10 px-4 py-3 text-center text-sm text-blue-200">
-                            Your choice has been submitted. Waiting for your opponent...
-                        </div>
-                    )}
 
                 {/* ERROR MESSAGE */}
                 {error && (
