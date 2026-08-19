@@ -29,6 +29,25 @@ const GAMES = [
     },
 ];
 
+// Helper to normalize JSON string states into object formats
+const parseGameState = (game) => {
+    if (!game) return game;
+    let parsedState = game.state;
+
+    if (typeof game.state === "string") {
+        try {
+            parsedState = JSON.parse(game.state);
+        } catch (e) {
+            parsedState = {};
+        }
+    }
+
+    return {
+        ...game,
+        state: parsedState || {},
+    };
+};
+
 // ============================================================
 // GAME LOBBY
 // ============================================================
@@ -77,7 +96,8 @@ export default function GameLobby({
                 }
 
                 if (!cancelled) {
-                    setGames(data.games || []);
+                    const parsedGames = (data.games || []).map(parseGameState);
+                    setGames(parsedGames);
                 }
             } catch (error) {
                 if (!cancelled) {
@@ -112,7 +132,8 @@ export default function GameLobby({
     useEffect(() => {
         if (!socket) return;
 
-        const handleGameCreated = (game) => {
+        const handleGameCreated = (rawGame) => {
+            const game = parseGameState(rawGame);
             if (
                 Number(game?.conversationId) !==
                 Number(conversation?.id)
@@ -135,7 +156,8 @@ export default function GameLobby({
             });
         };
 
-        const handleGameJoined = (game) => {
+        const handleGameJoined = (rawGame) => {
+            const game = parseGameState(rawGame);
             if (
                 Number(game?.conversationId) !==
                 Number(conversation?.id)
@@ -153,7 +175,8 @@ export default function GameLobby({
             );
         };
 
-        const handleGameUpdated = (game) => {
+        const handleGameUpdated = (rawGame) => {
+            const game = parseGameState(rawGame);
             if (
                 Number(game?.conversationId) !==
                 Number(conversation?.id)
@@ -191,56 +214,18 @@ export default function GameLobby({
             );
         };
 
-        socket.on(
-            "game_created",
-            handleGameCreated
-        );
-
-        socket.on(
-            "game_joined",
-            handleGameJoined
-        );
-
-        socket.on(
-            "game_updated",
-            handleGameUpdated
-        );
-
-        socket.on(
-            "game_finished",
-            handleGameFinished
-        );
-
-        socket.on(
-            "game_cancelled",
-            handleGameCancelled
-        );
+        socket.on("game_created", handleGameCreated);
+        socket.on("game_joined", handleGameJoined);
+        socket.on("game_updated", handleGameUpdated);
+        socket.on("game_finished", handleGameFinished);
+        socket.on("game_cancelled", handleGameCancelled);
 
         return () => {
-            socket.off(
-                "game_created",
-                handleGameCreated
-            );
-
-            socket.off(
-                "game_joined",
-                handleGameJoined
-            );
-
-            socket.off(
-                "game_updated",
-                handleGameUpdated
-            );
-
-            socket.off(
-                "game_finished",
-                handleGameFinished
-            );
-
-            socket.off(
-                "game_cancelled",
-                handleGameCancelled
-            );
+            socket.off("game_created", handleGameCreated);
+            socket.off("game_joined", handleGameJoined);
+            socket.off("game_updated", handleGameUpdated);
+            socket.off("game_finished", handleGameFinished);
+            socket.off("game_cancelled", handleGameCancelled);
         };
     }, [conversation?.id]);
 
@@ -281,7 +266,7 @@ export default function GameLobby({
                 );
             }
 
-            const game = data.game;
+            const game = parseGameState(data.game);
 
             setGames((current) => {
                 const exists = current.some(
@@ -297,7 +282,11 @@ export default function GameLobby({
                 return [game, ...current];
             });
 
-            onGameCreated?.(game);
+            onGameCreated?.({
+                ...game,
+                isCreator: true,
+                isReceiver: false,
+            });
         } catch (error) {
             console.error(
                 "❌ CREATE GAME ERROR:",
@@ -339,7 +328,15 @@ export default function GameLobby({
                 );
             }
 
-            const game = data.game;
+            const game = parseGameState(data.game);
+
+            // Ensure Player O is defined locally in state if backend omitted it
+            if (!game.state.players) {
+                game.state.players = {};
+            }
+            if (!game.state.players.O) {
+                game.state.players.O = currentUser?.id;
+            }
 
             setGames((current) =>
                 current.map((item) =>
@@ -350,7 +347,12 @@ export default function GameLobby({
                 )
             );
 
-            onGameJoined?.(game);
+            // Pass joined state to active overlay without invitation receiver screen
+            onGameJoined?.({
+                ...game,
+                isCreator: false,
+                isReceiver: false,
+            });
         } catch (error) {
             console.error(
                 "❌ JOIN GAME ERROR:",
@@ -503,11 +505,6 @@ export default function GameLobby({
                                         game.type
                                     );
 
-                                const players =
-                                    game.state
-                                        ?.players ||
-                                    {};
-
                                 const isCreator =
                                     Number(
                                         game.createdBy
@@ -584,9 +581,10 @@ export default function GameLobby({
                                         {isPlaying && (
                                             <button
                                                 onClick={() =>
-                                                    onGameJoined?.(
-                                                        game
-                                                    )
+                                                    onGameJoined?.({
+                                                        ...game,
+                                                        isReceiver: false,
+                                                    })
                                                 }
                                                 className="shrink-0 rounded-lg bg-white px-4 py-2 text-sm font-medium text-black transition hover:bg-gray-200"
                                             >
