@@ -3747,12 +3747,72 @@ socket.on(
 // ============================================================
 // JOIN GAME ROOM
 // ============================================================
+// ============================================================
+// ============================================================
+// GAME FEATURE
+// ============================================================
+// ============================================================
+
+// ============================================================
+// GET GAME
+// ============================================================
+
+async function getGameForSocket(gameId) {
+    return prisma.game.findUnique({
+        where: {
+            id: gameId,
+        },
+    });
+}
+
+// ============================================================
+// GAME CREATED / GAME INVITATION
+// ============================================================
+//
+// IMPORTANT:
+//
+// The game is created by POST /api/games.
+//
+// After the API creates the game, the creator's ChatLayout
+// MUST emit:
+//
+// socket.emit("game_created", { game })
+//
+// This server handler receives that event and broadcasts
+// the game to EVERY member of the conversation.
+//
+// ============================================================
 
 socket.on(
-    "join_game",
+    "game_created",
     async (data, callback) => {
         try {
-            const gameId = Number(data?.gameId);
+            const currentUserId = Number(
+                socket.user?.id
+            );
+
+            // ====================================================
+            // AUTH
+            // ====================================================
+
+            if (
+                !Number.isInteger(currentUserId) ||
+                currentUserId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message: "Unauthorized.",
+                });
+            }
+
+            // ====================================================
+            // GAME ID
+            // ====================================================
+
+            const gameId = Number(
+                data?.game?.id ??
+                data?.gameId
+            );
 
             if (
                 !Number.isInteger(gameId) ||
@@ -3763,6 +3823,10 @@ socket.on(
                     message: "Invalid game ID.",
                 });
             }
+
+            // ====================================================
+            // LOAD FRESH GAME FROM DATABASE
+            // ====================================================
 
             const game =
                 await prisma.game.findUnique({
@@ -3778,6 +3842,43 @@ socket.on(
                 });
             }
 
+            // ====================================================
+            // ONLY CREATOR CAN ANNOUNCE GAME
+            // ====================================================
+
+            if (
+                Number(game.createdBy) !==
+                currentUserId
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Only the game creator can announce this game.",
+                });
+            }
+
+            // ====================================================
+            // CHECK CONVERSATION MEMBERSHIP
+            // ====================================================
+
+            const isMember =
+                await isConversationMember(
+                    currentUserId,
+                    game.conversationId
+                );
+
+            if (!isMember) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "You are not a member of this conversation.",
+                });
+            }
+
+            // ====================================================
+            // CHECK GAME STATUS
+            // ====================================================
+
             if (
                 game.status === "FINISHED" ||
                 game.status === "CANCELLED"
@@ -3788,6 +3889,159 @@ socket.on(
                         "This game is no longer active.",
                 });
             }
+
+            // ====================================================
+            // CONVERSATION ROOM
+            // ====================================================
+
+            const conversationRoom =
+                getConversationRoom(
+                    game.conversationId
+                );
+
+            // ====================================================
+            // MAKE SURE CREATOR IS IN ROOM
+            // ====================================================
+
+            socket.join(
+                conversationRoom
+            );
+
+            // ====================================================
+            // ALSO GET ALL CONVERSATION MEMBERS
+            //
+            // This protects us if a receiver's socket hasn't
+            // joined the conversation room correctly.
+            // ====================================================
+
+            const members =
+                await prisma.conversationMember.findMany({
+                    where: {
+                        conversationId:
+                            game.conversationId,
+                    },
+
+                    select: {
+                        userId: true,
+                    },
+                });
+
+            // ====================================================
+            // BROADCAST TO CONVERSATION ROOM
+            // ====================================================
+
+            io.to(
+                conversationRoom
+            ).emit(
+                "game_created",
+                game
+            );
+
+            // ====================================================
+            // EXTRA DIRECT DELIVERY
+            //
+            // Send the event directly to every member's
+            // personal Socket.IO room as well.
+            //
+            // This makes the invitation much more reliable.
+            // ====================================================
+
+            for (
+                const member of members
+            ) {
+                io.to(
+                    getUserRoom(
+                        member.userId
+                    )
+                ).emit(
+                    "game_created",
+                    game
+                );
+            }
+
+            // ====================================================
+            // LOG
+            // ====================================================
+
+            console.log(
+                `🎮 GAME INVITATION BROADCAST: Game #${game.id} (${game.type}) -> conversation ${game.conversationId}`
+            );
+
+            console.log(
+                `🎮 GAME RECIPIENTS: ${members
+                    .map(
+                        (member) =>
+                            member.userId
+                    )
+                    .join(", ")}`
+            );
+
+            // ====================================================
+            // RESPONSE TO CREATOR
+            // ====================================================
+
+            callback?.({
+                success: true,
+                game,
+            });
+        } catch (error) {
+            console.error(
+                "❌ GAME CREATED SOCKET ERROR:",
+                error
+            );
+
+            callback?.({
+                success: false,
+                message:
+                    "Failed to broadcast game invitation.",
+            });
+        }
+    }
+);
+
+// ============================================================
+// JOIN GAME ROOM
+// ============================================================
+
+socket.on(
+    "join_game",
+    async (data, callback) => {
+        try {
+            const gameId = Number(
+                data?.gameId
+            );
+
+            if (
+                !Number.isInteger(gameId) ||
+                gameId <= 0
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Invalid game ID.",
+                });
+            }
+
+            // ====================================================
+            // FIND GAME
+            // ====================================================
+
+            const game =
+                await getGameForSocket(
+                    gameId
+                );
+
+            if (!game) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "Game not found.",
+                });
+            }
+
+            // ====================================================
+            // CHECK MEMBERSHIP
+            // ====================================================
 
             const isMember =
                 await isConversationMember(
@@ -3803,20 +4057,50 @@ socket.on(
                 });
             }
 
-            // Join dedicated game room
+            // ====================================================
+            // CHECK STATUS
+            // ====================================================
+
+            if (
+                game.status ===
+                    "FINISHED" ||
+                game.status ===
+                    "CANCELLED"
+            ) {
+                return callback?.({
+                    success: false,
+                    message:
+                        "This game is no longer active.",
+                });
+            }
+
+            // ====================================================
+            // JOIN GAME ROOM
+            // ====================================================
+
             socket.join(
-                getGameRoom(game.id)
+                getGameRoom(
+                    game.id
+                )
             );
 
             console.log(
                 `🎮 User ${userId} joined game room ${game.id}`
             );
 
+            // ====================================================
+            // RETURN CURRENT GAME STATE
+            // ====================================================
+
             callback?.({
                 success: true,
-                gameId: game.id,
+
+                gameId:
+                    game.id,
+
                 conversationId:
                     game.conversationId,
+
                 game,
             });
         } catch (error) {

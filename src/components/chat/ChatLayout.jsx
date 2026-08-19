@@ -398,33 +398,161 @@ export default function ChatLayout({
     }, [callState]);
 
     // ========================================================
-    // LOAD SAVED CHAT THEMES
+    // GAME INVITATION / GAME ACTIVATION
+    //
+    // IMPORTANT:
+    // ChatWindow creates the game through POST /api/games and
+    // dispatches "chathub:game-created" locally.
+    //
+    // ChatLayout forwards that event through Socket.IO using
+    // "game_created". The server then broadcasts "game_created"
+    // to every member of the conversation room.
+    //
+    // This is what makes the receiver see GameOverlay too.
     // ========================================================
+
     useEffect(() => {
-    const handleGameCreated = (event) => {
-        const game = event.detail?.game;
+        const handleLocalGameCreated = (event) => {
+            const game = event.detail?.game;
 
-        if (!game?.id) {
-            return;
-        }
+            if (!game?.id) {
+                console.warn(
+                    "⚠️ chathub:game-created received without a valid game"
+                );
+                return;
+            }
 
-        console.log("🎮 Activating game:", game);
+            console.log(
+                "🎮 Local game created:",
+                game
+            );
 
-        setActiveGame(game);
-    };
+            // Open immediately for the creator.
+            setActiveGame(game);
 
-    window.addEventListener(
-        "chathub:game-created",
-        handleGameCreated
-    );
+            // Tell the server so the other conversation member(s)
+            // receive the invitation in real time.
+            if (!socket.connected) {
+                console.warn(
+                    "⚠️ Cannot announce game: socket is not connected."
+                );
+                return;
+            }
 
-    return () => {
-        window.removeEventListener(
+            socket.emit(
+                "game_created",
+                {
+                    game,
+                },
+                (response) => {
+                    if (!response?.success) {
+                        console.error(
+                            "❌ GAME INVITATION BROADCAST FAILED:",
+                            response?.message
+                        );
+                        return;
+                    }
+
+                    console.log(
+                        "🎮 GAME INVITATION BROADCASTED:",
+                        response.game
+                    );
+                }
+            );
+        };
+
+        window.addEventListener(
             "chathub:game-created",
+            handleLocalGameCreated
+        );
+
+        return () => {
+            window.removeEventListener(
+                "chathub:game-created",
+                handleLocalGameCreated
+            );
+        };
+    }, []);
+
+    // ========================================================
+    // RECEIVE GAME INVITATION FROM SERVER
+    //
+    // This listener is the important receiver-side piece.
+    // The server emits "game_created" to the conversation room,
+    // so every connected member receives the game.
+    // ========================================================
+
+    useEffect(() => {
+        const handleGameCreated = (game) => {
+            if (!game?.id) {
+                console.warn(
+                    "⚠️ game_created received without a valid game"
+                );
+                return;
+            }
+
+            console.log(
+                "🎮 GAME INVITATION RECEIVED:",
+                game
+            );
+
+            setActiveGame(game);
+        };
+
+        socket.on(
+            "game_created",
             handleGameCreated
         );
-    };
-}, []);
+
+        return () => {
+            socket.off(
+                "game_created",
+                handleGameCreated
+            );
+        };
+    }, []);
+
+    // ========================================================
+    // OPTIONAL: KEEP GAME UPDATED IF SERVER SENDS AN UPDATE
+    // ========================================================
+
+    useEffect(() => {
+        const handleGameUpdated = (game) => {
+            if (!game?.id) {
+                return;
+            }
+
+            setActiveGame((previous) => {
+                if (
+                    !previous ||
+                    Number(previous.id) !== Number(game.id)
+                ) {
+                    return previous;
+                }
+
+                return {
+                    ...previous,
+                    ...game,
+                };
+            });
+        };
+
+        socket.on(
+            "game_updated",
+            handleGameUpdated
+        );
+
+        return () => {
+            socket.off(
+                "game_updated",
+                handleGameUpdated
+            );
+        };
+    }, []);
+
+    // ========================================================
+    // LOAD SAVED CHAT THEMES
+    // ========================================================
     useEffect(() => {
         try {
             const stored =
