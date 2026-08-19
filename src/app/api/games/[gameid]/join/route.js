@@ -140,14 +140,29 @@ export async function POST(request, { params }) {
         }
 
         // ========================================================
-        // UPDATE DATABASE
+        // ATOMIC UPDATE (Prevents double-joining race conditions)
         // ========================================================
-        const updatedGame = await prisma.game.update({
-            where: { id: game.id },
+        const updateResult = await prisma.game.updateMany({
+            where: {
+                id: game.id,
+                status: "WAITING", // Must still be WAITING when write executes
+            },
             data: {
                 status: "PLAYING",
                 state: updatedState,
             },
+        });
+
+        if (updateResult.count === 0) {
+            return NextResponse.json(
+                { success: false, message: "Game was already joined by another player." },
+                { status: 400 }
+            );
+        }
+
+        // Fetch fresh state after atomic update
+        const updatedGame = await prisma.game.findUnique({
+            where: { id: game.id },
         });
 
         // Ensure state is an object before socket emission

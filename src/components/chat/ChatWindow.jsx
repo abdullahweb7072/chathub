@@ -148,13 +148,6 @@ export default function ChatWindow({
 
     onStartAudioCall,
     onStartVideoCall,
-
-    // ========================================================
-    // GAME ACTION HANDLERS
-    // ========================================================
-
-    onJoinGame,
-    onCancelGame,
 }) {
     const router = useRouter();
 
@@ -264,6 +257,11 @@ export default function ChatWindow({
 
     // ========================================================
     // AUTO SCROLL
+    //
+    // IMPORTANT:
+    // Use "auto" instead of "smooth".
+    //
+    // This makes optimistic messages appear immediately.
     // ========================================================
 
     useEffect(() => {
@@ -517,7 +515,16 @@ export default function ChatWindow({
                 );
             }
 
+            console.log(
+                "🎮 GAME CREATED:",
+                data.game
+            );
+
             setShowGamesMenu(false);
+
+            // ==================================================
+            // NOTIFY CHATHUB ABOUT THE NEW GAME
+            // ==================================================
 
             window.dispatchEvent(
                 new CustomEvent(
@@ -718,6 +725,9 @@ export default function ChatWindow({
 
     // ========================================================
     // SEND MESSAGE
+    //
+    // ChatWindow does NOT wait for the server.
+    // It immediately passes message data to ChatLayout.
     // ========================================================
 
     const handleSubmit = () => {
@@ -764,6 +774,7 @@ export default function ChatWindow({
             });
         }
 
+        // Clear input immediately.
         setMessage("");
 
         onStopTyping?.();
@@ -985,7 +996,10 @@ export default function ChatWindow({
                 themeBackgroundStyle
             }
         >
-            {/* CHAT HEADER */}
+            {/* ==================================================
+                CHAT HEADER
+            ================================================== */}
+
             <ChatHeader
                 conversation={
                     conversation
@@ -1031,7 +1045,10 @@ export default function ChatWindow({
                 }
             />
 
-            {/* MESSAGE AREA */}
+            {/* ==================================================
+                MESSAGE AREA
+            ================================================== */}
+
             <div
                 className="
                     relative
@@ -1169,18 +1186,15 @@ export default function ChatWindow({
                                     onToggleReaction={
                                         onToggleReaction
                                     }
-                                    onJoinGame={
-                                        onJoinGame
-                                    }
-                                    onCancelGame={
-                                        onCancelGame
-                                    }
                                 />
                             )
                         )
                     )}
 
-                    {/* TYPING INDICATOR */}
+                    {/* ==================================================
+                        TYPING INDICATOR
+                    ================================================== */}
+
                     {typingUsers.length >
                         0 && (
                         <div
@@ -1224,9 +1238,37 @@ export default function ChatWindow({
                             </span>
 
                             <span className="flex gap-1">
-                                <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted" />
-                                <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted [animation-delay:150ms]" />
-                                <i className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted [animation-delay:300ms]" />
+                                <i
+                                    className="
+                                        h-1.5
+                                        w-1.5
+                                        animate-bounce
+                                        rounded-full
+                                        bg-muted
+                                    "
+                                />
+
+                                <i
+                                    className="
+                                        h-1.5
+                                        w-1.5
+                                        animate-bounce
+                                        rounded-full
+                                        bg-muted
+                                        [animation-delay:150ms]
+                                    "
+                                />
+
+                                <i
+                                    className="
+                                        h-1.5
+                                        w-1.5
+                                        animate-bounce
+                                        rounded-full
+                                        bg-muted
+                                        [animation-delay:300ms]
+                                    "
+                                />
                             </span>
                         </div>
                     )}
@@ -1239,7 +1281,10 @@ export default function ChatWindow({
                 </div>
             </div>
 
-            {/* INPUT AREA */}
+            {/* ==================================================
+                INPUT AREA
+            ================================================== */}
+
             <div
                 className="
                     shrink-0
@@ -1270,6 +1315,10 @@ export default function ChatWindow({
                     )}
 
                     <div className="flex items-end gap-2">
+                        {/* ==================================================
+                            FILE INPUT
+                        ================================================== */}
+
                         <input
                             ref={
                                 fileInputRef
@@ -1282,7 +1331,10 @@ export default function ChatWindow({
                             accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip,.rar"
                         />
 
-                        {/* ATTACHMENT */}
+                        {/* ==================================================
+                            ATTACHMENT
+                        ================================================== */}
+
                         <button
                             type="button"
                             onClick={
@@ -1311,12 +1363,18 @@ export default function ChatWindow({
                             📎
                         </button>
 
-                        {/* EMOJI */}
+                        {/* ==================================================
+                            EMOJI
+                        ================================================== */}
+
                         <div
                             ref={
                                 emojiPickerRef
                             }
-                            className="relative shrink-0"
+                            className="
+                                relative
+                                shrink-0
+                            "
                         >
                             <button
                                 type="button"
@@ -1372,7 +1430,13 @@ export default function ChatWindow({
                                             pb-2
                                         "
                                     >
-                                        <span className="text-xs font-medium text-foreground">
+                                        <span
+                                            className="
+                                                text-xs
+                                                font-medium
+                                                text-foreground
+                                            "
+                                        >
                                             Emojis
                                         </span>
 
@@ -1398,7 +1462,15 @@ export default function ChatWindow({
                                         </button>
                                     </div>
 
-                                    <div className="grid max-h-56 grid-cols-8 gap-1 overflow-y-auto">
+                                    <div
+                                        className="
+                                            grid
+                                            max-h-56
+                                            grid-cols-8
+                                            gap-1
+                                            overflow-y-auto
+                                        "
+                                    >
                                         {EMOJIS.map(
                                             (
                                                 emoji,
@@ -1437,7 +1509,10 @@ export default function ChatWindow({
                             )}
                         </div>
 
-                        {/* GAMES */}
+                        {/* ==================================================
+                            GAMES
+                        ================================================== */}
+
                         <div
                             data-games-menu="true"
                             className="relative shrink-0"
@@ -1496,14 +1571,37 @@ export default function ChatWindow({
                                         shadow-2xl
                                     "
                                 >
-                                    <div className="border-b border-border px-3 py-2">
-                                        <p className="text-sm font-semibold text-foreground">
+                                    <div
+                                        className="
+                                            border-b
+                                            border-border
+                                            px-3
+                                            py-2
+                                        "
+                                    >
+                                        <p
+                                            className="
+                                                text-sm
+                                                font-semibold
+                                                text-foreground
+                                            "
+                                        >
                                             Play a game
                                         </p>
-                                        <p className="mt-0.5 text-[11px] text-muted">
-                                            Challenge someone in this chat
+
+                                        <p
+                                            className="
+                                                mt-0.5
+                                                text-[11px]
+                                                text-muted
+                                            "
+                                        >
+                                            Challenge someone
+                                            in this chat
                                         </p>
                                     </div>
+
+                                    {/* GAME ERROR */}
 
                                     {gameError && (
                                         <div
@@ -1527,6 +1625,8 @@ export default function ChatWindow({
                                     )}
 
                                     <div className="mt-1 space-y-1">
+                                        {/* TIC TAC TOE */}
+
                                         <button
                                             type="button"
                                             disabled={
@@ -1552,16 +1652,35 @@ export default function ChatWindow({
                                                 disabled:opacity-50
                                             "
                                         >
-                                            <span className="text-xl">⭕</span>
+                                            <span className="text-xl">
+                                                ⭕
+                                            </span>
+
                                             <span className="min-w-0 flex-1">
-                                                <span className="block text-sm font-medium text-foreground">
+                                                <span
+                                                    className="
+                                                        block
+                                                        text-sm
+                                                        font-medium
+                                                        text-foreground
+                                                    "
+                                                >
                                                     Tic Tac Toe
                                                 </span>
-                                                <span className="block text-[11px] text-muted">
+
+                                                <span
+                                                    className="
+                                                        block
+                                                        text-[11px]
+                                                        text-muted
+                                                    "
+                                                >
                                                     Quick 1v1 game
                                                 </span>
                                             </span>
                                         </button>
+
+                                        {/* CONNECT FOUR */}
 
                                         <button
                                             type="button"
@@ -1588,16 +1707,36 @@ export default function ChatWindow({
                                                 disabled:opacity-50
                                             "
                                         >
-                                            <span className="text-xl">🔴</span>
+                                            <span className="text-xl">
+                                                🔴
+                                            </span>
+
                                             <span className="min-w-0 flex-1">
-                                                <span className="block text-sm font-medium text-foreground">
+                                                <span
+                                                    className="
+                                                        block
+                                                        text-sm
+                                                        font-medium
+                                                        text-foreground
+                                                    "
+                                                >
                                                     Connect Four
                                                 </span>
-                                                <span className="block text-[11px] text-muted">
-                                                    Drop pieces and connect four
+
+                                                <span
+                                                    className="
+                                                        block
+                                                        text-[11px]
+                                                        text-muted
+                                                    "
+                                                >
+                                                    Drop pieces and
+                                                    connect four
                                                 </span>
                                             </span>
                                         </button>
+
+                                        {/* ROCK PAPER SCISSORS */}
 
                                         <button
                                             type="button"
@@ -1624,21 +1763,63 @@ export default function ChatWindow({
                                                 disabled:opacity-50
                                             "
                                         >
-                                            <span className="text-xl">✊</span>
+                                            <span className="text-xl">
+                                                ✊
+                                            </span>
+
                                             <span className="min-w-0 flex-1">
-                                                <span className="block text-sm font-medium text-foreground">
-                                                    Rock Paper Scissors
+                                                <span
+                                                    className="
+                                                        block
+                                                        text-sm
+                                                        font-medium
+                                                        text-foreground
+                                                    "
+                                                >
+                                                    Rock Paper
+                                                    Scissors
                                                 </span>
-                                                <span className="block text-[11px] text-muted">
+
+                                                <span
+                                                    className="
+                                                        block
+                                                        text-[11px]
+                                                        text-muted
+                                                    "
+                                                >
                                                     Best of luck!
                                                 </span>
                                             </span>
                                         </button>
                                     </div>
 
+                                    {/* CREATING INDICATOR */}
+
                                     {creatingGame && (
-                                        <div className="flex items-center justify-center gap-2 px-3 py-2 text-xs text-muted">
-                                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-border border-t-primary" />
+                                        <div
+                                            className="
+                                                flex
+                                                items-center
+                                                justify-center
+                                                gap-2
+                                                px-3
+                                                py-2
+                                                text-xs
+                                                text-muted
+                                            "
+                                        >
+                                            <span
+                                                className="
+                                                    h-3.5
+                                                    w-3.5
+                                                    animate-spin
+                                                    rounded-full
+                                                    border-2
+                                                    border-border
+                                                    border-t-primary
+                                                "
+                                            />
+
                                             Creating game...
                                         </div>
                                     )}
@@ -1646,7 +1827,10 @@ export default function ChatWindow({
                             )}
                         </div>
 
-                        {/* MESSAGE INPUT */}
+                        {/* ==================================================
+                            MESSAGE INPUT
+                        ================================================== */}
+
                         <textarea
                             ref={
                                 inputRef
@@ -1685,7 +1869,10 @@ export default function ChatWindow({
                             "
                         />
 
-                        {/* SEND */}
+                        {/* ==================================================
+                            SEND
+                        ================================================== */}
+
                         <button
                             type="button"
                             onClick={
@@ -1869,83 +2056,6 @@ function AttachmentPreview({
 }
 
 // ============================================================
-// GAME INVITE PREVIEW
-// ============================================================
-
-function GameInvitePreview({
-    game,
-    isOwn,
-    onJoinGame,
-    onCancelGame,
-}) {
-    const status = game?.status || "PENDING";
-    const isPending = status === "PENDING";
-
-    const gameTitles = {
-        TIC_TAC_TOE: "Tic Tac Toe",
-        CONNECT_FOUR: "Connect Four",
-        ROCK_PAPER_SCISSORS: "Rock Paper Scissors",
-    };
-
-    const gameIcons = {
-        TIC_TAC_TOE: "⭕",
-        CONNECT_FOUR: "🔴",
-        ROCK_PAPER_SCISSORS: "✊",
-    };
-
-    return (
-        <div className="mb-2 w-full max-w-[260px] rounded-xl border border-border bg-background p-3 shadow-sm select-none">
-            <div className="flex items-center gap-2.5">
-                <span className="text-2xl">{gameIcons[game?.type] || "🎮"}</span>
-                <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-semibold text-foreground">
-                        {gameTitles[game?.type] || "Game Challenge"}
-                    </p>
-                    <p className="text-[11px] text-muted">
-                        {!isPending
-                            ? `Status: ${status}`
-                            : isOwn
-                            ? "Waiting for opponent..."
-                            : "You've been challenged!"}
-                    </p>
-                </div>
-            </div>
-
-            {isPending && (
-                <div className="mt-3 flex gap-2">
-                    {!isOwn ? (
-                        <>
-                            <button
-                                type="button"
-                                onClick={() => onJoinGame?.(game?.id)}
-                                className="flex-1 rounded-lg bg-blue-600 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 active:scale-95"
-                            >
-                                Join
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => onCancelGame?.(game?.id)}
-                                className="flex-1 rounded-lg border border-border bg-surface py-1.5 text-xs font-medium text-foreground transition hover:bg-hover active:scale-95"
-                            >
-                                Decline
-                            </button>
-                        </>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={() => onCancelGame?.(game?.id)}
-                            className="w-full rounded-lg border border-red-500/30 bg-red-500/10 py-1.5 text-xs font-medium text-red-500 transition hover:bg-red-500/20 active:scale-95"
-                        >
-                            Cancel Challenge
-                        </button>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
-
-// ============================================================
 // MESSAGE BUBBLE
 // ============================================================
 
@@ -1962,9 +2072,6 @@ function MessageBubble({
     onEditMessage,
     onDeleteMessage,
     onToggleReaction,
-
-    onJoinGame,
-    onCancelGame,
 }) {
     const isOwn =
         Number(
@@ -1982,17 +2089,15 @@ function MessageBubble({
     const reactions =
         message?.reactions || [];
 
+    // ========================================================
+    // STATUS REPLY
+    // ========================================================
+
     const status =
         message?.status || null;
 
     const isStatusReply =
         Boolean(status);
-
-    const game =
-        message?.game || null;
-
-    const isGameInvite =
-        Boolean(game || message?.gameId);
 
     // ========================================================
     // LONG PRESS
@@ -2109,7 +2214,7 @@ function MessageBubble({
     };
 
     // ========================================================
-    // TOUCH EVENTS
+    // TOUCH START
     // ========================================================
 
     const handleTouchStart = (
@@ -2139,13 +2244,27 @@ function MessageBubble({
             }, LONG_PRESS_DURATION);
     };
 
-    const handleTouchEnd = () => {
-        clearLongPress();
-    };
+    // ========================================================
+    // TOUCH END
+    // ========================================================
 
-    const handleTouchMove = () => {
-        clearLongPress();
-    };
+    const handleTouchEnd =
+        () => {
+            clearLongPress();
+        };
+
+    // ========================================================
+    // TOUCH MOVE
+    // ========================================================
+
+    const handleTouchMove =
+        () => {
+            clearLongPress();
+        };
+
+    // ========================================================
+    // CONTEXT MENU
+    // ========================================================
 
     const handleContextMenu = (
         event
@@ -2161,6 +2280,10 @@ function MessageBubble({
         );
     };
 
+    // ========================================================
+    // DOUBLE CLICK
+    // ========================================================
+
     const handleMessageDoubleClick =
         (event) => {
             if (isDeleted) {
@@ -2171,6 +2294,10 @@ function MessageBubble({
                 event
             );
         };
+
+    // ========================================================
+    // REACTION
+    // ========================================================
 
     const handleReactionButton = (
         emoji
@@ -2185,17 +2312,29 @@ function MessageBubble({
         );
     };
 
+    // ========================================================
+    // SENDER NAME
+    // ========================================================
+
     const senderDisplayName =
         message?.sender?.displayName?.trim() ||
         message?.sender?.username?.trim() ||
         message?.sender?.email?.trim() ||
         "User";
 
+    // ========================================================
+    // CLEANUP
+    // ========================================================
+
     useEffect(() => {
         return () => {
             clearLongPress();
         };
     }, []);
+
+    // ========================================================
+    // RENDER
+    // ========================================================
 
     return (
         <div
@@ -2253,6 +2392,10 @@ function MessageBubble({
                             : MESSAGE_OTHER_BACKGROUND,
                 }}
             >
+                {/* ==================================================
+                    MESSAGE ACTIONS
+                ================================================== */}
+
                 {!isDeleted && (
                     <MessageActions
                         message={
@@ -2273,6 +2416,10 @@ function MessageBubble({
                     />
                 )}
 
+                {/* ==================================================
+                    SENDER NAME
+                ================================================== */}
+
                 {!isOwn && (
                     <p
                         className="
@@ -2291,23 +2438,10 @@ function MessageBubble({
                     </p>
                 )}
 
-                {/* GAME INVITE COMPONENT */}
-                {!isDeleted && isGameInvite && (
-                    <GameInvitePreview
-                        game={
-                            game || {
-                                id: message.gameId,
-                                type: message.gameType,
-                                status: message.gameStatus,
-                            }
-                        }
-                        isOwn={isOwn}
-                        onJoinGame={onJoinGame}
-                        onCancelGame={onCancelGame}
-                    />
-                )}
+                {/* ==================================================
+                    STATUS REPLY PREVIEW
+                ================================================== */}
 
-                {/* STATUS REPLY PREVIEW */}
                 {!isDeleted &&
                     isStatusReply && (
                         <StatusReplyPreview
@@ -2317,7 +2451,10 @@ function MessageBubble({
                         />
                     )}
 
-                {/* ATTACHMENT */}
+                {/* ==================================================
+                    NORMAL ATTACHMENT
+                ================================================== */}
+
                 {!isDeleted &&
                     !isStatusReply &&
                     message?.attachmentUrl && (
@@ -2328,7 +2465,10 @@ function MessageBubble({
                         />
                     )}
 
-                {/* MESSAGE CONTENT */}
+                {/* ==================================================
+                    MESSAGE CONTENT
+                ================================================== */}
+
                 {(message?.content ||
                     isDeleted) && (
                     <div
@@ -2360,7 +2500,10 @@ function MessageBubble({
                     </div>
                 )}
 
-                {/* METADATA */}
+                {/* ==================================================
+                    TIME / EDITED / RECEIPTS
+                ================================================== */}
+
                 <div
                     className="
                         mt-1
@@ -2413,7 +2556,10 @@ function MessageBubble({
                         )}
                 </div>
 
-                {/* REACTION PICKER */}
+                {/* ==================================================
+                    REACTION PICKER
+                ================================================== */}
+
                 {showReactionFor ===
                     message.id &&
                     !isDeleted && (
@@ -2485,7 +2631,10 @@ function MessageBubble({
                         </div>
                     )}
 
-                {/* REACTION CHIPS */}
+                {/* ==================================================
+                    REACTION CHIPS
+                ================================================== */}
+
                 {reactions.length >
                     0 && (
                     <div
@@ -2996,6 +3145,10 @@ function ReceiptTicks({
             ? message.receipts
             : [];
 
+    // ========================================================
+    // READ
+    // ========================================================
+
     const allRead =
         receipts.length > 0 &&
         receipts.every(
@@ -3020,6 +3173,10 @@ function ReceiptTicks({
         );
     }
 
+    // ========================================================
+    // ONLINE / DELIVERED
+    // ========================================================
+
     if (isRecipientOnline) {
         return (
             <span
@@ -3037,6 +3194,10 @@ function ReceiptTicks({
             </span>
         );
     }
+
+    // ========================================================
+    // SERVER DELIVERY RECEIPT
+    // ========================================================
 
     const allDelivered =
         receipts.length > 0 &&
@@ -3064,6 +3225,10 @@ function ReceiptTicks({
             </span>
         );
     }
+
+    // ========================================================
+    // SENT
+    // ========================================================
 
     return (
         <span
