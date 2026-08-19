@@ -17,7 +17,10 @@ const VALID_GAME_TYPES = [
 // CREATE INITIAL GAME STATE
 // ============================================================
 
-function createInitialGameState(type, creatorId) {
+function createInitialGameState(type, creatorId, targetId = null) {
+    const hostId = Number(creatorId);
+    const guestId = targetId ? Number(targetId) : null;
+
     switch (type) {
         // ========================================================
         // TIC TAC TOE
@@ -26,8 +29,8 @@ function createInitialGameState(type, creatorId) {
         case "TIC_TAC_TOE":
             return {
                 players: {
-                    X: Number(creatorId),
-                    O: null,
+                    X: hostId,
+                    O: guestId,
                 },
 
                 board: [
@@ -56,8 +59,8 @@ function createInitialGameState(type, creatorId) {
         case "CONNECT_FOUR":
             return {
                 players: {
-                    RED: Number(creatorId),
-                    YELLOW: null,
+                    RED: hostId,
+                    YELLOW: guestId,
                 },
 
                 board: Array.from(
@@ -79,12 +82,13 @@ function createInitialGameState(type, creatorId) {
         case "ROCK_PAPER_SCISSORS":
             return {
                 players: {
-                    player1: Number(creatorId),
-                    player2: null,
+                    player1: hostId,
+                    player2: guestId,
                 },
 
                 choices: {
-                    [String(creatorId)]: null,
+                    [String(hostId)]: null,
+                    ...(guestId ? { [String(guestId)]: null } : {}),
                 },
 
                 winner: null,
@@ -273,7 +277,7 @@ export async function POST(request) {
         }
 
         // ========================================================
-        // REQUIRE ANOTHER PLAYER
+        // REQUIRE ANOTHER PLAYER & AUTO-TARGET DM OPPONENT
         // ========================================================
 
         const otherMembers =
@@ -296,6 +300,12 @@ export async function POST(request) {
             );
         }
 
+        // Target recipient automatically if in a 1-on-1 direct message
+        let targetOpponentId = null;
+        if (otherMembers.length === 1) {
+            targetOpponentId = Number(otherMembers[0].userId);
+        }
+
         // ========================================================
         // CREATE INITIAL STATE
         // ========================================================
@@ -303,7 +313,8 @@ export async function POST(request) {
         const initialState =
             createInitialGameState(
                 type,
-                user.id
+                user.id,
+                targetOpponentId
             );
 
         // ========================================================
@@ -329,15 +340,6 @@ export async function POST(request) {
 
         // ========================================================
         // REAL-TIME GAME EVENT
-        // ========================================================
-        //
-        // Notify everyone currently connected to
-        // this conversation.
-        //
-        // ChatLayout will listen for:
-        //
-        // socket.on("game_created", ...)
-        //
         // ========================================================
 
         if (globalThis.io) {
@@ -536,6 +538,15 @@ export async function GET(request) {
                 },
             });
 
+        // Ensure states are cleanly parsed JSON objects
+        const formattedGames = games.map((game) => ({
+            ...game,
+            state:
+                typeof game.state === "string"
+                    ? JSON.parse(game.state || "{}")
+                    : game.state,
+        }));
+
         // ========================================================
         // RESPONSE
         // ========================================================
@@ -543,7 +554,7 @@ export async function GET(request) {
         return NextResponse.json(
             {
                 success: true,
-                games,
+                games: formattedGames,
             },
             {
                 status: 200,

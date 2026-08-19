@@ -50,24 +50,12 @@ export async function POST(request, { params }) {
         const userId = Number(user.id);
 
         // ========================================================
-        // GAME ID EXTRACTION (ROBUST FALLBACK)
+        // GAME ID
         // ========================================================
 
-        const resolvedParams = await params;
-        
-        let rawGameId = resolvedParams?.gameId || resolvedParams?.id;
+        const { gameId } = await params;
 
-        // Fallback: Check request body if route params missed it
-        if (!rawGameId) {
-            try {
-                const body = await request.json();
-                rawGameId = body?.gameId || body?.id;
-            } catch (e) {
-                // Ignore json parsing error if body is empty
-            }
-        }
-
-        const id = Number(rawGameId);
+        const id = Number(gameId);
 
         if (!Number.isInteger(id) || id <= 0) {
             return NextResponse.json(
@@ -104,7 +92,7 @@ export async function POST(request, { params }) {
         }
 
         // ========================================================
-        // GAME ALREADY FINISHED / CANCELLED
+        // GAME ALREADY FINISHED
         // ========================================================
 
         if (game.status === "FINISHED") {
@@ -118,6 +106,10 @@ export async function POST(request, { params }) {
                 }
             );
         }
+
+        // ========================================================
+        // GAME ALREADY CANCELLED
+        // ========================================================
 
         if (game.status === "CANCELLED") {
             return NextResponse.json(
@@ -173,17 +165,25 @@ export async function POST(request, { params }) {
         }
 
         const players = state?.players || {};
+        const currentUserIdStr = String(userId);
 
-        const isPlayer =
-            Number(players.X) === userId ||
-            Number(players.O) === userId ||
-            Number(players.RED) === userId ||
-            Number(players.YELLOW) === userId ||
-            Number(players.player1) === userId ||
-            Number(players.player2) === userId ||
-            Number(game.createdBy) === userId;
+        // Collect all potential player IDs from state + game creator
+        const registeredPlayerIds = [
+            players.X,
+            players.O,
+            players.RED,
+            players.YELLOW,
+            players.player1,
+            players.player2,
+            game.createdBy,
+        ]
+            .filter(Boolean)
+            .map(String);
 
-        if (!isPlayer) {
+        const isPlayer = registeredPlayerIds.includes(currentUserIdStr);
+
+        // Allow user to leave if they are an assigned player OR if game is in WAITING state
+        if (!isPlayer && game.status !== "WAITING") {
             return NextResponse.json(
                 {
                     success: false,
@@ -253,7 +253,7 @@ export async function POST(request, { params }) {
         }
 
         // ========================================================
-        // LOG & RESPONSE
+        // LOG
         // ========================================================
 
         console.log("🎮 GAME CANCELLED:", {
@@ -263,6 +263,10 @@ export async function POST(request, { params }) {
             cancelledBy: userId,
             status: updatedGame.status,
         });
+
+        // ========================================================
+        // RESPONSE
+        // ========================================================
 
         return NextResponse.json(
             {
