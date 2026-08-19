@@ -16,6 +16,7 @@ export default function TicTacToe({
     const [currentGame, setCurrentGame] = useState(game);
     const [error, setError] = useState("");
     const [leaving, setLeaving] = useState(false);
+    const [joining, setJoining] = useState(false);
 
     const userId = Number(currentUser?.id);
 
@@ -24,9 +25,24 @@ export default function TicTacToe({
     // ========================================================
 
     useEffect(() => {
-        if (game) {
-            setCurrentGame(game);
+        if (!game) {
+            return;
         }
+
+        setCurrentGame((previous) => ({
+            ...game,
+
+            // Preserve role information if it already exists.
+            isCreator:
+                game.isCreator ??
+                previous?.isCreator ??
+                false,
+
+            isReceiver:
+                game.isReceiver ??
+                previous?.isReceiver ??
+                false,
+        }));
     }, [game]);
 
     // ========================================================
@@ -46,6 +62,18 @@ export default function TicTacToe({
     const winner = state?.winner || null;
 
     const draw = Boolean(state?.draw);
+
+    // ========================================================
+    // ROLE
+    // ========================================================
+
+    const isCreator = Boolean(
+        currentGame?.isCreator
+    );
+
+    const isReceiver = Boolean(
+        currentGame?.isReceiver
+    );
 
     // ========================================================
     // MY SYMBOL
@@ -121,13 +149,23 @@ export default function TicTacToe({
     }, [board, winner]);
 
     // ========================================================
-    // JOIN GAME ROOM
+    // JOIN GAME
+    //
+    // IMPORTANT:
+    // Receiver does NOT automatically join anymore.
+    // The receiver must explicitly click JOIN GAME.
     // ========================================================
 
-    useEffect(() => {
-        if (!currentGame?.id) {
+    const joinGame = () => {
+        if (
+            !currentGame?.id ||
+            joining
+        ) {
             return;
         }
+
+        setJoining(true);
+        setError("");
 
         socket.emit(
             "join_game",
@@ -137,7 +175,7 @@ export default function TicTacToe({
             (response) => {
                 if (!response?.success) {
                     console.error(
-                        "❌ JOIN GAME ROOM FAILED:",
+                        "❌ JOIN GAME FAILED:",
                         response?.message
                     );
 
@@ -145,26 +183,57 @@ export default function TicTacToe({
                         response?.message ||
                             "Failed to join game."
                     );
+
+                    setJoining(false);
+
+                    return;
                 }
+
+                console.log(
+                    "🎮 GAME JOINED SUCCESSFULLY:",
+                    response
+                );
+
+                /*
+                 * If the server returns the updated game,
+                 * use it immediately.
+                 */
+                if (response?.game) {
+                    setCurrentGame((previous) => ({
+                        ...response.game,
+
+                        isCreator:
+                            previous?.isCreator ??
+                            false,
+
+                        isReceiver: false,
+                    }));
+                } else {
+                    /*
+                     * The server may instead emit
+                     * game_joined / game_updated.
+                     * Those socket listeners below will
+                     * update the state.
+                     */
+                    setCurrentGame((previous) => ({
+                        ...previous,
+                        isReceiver: false,
+                    }));
+                }
+
+                setJoining(false);
             }
         );
-
-        return () => {
-            socket.emit(
-                "leave_game",
-                {
-                    gameId: currentGame.id,
-                }
-            );
-        };
-    }, [currentGame?.id]);
+    };
 
     // ========================================================
     // SOCKET EVENTS
     // ========================================================
 
     useEffect(() => {
-        const gameId = Number(currentGame?.id);
+        const gameId = Number(
+            currentGame?.id
+        );
 
         if (!gameId) {
             return;
@@ -174,7 +243,9 @@ export default function TicTacToe({
         // GAME UPDATED
         // ----------------------------------------------------
 
-        const handleGameUpdated = (updatedGame) => {
+        const handleGameUpdated = (
+            updatedGame
+        ) => {
             if (
                 Number(updatedGame?.id) !==
                 gameId
@@ -182,15 +253,29 @@ export default function TicTacToe({
                 return;
             }
 
-            setCurrentGame(updatedGame);
+            setCurrentGame((previous) => ({
+                ...updatedGame,
+
+                isCreator:
+                    previous?.isCreator ??
+                    false,
+
+                isReceiver:
+                    previous?.isReceiver ??
+                    false,
+            }));
+
             setError("");
+            setJoining(false);
         };
 
         // ----------------------------------------------------
         // GAME JOINED
         // ----------------------------------------------------
 
-        const handleGameJoined = (joinedGame) => {
+        const handleGameJoined = (
+            joinedGame
+        ) => {
             if (
                 Number(joinedGame?.id) !==
                 gameId
@@ -198,8 +283,25 @@ export default function TicTacToe({
                 return;
             }
 
-            setCurrentGame(joinedGame);
+            console.log(
+                "🎮 GAME JOINED:",
+                joinedGame
+            );
+
+            setCurrentGame((previous) => ({
+                ...joinedGame,
+
+                isCreator:
+                    previous?.isCreator ??
+                    false,
+
+                // Once this event arrives, this
+                // user has joined the game.
+                isReceiver: false,
+            }));
+
             setError("");
+            setJoining(false);
         };
 
         // ----------------------------------------------------
@@ -216,7 +318,17 @@ export default function TicTacToe({
                 return;
             }
 
-            setCurrentGame(finishedGame);
+            setCurrentGame((previous) => ({
+                ...finishedGame,
+
+                isCreator:
+                    previous?.isCreator ??
+                    false,
+
+                isReceiver:
+                    previous?.isReceiver ??
+                    false,
+            }));
         };
 
         // ----------------------------------------------------
@@ -233,11 +345,23 @@ export default function TicTacToe({
                 return;
             }
 
-            setCurrentGame(cancelledGame);
+            setCurrentGame((previous) => ({
+                ...cancelledGame,
+
+                isCreator:
+                    previous?.isCreator ??
+                    false,
+
+                isReceiver:
+                    previous?.isReceiver ??
+                    false,
+            }));
 
             setError(
                 "This game has been cancelled."
             );
+
+            setJoining(false);
         };
 
         socket.on(
@@ -352,7 +476,19 @@ export default function TicTacToe({
                 );
             }
 
-            setCurrentGame(data.game);
+            if (data?.game) {
+                setCurrentGame((previous) => ({
+                    ...data.game,
+
+                    isCreator:
+                        previous?.isCreator ??
+                        false,
+
+                    isReceiver:
+                        previous?.isReceiver ??
+                        false,
+                }));
+            }
 
             onClose?.();
         } catch (error) {
@@ -465,14 +601,111 @@ export default function TicTacToe({
     const status = getStatus();
 
     // ========================================================
-    // RENDER
+    // RECEIVER INVITATION
+    //
+    // IMPORTANT:
+    // This is rendered BEFORE the actual game board.
+    // Receiver must explicitly click JOIN GAME.
+    // ========================================================
+
+    if (
+        isReceiver &&
+        !mySymbol
+    ) {
+        return (
+            <div className="flex max-h-[90vh] flex-col">
+                {/* ==================================================
+                    HEADER
+                ================================================== */}
+
+                <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+                    <div>
+                        <h2 className="text-lg font-semibold text-white">
+                            Tic-Tac-Toe
+                        </h2>
+
+                        <p className="text-xs text-gray-400">
+                            Game Invitation
+                        </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-lg px-3 py-2 text-gray-400 transition hover:bg-white/10 hover:text-white"
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                {/* ==================================================
+                    INVITATION
+                ================================================== */}
+
+                <div className="overflow-y-auto p-6">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 text-center">
+                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-500/10 text-3xl">
+                            🎮
+                        </div>
+
+                        <h3 className="mt-5 text-xl font-semibold text-white">
+                            Game Invitation
+                        </h3>
+
+                        <p className="mt-2 text-sm leading-6 text-gray-400">
+                            You have been invited
+                            to play Tic-Tac-Toe.
+                        </p>
+
+                        {currentGame?.createdBy && (
+                            <p className="mt-2 text-xs text-gray-500">
+                                Player ID:{" "}
+                                {currentGame.createdBy}
+                            </p>
+                        )}
+
+                        {error && (
+                            <div className="mt-5 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                                {error}
+                            </div>
+                        )}
+
+                        <div className="mt-6 flex flex-col gap-3">
+                            <button
+                                type="button"
+                                onClick={joinGame}
+                                disabled={joining}
+                                className="w-full rounded-xl bg-blue-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {joining
+                                    ? "Joining..."
+                                    : "🎮 Join Game"}
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                disabled={joining}
+                                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-medium text-gray-300 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-50"
+                            >
+                                Decline
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // ========================================================
+    // NORMAL GAME UI
     // ========================================================
 
     return (
         <div className="flex max-h-[90vh] flex-col">
-            {/* ================================================== */}
-            {/* HEADER */}
-            {/* ================================================== */}
+            {/* ==================================================
+                HEADER
+            ================================================== */}
 
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
                 <div>
@@ -494,14 +727,14 @@ export default function TicTacToe({
                 </button>
             </div>
 
-            {/* ================================================== */}
-            {/* GAME */}
-            {/* ================================================== */}
+            {/* ==================================================
+                GAME
+            ================================================== */}
 
             <div className="overflow-y-auto p-5">
-                {/* ================================================== */}
-                {/* PLAYERS */}
-                {/* ================================================== */}
+                {/* ==================================================
+                    PLAYERS
+                ================================================== */}
 
                 <div className="mb-5 grid grid-cols-2 gap-3">
                     {/* PLAYER X */}
@@ -553,9 +786,9 @@ export default function TicTacToe({
                     </div>
                 </div>
 
-                {/* ================================================== */}
-                {/* STATUS */}
-                {/* ================================================== */}
+                {/* ==================================================
+                    STATUS
+                ================================================== */}
 
                 <div className="mb-5 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-center">
                     <div className="font-semibold text-white">
@@ -567,9 +800,9 @@ export default function TicTacToe({
                     </div>
                 </div>
 
-                {/* ================================================== */}
-                {/* BOARD */}
-                {/* ================================================== */}
+                {/* ==================================================
+                    BOARD
+                ================================================== */}
 
                 <div className="mx-auto grid w-full max-w-[360px] grid-cols-3 gap-2">
                     {board.map(
@@ -591,7 +824,8 @@ export default function TicTacToe({
                                     onClick={() =>
                                         makeMove(
                                             index
-                                        )}
+                                        )
+                                    }
                                     className={`aspect-square rounded-xl border text-4xl font-bold transition ${
                                         isWinningCell
                                             ? "border-green-400 bg-green-400/20 shadow-[0_0_20px_rgba(74,222,128,0.15)]"
@@ -600,7 +834,7 @@ export default function TicTacToe({
                                         cell ===
                                         null
                                             ? isMyTurn
-                                                ? "cursor-pointer hover:bg-white/[0.10] hover:border-white/20"
+                                                ? "cursor-pointer hover:border-white/20 hover:bg-white/[0.10]"
                                                 : "cursor-not-allowed"
                                             : ""
                                     }`}
@@ -624,9 +858,9 @@ export default function TicTacToe({
                     )}
                 </div>
 
-                {/* ================================================== */}
-                {/* ERROR */}
-                {/* ================================================== */}
+                {/* ==================================================
+                    ERROR
+                ================================================== */}
 
                 {error && (
                     <div className="mt-5 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-center text-sm text-red-300">
@@ -634,9 +868,9 @@ export default function TicTacToe({
                     </div>
                 )}
 
-                {/* ================================================== */}
-                {/* ACTIONS */}
-                {/* ================================================== */}
+                {/* ==================================================
+                    ACTIONS
+                ================================================== */}
 
                 <div className="mt-6 flex justify-center">
                     <button
