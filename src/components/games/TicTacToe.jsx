@@ -9,6 +9,7 @@ export default function TicTacToe({ game, currentUser, onClose }) {
     const [leaving, setLeaving] = useState(false);
     const [joining, setJoining] = useState(false);
 
+    // Normalize IDs to strings for robust comparison
     const userId = currentUser?.id != null ? String(currentUser.id) : null;
 
     // ========================================================
@@ -19,11 +20,8 @@ export default function TicTacToe({ game, currentUser, onClose }) {
 
         setCurrentGame((previous) => ({
             ...game,
-            isCreator: game.isCreator ?? previous?.isCreator ?? false,
-            isReceiver:
-                previous?.isReceiver === false
-                    ? false
-                    : (game.isReceiver ?? previous?.isReceiver ?? false),
+            // Retain explicit isReceiver flag passed down from lobby unless explicitly cleared
+            isReceiver: game.isReceiver ?? previous?.isReceiver ?? false,
         }));
     }, [game]);
 
@@ -51,30 +49,37 @@ export default function TicTacToe({ game, currentUser, onClose }) {
 
     const gameStatus = (currentGame?.status || "").toUpperCase();
 
+    // Normalized player IDs
+    const playerXId = players.X != null ? String(players.X) : null;
+    const playerOId = players.O != null ? String(players.O) : null;
+    const createdById = currentGame?.createdBy != null ? String(currentGame.createdBy) : null;
+
     // ========================================================
     // MY SYMBOL & RECEIVER DETERMINATION
     // ========================================================
     const mySymbol = useMemo(() => {
         if (!userId) return null;
-
-        const playerXStr = players.X != null ? String(players.X) : null;
-        const playerOStr = players.O != null ? String(players.O) : null;
-
-        if (playerXStr === userId) return "X";
-        if (playerOStr === userId) return "O";
-
+        if (playerXId === userId) return "X";
+        if (playerOId === userId) return "O";
         return null;
-    }, [players.X, players.O, userId]);
+    }, [playerXId, playerOId, userId]);
 
-    // Receiver view active if: user hasn't assigned a symbol, isn't the creator, and player O hasn't joined yet
+    // Receiver view triggers if explicit prop is set OR if user is not creator and player O hasn't joined yet
     const isReceiver = useMemo(() => {
-        if (mySymbol) return false;
-        if (currentGame?.createdBy && String(currentGame.createdBy) === userId) return false;
-        
-        return Boolean(currentGame?.isReceiver) || (!players.O && gameStatus === "WAITING");
-    }, [mySymbol, currentGame?.createdBy, currentGame?.isReceiver, userId, players.O, gameStatus]);
+        // If already assigned a symbol, board is active
+        if (mySymbol !== null) return false;
 
-    const opponentJoined = players.X != null && players.O != null;
+        // Explicit isReceiver flag takes priority
+        if (currentGame?.isReceiver) return true;
+
+        // Fallback check: Not creator & Player O hasn't joined
+        const isCreator = createdById === userId;
+        const playerOHasNotJoined = playerOId === null;
+
+        return !isCreator && playerOHasNotJoined;
+    }, [mySymbol, currentGame?.isReceiver, createdById, userId, playerOId]);
+
+    const opponentJoined = playerXId !== null && playerOId !== null;
 
     const isMyTurn =
         mySymbol !== null &&
@@ -96,7 +101,8 @@ export default function TicTacToe({ game, currentUser, onClose }) {
 
             setCurrentGame((previous) => ({
                 ...updatedGame,
-                isReceiver: false,
+                // Only dismiss receiver view if current user now has a symbol
+                isReceiver: previous.isReceiver && !updatedGame?.players?.O ? true : false,
             }));
             setError("");
         };
@@ -266,9 +272,9 @@ export default function TicTacToe({ game, currentUser, onClose }) {
                 >
                     <div className="text-xs text-gray-400">Player X</div>
                     <div className="font-semibold text-white">
-                        {players.X && String(players.X) === userId
+                        {playerXId && playerXId === userId
                             ? "You"
-                            : players.X
+                            : playerXId
                             ? "Opponent"
                             : "Waiting..."}
                     </div>
@@ -283,9 +289,9 @@ export default function TicTacToe({ game, currentUser, onClose }) {
                 >
                     <div className="text-xs text-gray-400">Player O</div>
                     <div className="font-semibold text-white">
-                        {players.O && String(players.O) === userId
+                        {playerOId && playerOId === userId
                             ? "You"
-                            : players.O
+                            : playerOId
                             ? "Opponent"
                             : "Waiting..."}
                     </div>
