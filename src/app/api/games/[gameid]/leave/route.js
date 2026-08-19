@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-
 import { prisma } from "@/lib/prisma";
 import { verifyAuth } from "@/lib/auth";
 
 // ============================================================
-// POST /api/games/[gameId]/leave
+// POST /api/games/[gameid]/leave
 // LEAVE / CANCEL GAME
 // ============================================================
 
@@ -50,12 +49,14 @@ export async function POST(request, { params }) {
         const userId = Number(user.id);
 
         // ========================================================
-        // GAME ID
+        // GAME ID (Extracted using 'gameid' to match [gameid] folder)
         // ========================================================
 
-        const { gameId } = await params;
+        const { gameid, gameId } = await params;
 
-        const id = Number(gameId);
+        // Fallback supports both [gameid] and [gameId] dynamic folder conventions
+        const rawId = gameid ?? gameId;
+        const id = Number(rawId);
 
         if (!Number.isInteger(id) || id <= 0) {
             return NextResponse.json(
