@@ -399,102 +399,83 @@ export default function ChatLayout({
 
     // ========================================================
     // GAME INVITATION / GAME ACTIVATION
-    //
-    // IMPORTANT:
-    // ChatWindow creates the game through POST /api/games and
-    // dispatches "chathub:game-created" locally.
-    //
-    // ChatLayout forwards that event through Socket.IO using
-    // "game_created". The server then broadcasts "game_created"
-    // to every member of the conversation room.
-    //
-    // This is what makes the receiver see GameOverlay too.
     // ========================================================
-useEffect(() => {
-    const handleGameCreated = (game) => {
-        if (!game?.id) {
-            console.warn(
-                "⚠️ game_created received without valid game"
-            );
-            return;
-        }
-
-        const creatorId = Number(
-            game.createdBy
-        );
-
-        const myId = Number(
-            currentUserId
-        );
-
-        console.log(
-            "🎮 GAME INVITATION RECEIVED:",
-            {
-                game,
-                creatorId,
-                myId,
-                isCreator:
-                    creatorId === myId,
+    useEffect(() => {
+        const handleGameCreated = (game) => {
+            if (!game?.id) {
+                console.warn(
+                    "⚠️ game_created received without valid game"
+                );
+                return;
             }
-        );
 
-        // ========================================================
-        // CREATOR
-        // ========================================================
+            const creatorId = Number(
+                game.createdBy
+            );
 
-        if (creatorId === myId) {
+            const myId = Number(
+                currentUserId
+            );
+
             console.log(
-                "🎮 I created this game → opening game directly"
+                "🎮 GAME INVITATION RECEIVED:",
+                {
+                    game,
+                    creatorId,
+                    myId,
+                    isCreator:
+                        creatorId === myId,
+                }
+            );
+
+            // ========================================================
+            // CREATOR
+            // ========================================================
+
+            if (creatorId === myId) {
+                console.log(
+                    "🎮 I created this game → opening game directly"
+                );
+
+                setActiveGame({
+                    ...game,
+                    isCreator: true,
+                    isReceiver: false,
+                });
+
+                return;
+            }
+
+            // ========================================================
+            // RECEIVER
+            // ========================================================
+
+            console.log(
+                "🎮 I received this game → showing JOIN invitation"
             );
 
             setActiveGame({
                 ...game,
-                isCreator: true,
-                isReceiver: false,
+                isCreator: false,
+                isReceiver: true,
             });
+        };
 
-            return;
-        }
-
-        // ========================================================
-        // RECEIVER
-        // ========================================================
-
-        console.log(
-            "🎮 I received this game → showing JOIN invitation"
-        );
-
-        setActiveGame({
-            ...game,
-            isCreator: false,
-            isReceiver: true,
-        });
-    };
-
-    socket.on(
-        "game_created",
-        handleGameCreated
-    );
-
-    return () => {
-        socket.off(
+        socket.on(
             "game_created",
             handleGameCreated
         );
-    };
-}, [currentUserId]);
+
+        return () => {
+            socket.off(
+                "game_created",
+                handleGameCreated
+            );
+        };
+    }, [currentUserId]);
 
     // ========================================================
-    // RECEIVE GAME INVITATION FROM SERVER
-    //
-    // This listener is the important receiver-side piece.
-    // The server emits "game_created" to the conversation room,
-    // so every connected member receives the game.
-    // ========================================================
-
-
-    // ========================================================
-    // OPTIONAL: KEEP GAME UPDATED IF SERVER SENDS AN UPDATE
+    // RECEIVE GAME JOINED / UPDATED / FINISHED EVENTS
     // ========================================================
 
     useEffect(() => {
@@ -514,22 +495,38 @@ useEffect(() => {
                 return {
                     ...previous,
                     ...game,
+                    isCreator: Number(game.createdBy) === Number(currentUserId),
+                    isReceiver: Number(game.createdBy) !== Number(currentUserId),
                 };
             });
         };
 
-        socket.on(
-            "game_updated",
-            handleGameUpdated
-        );
+        const handleGameJoined = (game) => {
+            if (!game?.id) return;
+            
+            console.log("🎮 GAME JOINED EVENT RECEIVED:", game);
+
+            setActiveGame((previous) => {
+                const isCreator = Number(game.createdBy) === Number(currentUserId);
+                return {
+                    ...(previous || {}),
+                    ...game,
+                    isCreator,
+                    isReceiver: !isCreator,
+                };
+            });
+        };
+
+        socket.on("game_joined", handleGameJoined);
+        socket.on("game_updated", handleGameUpdated);
+        socket.on("game_finished", handleGameUpdated);
 
         return () => {
-            socket.off(
-                "game_updated",
-                handleGameUpdated
-            );
+            socket.off("game_joined", handleGameJoined);
+            socket.off("game_updated", handleGameUpdated);
+            socket.off("game_finished", handleGameUpdated);
         };
-    }, []);
+    }, [currentUserId]);
 
     // ========================================================
     // LOAD SAVED CHAT THEMES
@@ -1221,10 +1218,6 @@ useEffect(() => {
         // --------------------------------------------------------
 
         callManager.setCallbacks({
-            // ====================================================
-            // INCOMING CALL
-            // ====================================================
-
             onIncomingCall:
                 (data) => {
                     console.log(
@@ -1264,8 +1257,6 @@ useEffect(() => {
 
                     setCallError(null);
 
-                    // IMPORTANT:
-                    // This user is the RECEIVER.
                     callStateRef.current =
                         "incoming";
 
@@ -1273,10 +1264,6 @@ useEffect(() => {
                         "incoming"
                     );
                 },
-
-            // ====================================================
-            // OUTGOING CALL STARTED
-            // ====================================================
 
             onCallStarted:
                 (data) => {
@@ -1304,8 +1291,6 @@ useEffect(() => {
                     setIncomingCall(null);
                     setCallError(null);
 
-                    // IMPORTANT:
-                    // This user is the CALLER/SENDER.
                     callStateRef.current =
                         "outgoing";
 
@@ -1313,10 +1298,6 @@ useEffect(() => {
                         "outgoing"
                     );
                 },
-
-            // ====================================================
-            // ACCEPTED
-            // ====================================================
 
             onCallAccepted:
                 (data) => {
@@ -1351,10 +1332,6 @@ useEffect(() => {
                     );
                 },
 
-            // ====================================================
-            // CONNECTED
-            // ====================================================
-
             onCallConnected:
                 (data) => {
                     console.log(
@@ -1388,10 +1365,6 @@ useEffect(() => {
                     );
                 },
 
-            // ====================================================
-            // LOCAL STREAM
-            // ====================================================
-
             onLocalStream:
                 (stream) => {
                     console.log(
@@ -1404,10 +1377,6 @@ useEffect(() => {
                     );
                 },
 
-            // ====================================================
-            // REMOTE STREAM
-            // ====================================================
-
             onRemoteStream:
                 (stream) => {
                     console.log(
@@ -1419,10 +1388,6 @@ useEffect(() => {
                         stream || null
                     );
                 },
-
-            // ====================================================
-            // REJECTED
-            // ====================================================
 
             onCallRejected:
                 (data) => {
@@ -1438,17 +1403,6 @@ useEffect(() => {
                         "📞 Local call state when rejection received:",
                         currentCallState
                     );
-
-                    // ==================================================
-                    // RECEIVER SIDE
-                    //
-                    // The receiver pressed Decline.
-                    //
-                    // Receiver must NOT see:
-                    // "Call declined"
-                    //
-                    // Receiver simply closes the call UI.
-                    // ==================================================
 
                     if (
                         currentCallState ===
@@ -1477,15 +1431,6 @@ useEffect(() => {
 
                         return;
                     }
-
-                    // ==================================================
-                    // SENDER / CALLER SIDE
-                    //
-                    // The other user rejected our outgoing call.
-                    //
-                    // ONLY the sender sees:
-                    // "Call declined"
-                    // ==================================================
 
                     if (
                         currentCallState ===
@@ -1529,16 +1474,6 @@ useEffect(() => {
                         return;
                     }
 
-                    // ==================================================
-                    // SAFETY FALLBACK
-                    //
-                    // If we don't know the local call direction,
-                    // do NOT show "Call declined".
-                    //
-                    // This prevents the receiver from accidentally
-                    // seeing the declined screen.
-                    // ==================================================
-
                     console.warn(
                         "⚠️ Unable to determine local call direction:",
                         {
@@ -1565,10 +1500,6 @@ useEffect(() => {
                     );
                 },
 
-            // ====================================================
-            // ENDED
-            // ====================================================
-
             onCallEnded:
                 (data) => {
                     console.log(
@@ -1594,10 +1525,6 @@ useEffect(() => {
                     );
                 },
 
-            // ====================================================
-            // MUTE
-            // ====================================================
-
             onMuteChanged:
                 (muted) => {
                     setIsMuted(
@@ -1605,20 +1532,12 @@ useEffect(() => {
                     );
                 },
 
-            // ====================================================
-            // CAMERA
-            // ====================================================
-
             onCameraChanged:
                 (cameraOff) => {
                     setIsCameraOff(
                         Boolean(cameraOff)
                     );
                 },
-
-            // ====================================================
-            // CALL ERROR
-            // ====================================================
 
             onCallError:
                 (message) => {
@@ -1633,10 +1552,6 @@ useEffect(() => {
                     );
                 },
         });
-
-        // --------------------------------------------------------
-        // CLEANUP
-        // --------------------------------------------------------
 
         return () => {
             console.log(
@@ -2243,10 +2158,6 @@ useEffect(() => {
                     "📞 Rejecting incoming call"
                 );
 
-                // IMPORTANT:
-                // The receiver is dismissing the incoming
-                // call. The receiver must NOT show
-                // "Call declined".
                 callStateRef.current =
                     "idle";
 
@@ -2587,10 +2498,6 @@ useEffect(() => {
             }
         };
 
-        // ========================================================
-        // RECEIPT UPDATED
-        // ========================================================
-
         const onReceiptUpdated = (
             receipt
         ) => {
@@ -2665,10 +2572,6 @@ useEffect(() => {
             );
         };
 
-        // ========================================================
-        // MESSAGE UPDATED
-        // ========================================================
-
         const onMessageUpdated = (
             updatedMessage
         ) => {
@@ -2709,10 +2612,6 @@ useEffect(() => {
                     )
             );
         };
-
-        // ========================================================
-        // MESSAGE DELETED
-        // ========================================================
 
         const onMessageDeleted = (
             deletedMessage
@@ -2763,10 +2662,6 @@ useEffect(() => {
                     )
             );
         };
-
-        // ========================================================
-        // REACTION ADDED
-        // ========================================================
 
         const onReactionAdded = (
             reaction
@@ -2824,10 +2719,6 @@ useEffect(() => {
             );
         };
 
-        // ========================================================
-        // REACTION REMOVED
-        // ========================================================
-
         const onReactionRemoved = (
             reaction
         ) => {
@@ -2867,10 +2758,6 @@ useEffect(() => {
                     )
             );
         };
-
-        // ========================================================
-        // USER TYPING
-        // ========================================================
 
         const onUserTyping = ({
             userId,
@@ -2929,10 +2816,6 @@ useEffect(() => {
             );
         };
 
-        // ========================================================
-        // USER STOPPED TYPING
-        // ========================================================
-
         const onUserStoppedTyping = ({
             userId,
             conversationId,
@@ -2965,10 +2848,6 @@ useEffect(() => {
                     )
             );
         };
-
-        // ========================================================
-        // REGISTER
-        // ========================================================
 
         socket.on(
             "new_message",
@@ -3009,10 +2888,6 @@ useEffect(() => {
             "user_stopped_typing",
             onUserStoppedTyping
         );
-
-        // ========================================================
-        // CLEANUP
-        // ========================================================
 
         return () => {
             socket.off(
@@ -3104,10 +2979,6 @@ useEffect(() => {
             }
 
             stopTyping();
-
-            // ====================================================
-            // TEXT MESSAGE
-            // ====================================================
 
             if (!file) {
                 const optimisticMessage =
@@ -3235,10 +3106,6 @@ useEffect(() => {
 
                 return;
             }
-
-            // ====================================================
-            // FILE MESSAGE
-            // ====================================================
 
             const optimisticFileMessage =
                 createOptimisticMessage({
@@ -4067,14 +3934,6 @@ useEffect(() => {
 
             {/* ==================================================
                 CALL OVERLAY
-
-                IMPORTANT:
-                This is intentionally OUTSIDE ChatWindow.
-
-                CallOverlay uses:
-                    fixed inset-0 z-[100]
-
-                Therefore it can cover the entire ChatHub UI.
             ================================================== */}
 
             <CallOverlay
@@ -4143,10 +4002,10 @@ useEffect(() => {
                 }
             />
             <GameOverlay
-    game={activeGame}
-    currentUser={currentUser}
-    onClose={() => setActiveGame(null)}
-/>
+                game={activeGame}
+                currentUser={currentUser}
+                onClose={() => setActiveGame(null)}
+            />
         </div>
     );
 }
