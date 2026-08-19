@@ -226,6 +226,17 @@ export default function TicTacToe({ game, currentUser, onClose }) {
     if (isReceiver) {
         return (
             <div className="flex max-h-[90vh] flex-col p-6 text-center">
+                {/* CLOSE BUTTON */}
+                <div className="flex justify-end">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-lg px-3 py-1.5 text-gray-400 transition hover:bg-white/10 hover:text-white"
+                    >
+                        ✕
+                    </button>
+                </div>
+
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-blue-500/10 text-2xl">
                     🎮
                 </div>
@@ -261,6 +272,24 @@ export default function TicTacToe({ game, currentUser, onClose }) {
     // ========================================================
     return (
         <div className="flex max-h-[90vh] flex-col p-5">
+            {/* HEADER */}
+            <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
+                <div>
+                    <h2 className="text-lg font-semibold text-white">Tic-Tac-Toe</h2>
+                    <p className="text-xs text-gray-400">
+                        {mySymbol ? `Playing as ${mySymbol}` : "Classic 3x3"}
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="rounded-lg px-3 py-2 text-gray-400 transition hover:bg-white/10 hover:text-white"
+                >
+                    ✕
+                </button>
+            </div>
+
             {/* PLAYERS CARD */}
             <div className="mb-4 grid grid-cols-2 gap-3">
                 <div
@@ -348,6 +377,7 @@ export default function TicTacToe({ game, currentUser, onClose }) {
             {/* LEAVE BUTTON */}
             <div className="mt-6 flex justify-center">
                 <button
+                    type="button"
                     onClick={leaveGame}
                     disabled={leaving}
                     className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
