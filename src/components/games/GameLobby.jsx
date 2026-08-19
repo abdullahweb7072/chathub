@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
 import { socket } from "@/lib/socket";
 
 // ============================================================
@@ -62,7 +61,6 @@ export default function GameLobby({
     const [games, setGames] = useState([]);
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(null);
-    const [joining, setJoining] = useState(null);
     const [error, setError] = useState("");
 
     // ========================================================
@@ -90,8 +88,7 @@ export default function GameLobby({
 
                 if (!response.ok || !data.success) {
                     throw new Error(
-                        data?.message ||
-                            "Failed to load games."
+                        data?.message || "Failed to load games."
                     );
                 }
 
@@ -101,15 +98,8 @@ export default function GameLobby({
                 }
             } catch (error) {
                 if (!cancelled) {
-                    console.error(
-                        "❌ LOAD GAMES ERROR:",
-                        error
-                    );
-
-                    setError(
-                        error?.message ||
-                            "Failed to load games."
-                    );
+                    console.error("❌ LOAD GAMES ERROR:", error);
+                    setError(error?.message || "Failed to load games.");
                 }
             } finally {
                 if (!cancelled) {
@@ -126,7 +116,7 @@ export default function GameLobby({
     }, [conversation?.id]);
 
     // ========================================================
-    // SOCKET GAME CREATED
+    // SOCKET LISTENERS
     // ========================================================
 
     useEffect(() => {
@@ -134,83 +124,47 @@ export default function GameLobby({
 
         const handleGameCreated = (rawGame) => {
             const game = parseGameState(rawGame);
-            if (
-                Number(game?.conversationId) !==
-                Number(conversation?.id)
-            ) {
-                return;
-            }
+            if (Number(game?.conversationId) !== Number(conversation?.id)) return;
 
             setGames((current) => {
                 const exists = current.some(
-                    (item) =>
-                        Number(item.id) ===
-                        Number(game.id)
+                    (item) => Number(item.id) === Number(game.id)
                 );
-
-                if (exists) {
-                    return current;
-                }
-
-                return [game, ...current];
+                return exists ? current : [game, ...current];
             });
         };
 
         const handleGameJoined = (rawGame) => {
             const game = parseGameState(rawGame);
-            if (
-                Number(game?.conversationId) !==
-                Number(conversation?.id)
-            ) {
-                return;
-            }
+            if (Number(game?.conversationId) !== Number(conversation?.id)) return;
 
             setGames((current) =>
                 current.map((item) =>
-                    Number(item.id) ===
-                    Number(game.id)
-                        ? game
-                        : item
+                    Number(item.id) === Number(game.id) ? game : item
                 )
             );
         };
 
         const handleGameUpdated = (rawGame) => {
             const game = parseGameState(rawGame);
-            if (
-                Number(game?.conversationId) !==
-                Number(conversation?.id)
-            ) {
-                return;
-            }
+            if (Number(game?.conversationId) !== Number(conversation?.id)) return;
 
             setGames((current) =>
                 current.map((item) =>
-                    Number(item.id) ===
-                    Number(game.id)
-                        ? game
-                        : item
+                    Number(item.id) === Number(game.id) ? game : item
                 )
             );
         };
 
         const handleGameFinished = (game) => {
             setGames((current) =>
-                current.filter(
-                    (item) =>
-                        Number(item.id) !==
-                        Number(game?.id)
-                )
+                current.filter((item) => Number(item.id) !== Number(game?.id))
             );
         };
 
         const handleGameCancelled = (game) => {
             setGames((current) =>
-                current.filter(
-                    (item) =>
-                        Number(item.id) !==
-                        Number(game?.id)
-                )
+                current.filter((item) => Number(item.id) !== Number(game?.id))
             );
         };
 
@@ -240,46 +194,29 @@ export default function GameLobby({
             setCreating(type);
             setError("");
 
-            const response = await fetch(
-                "/api/games",
-                {
-                    method: "POST",
-                    credentials: "include",
-                    headers: {
-                        "Content-Type":
-                            "application/json",
-                    },
-                    body: JSON.stringify({
-                        conversationId:
-                            conversation.id,
-                        type,
-                    }),
-                }
-            );
+            const response = await fetch("/api/games", {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    conversationId: conversation.id,
+                    type,
+                }),
+            });
 
             const data = await response.json();
 
             if (!response.ok || !data.success) {
-                throw new Error(
-                    data?.message ||
-                        "Failed to create game."
-                );
+                throw new Error(data?.message || "Failed to create game.");
             }
 
             const game = parseGameState(data.game);
 
             setGames((current) => {
                 const exists = current.some(
-                    (item) =>
-                        Number(item.id) ===
-                        Number(game.id)
+                    (item) => Number(item.id) === Number(game.id)
                 );
-
-                if (exists) {
-                    return current;
-                }
-
-                return [game, ...current];
+                return exists ? current : [game, ...current];
             });
 
             onGameCreated?.({
@@ -288,94 +225,30 @@ export default function GameLobby({
                 isReceiver: false,
             });
         } catch (error) {
-            console.error(
-                "❌ CREATE GAME ERROR:",
-                error
-            );
-
-            setError(
-                error?.message ||
-                    "Failed to create game."
-            );
+            console.error("❌ CREATE GAME ERROR:", error);
+            setError(error?.message || "Failed to create game.");
         } finally {
             setCreating(null);
         }
     };
 
     // ========================================================
-    // JOIN GAME
+    // OPEN INVITATION (PROMPT RECEIVER)
     // ========================================================
 
-    const joinGame = async (gameId) => {
-        try {
-            setJoining(gameId);
-            setError("");
-
-            const response = await fetch(
-                `/api/games/${gameId}/join`,
-                {
-                    method: "POST",
-                    credentials: "include",
-                }
-            );
-
-            const data = await response.json();
-
-            if (!response.ok || !data.success) {
-                throw new Error(
-                    data?.message ||
-                        "Failed to join game."
-                );
-            }
-
-            const game = parseGameState(data.game);
-
-            // Ensure Player O is defined locally in state if backend omitted it
-            if (!game.state.players) {
-                game.state.players = {};
-            }
-            if (!game.state.players.O) {
-                game.state.players.O = currentUser?.id;
-            }
-
-            setGames((current) =>
-                current.map((item) =>
-                    Number(item.id) ===
-                    Number(game.id)
-                        ? game
-                        : item
-                )
-            );
-
-            // Pass joined state to active overlay without invitation receiver screen
-            onGameJoined?.({
-                ...game,
-                isCreator: false,
-                isReceiver: false,
-            });
-        } catch (error) {
-            console.error(
-                "❌ JOIN GAME ERROR:",
-                error
-            );
-
-            setError(
-                error?.message ||
-                    "Failed to join game."
-            );
-        } finally {
-            setJoining(null);
-        }
+    const openInvitation = (game) => {
+        onGameJoined?.({
+            ...game,
+            isCreator: false,
+            isReceiver: true, // Forces receiver prompt screen
+        });
     };
 
     // ========================================================
     // GAME LABEL
     // ========================================================
 
-    const getGameInfo = (type) =>
-        GAMES.find(
-            (game) => game.type === type
-        );
+    const getGameInfo = (type) => GAMES.find((game) => game.type === type);
 
     // ========================================================
     // RENDER
@@ -384,13 +257,9 @@ export default function GameLobby({
     return (
         <div className="flex min-h-[500px] flex-col">
             {/* HEADER */}
-
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
                 <div>
-                    <h2 className="text-lg font-semibold text-white">
-                        Games
-                    </h2>
-
+                    <h2 className="text-lg font-semibold text-white">Games</h2>
                     <p className="text-sm text-gray-400">
                         Play with people in this conversation
                     </p>
@@ -405,10 +274,8 @@ export default function GameLobby({
             </div>
 
             {/* BODY */}
-
             <div className="flex-1 overflow-y-auto p-5">
                 {/* CREATE */}
-
                 <div>
                     <h3 className="mb-3 text-sm font-medium uppercase tracking-wide text-gray-400">
                         Start a game
@@ -418,34 +285,17 @@ export default function GameLobby({
                         {GAMES.map((game) => (
                             <button
                                 key={game.type}
-                                disabled={
-                                    creating ===
-                                    game.type
-                                }
-                                onClick={() =>
-                                    createGame(
-                                        game.type
-                                    )
-                                }
+                                disabled={creating === game.type}
+                                onClick={() => createGame(game.type)}
                                 className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-white/20 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                <div className="mb-3 text-2xl">
-                                    {game.icon}
-                                </div>
-
-                                <div className="font-medium text-white">
-                                    {game.title}
-                                </div>
-
+                                <div className="mb-3 text-2xl">{game.icon}</div>
+                                <div className="font-medium text-white">{game.title}</div>
                                 <div className="mt-1 text-xs leading-5 text-gray-400">
                                     {game.description}
                                 </div>
-
-                                {creating ===
-                                    game.type && (
-                                    <div className="mt-3 text-xs text-gray-400">
-                                        Creating...
-                                    </div>
+                                {creating === game.type && (
+                                    <div className="mt-3 text-xs text-gray-400">Creating...</div>
                                 )}
                             </button>
                         ))}
@@ -453,7 +303,6 @@ export default function GameLobby({
                 </div>
 
                 {/* ERROR */}
-
                 {error && (
                     <div className="mt-5 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
                         {error}
@@ -461,7 +310,6 @@ export default function GameLobby({
                 )}
 
                 {/* ACTIVE GAMES */}
-
                 <div className="mt-8">
                     <div className="mb-3 flex items-center justify-between">
                         <h3 className="text-sm font-medium uppercase tracking-wide text-gray-400">
@@ -470,10 +318,7 @@ export default function GameLobby({
 
                         {!loading && (
                             <span className="text-xs text-gray-500">
-                                {games.length}{" "}
-                                {games.length === 1
-                                    ? "game"
-                                    : "games"}
+                                {games.length} {games.length === 1 ? "game" : "games"}
                             </span>
                         )}
                     </div>
@@ -484,60 +329,34 @@ export default function GameLobby({
                         </div>
                     ) : games.length === 0 ? (
                         <div className="rounded-xl border border-dashed border-white/10 p-8 text-center">
-                            <div className="text-3xl">
-                                🎮
-                            </div>
-
-                            <p className="mt-3 text-sm text-gray-400">
-                                No games available.
-                            </p>
-
+                            <div className="text-3xl">🎮</div>
+                            <p className="mt-3 text-sm text-gray-400">No games available.</p>
                             <p className="mt-1 text-xs text-gray-500">
-                                Start one above and wait for
-                                another player.
+                                Start one above and wait for another player.
                             </p>
                         </div>
                     ) : (
                         <div className="space-y-3">
                             {games.map((game) => {
-                                const info =
-                                    getGameInfo(
-                                        game.type
-                                    );
-
+                                const info = getGameInfo(game.type);
                                 const isCreator =
-                                    Number(
-                                        game.createdBy
-                                    ) ===
-                                    Number(
-                                        currentUser?.id
-                                    );
-
-                                const isPlaying =
-                                    game.status ===
-                                    "PLAYING";
+                                    Number(game.createdBy) === Number(currentUser?.id);
+                                const isPlaying = game.status === "PLAYING";
 
                                 return (
                                     <div
-                                        key={
-                                            game.id
-                                        }
+                                        key={game.id}
                                         className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-4"
                                     >
                                         <div className="flex min-w-0 items-center gap-3">
                                             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-xl">
-                                                {
-                                                    info?.icon
-                                                }
+                                                {info?.icon}
                                             </div>
 
                                             <div className="min-w-0">
                                                 <div className="font-medium text-white">
-                                                    {
-                                                        info?.title
-                                                    }
+                                                    {info?.title}
                                                 </div>
-
                                                 <div className="mt-1 text-xs text-gray-500">
                                                     {isPlaying
                                                         ? "Game in progress"
@@ -548,35 +367,20 @@ export default function GameLobby({
                                             </div>
                                         </div>
 
-                                        {!isCreator &&
-                                            game.status ===
-                                                "WAITING" && (
-                                                <button
-                                                    disabled={
-                                                        joining ===
-                                                        game.id
-                                                    }
-                                                    onClick={() =>
-                                                        joinGame(
-                                                            game.id
-                                                        )
-                                                    }
-                                                    className="shrink-0 rounded-lg bg-white px-4 py-2 text-sm font-medium text-black transition hover:bg-gray-200 disabled:opacity-50"
-                                                >
-                                                    {joining ===
-                                                    game.id
-                                                        ? "Joining..."
-                                                        : "Join"}
-                                                </button>
-                                            )}
+                                        {!isCreator && game.status === "WAITING" && (
+                                            <button
+                                                onClick={() => openInvitation(game)}
+                                                className="shrink-0 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-400"
+                                            >
+                                                View Invite
+                                            </button>
+                                        )}
 
-                                        {isCreator &&
-                                            game.status ===
-                                                "WAITING" && (
-                                                <span className="shrink-0 rounded-lg bg-yellow-500/10 px-3 py-2 text-xs text-yellow-300">
-                                                    Waiting
-                                                </span>
-                                            )}
+                                        {isCreator && game.status === "WAITING" && (
+                                            <span className="shrink-0 rounded-lg bg-yellow-500/10 px-3 py-2 text-xs text-yellow-300">
+                                                Waiting
+                                            </span>
+                                        )}
 
                                         {isPlaying && (
                                             <button
