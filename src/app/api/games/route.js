@@ -318,15 +318,18 @@ export async function POST(request) {
             );
 
         // ========================================================
-        // CREATE GAME
+        // CREATE GAME (DYNAMIC STATUS)
         // ========================================================
+
+        // If an opponent is assigned automatically in 1-on-1 DM, start as PLAYING directly
+        const initialStatus = targetOpponentId ? "PLAYING" : "WAITING";
 
         const game =
             await prisma.game.create({
                 data: {
                     type,
 
-                    status: "WAITING",
+                    status: initialStatus,
 
                     conversationId,
 
@@ -374,6 +377,7 @@ export async function POST(request) {
                     game.conversationId,
                 createdBy:
                     game.createdBy,
+                status: game.status,
             }
         );
 

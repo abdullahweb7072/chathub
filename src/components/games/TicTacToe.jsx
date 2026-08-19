@@ -20,7 +20,6 @@ export default function TicTacToe({ game, currentUser, onClose }) {
         setCurrentGame((previous) => ({
             ...game,
             isCreator: game.isCreator ?? previous?.isCreator ?? false,
-            // Force isReceiver to false if the user has joined or has a symbol assigned
             isReceiver:
                 previous?.isReceiver === false
                     ? false
@@ -50,8 +49,11 @@ export default function TicTacToe({ game, currentUser, onClose }) {
     const winner = state?.winner || null;
     const draw = Boolean(state?.draw);
 
+    // Normalize game status string
+    const gameStatus = (currentGame?.status || "").toUpperCase();
+
     // ========================================================
-    // MY SYMBOL
+    // MY SYMBOL & ROLE RESOLUTION
     // ========================================================
     const mySymbol = useMemo(() => {
         if (!userId) return null;
@@ -65,7 +67,7 @@ export default function TicTacToe({ game, currentUser, onClose }) {
         return null;
     }, [players.X, players.O, userId]);
 
-    // Force receiver mode off if mySymbol is resolved or players.O exists
+    // Force receiver mode off if symbol is resolved or O player exists
     const isReceiver =
         Boolean(currentGame?.isReceiver) && !mySymbol && !players.O;
 
@@ -77,7 +79,59 @@ export default function TicTacToe({ game, currentUser, onClose }) {
         !winner &&
         !draw &&
         opponentJoined &&
-        currentGame?.status === "PLAYING";
+        gameStatus === "PLAYING";
+
+    // ========================================================
+    // SOCKET EVENTS & MOVE HANDLERS
+    // ========================================================
+    useEffect(() => {
+        const gameId = currentGame?.id ? String(currentGame.id) : null;
+        if (!gameId) return;
+
+        const handleGameUpdated = (updatedGame) => {
+            if (String(updatedGame?.id) !== gameId) return;
+
+            setCurrentGame((previous) => ({
+                ...updatedGame,
+                isReceiver: false,
+            }));
+            setError("");
+        };
+
+        const handleGameError = (err) => {
+            if (err?.gameId && String(err.gameId) !== gameId) return;
+            setError(err?.message || "An error occurred during the move.");
+        };
+
+        socket.on("game_updated", handleGameUpdated);
+        socket.on("game_joined", handleGameUpdated);
+        socket.on("game_error", handleGameError);
+
+        return () => {
+            socket.off("game_updated", handleGameUpdated);
+            socket.off("game_joined", handleGameUpdated);
+            socket.off("game_error", handleGameError);
+        };
+    }, [currentGame?.id]);
+
+    const makeMove = (index) => {
+        if (!isMyTurn || board[index] !== null || !currentGame?.id) return;
+
+        setError("");
+
+        socket.emit(
+            "game_move",
+            {
+                gameId: currentGame.id,
+                index,
+            },
+            (response) => {
+                if (response && !response.success) {
+                    setError(response.message || "Invalid move.");
+                }
+            }
+        );
+    };
 
     // ========================================================
     // JOIN GAME
@@ -120,32 +174,6 @@ export default function TicTacToe({ game, currentUser, onClose }) {
             }
         );
     };
-
-    // ========================================================
-    // SOCKET EVENTS
-    // ========================================================
-    useEffect(() => {
-        const gameId = currentGame?.id ? String(currentGame.id) : null;
-        if (!gameId) return;
-
-        const handleGameUpdated = (updatedGame) => {
-            if (String(updatedGame?.id) !== gameId) return;
-
-            setCurrentGame((previous) => ({
-                ...updatedGame,
-                isReceiver: false,
-            }));
-            setError("");
-        };
-
-        socket.on("game_updated", handleGameUpdated);
-        socket.on("game_joined", handleGameUpdated);
-
-        return () => {
-            socket.off("game_updated", handleGameUpdated);
-            socket.off("game_joined", handleGameUpdated);
-        };
-    }, [currentGame?.id]);
 
     // ========================================================
     // LEAVE GAME
@@ -199,7 +227,7 @@ export default function TicTacToe({ game, currentUser, onClose }) {
                     </button>
                     <button
                         onClick={onClose}
-                        className="rounded-xl border border-white/10 py-3 text-sm text-gray-300"
+                        className="rounded-xl border border-white/10 py-3 text-sm text-gray-300 hover:bg-white/5"
                     >
                         Decline
                     </button>
@@ -213,8 +241,15 @@ export default function TicTacToe({ game, currentUser, onClose }) {
     // ========================================================
     return (
         <div className="flex max-h-[90vh] flex-col p-5">
-            <div className="mb-5 grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-white/10 p-3">
+            {/* PLAYERS CARD */}
+            <div className="mb-4 grid grid-cols-2 gap-3">
+                <div
+                    className={`rounded-xl border p-3 ${
+                        turn === "X" && gameStatus === "PLAYING"
+                            ? "border-blue-500/50 bg-blue-500/10"
+                            : "border-white/10"
+                    }`}
+                >
                     <div className="text-xs text-gray-400">Player X</div>
                     <div className="font-semibold text-white">
                         {players.X && String(players.X) === userId
@@ -224,7 +259,14 @@ export default function TicTacToe({ game, currentUser, onClose }) {
                             : "Waiting..."}
                     </div>
                 </div>
-                <div className="rounded-xl border border-white/10 p-3">
+
+                <div
+                    className={`rounded-xl border p-3 ${
+                        turn === "O" && gameStatus === "PLAYING"
+                            ? "border-blue-500/50 bg-blue-500/10"
+                            : "border-white/10"
+                    }`}
+                >
                     <div className="text-xs text-gray-400">Player O</div>
                     <div className="font-semibold text-white">
                         {players.O && String(players.O) === userId
@@ -236,26 +278,54 @@ export default function TicTacToe({ game, currentUser, onClose }) {
                 </div>
             </div>
 
+            {/* STATUS / TURN INDICATOR BANNER */}
+            <div className="mb-4 text-center text-sm font-medium">
+                {winner ? (
+                    <span className="text-emerald-400 font-bold text-base">
+                        {winner === mySymbol ? "🎉 You Won!" : "❌ Opponent Won!"}
+                    </span>
+                ) : draw ? (
+                    <span className="text-yellow-400 font-bold text-base">🤝 It's a Draw!</span>
+                ) : gameStatus !== "PLAYING" || !opponentJoined ? (
+                    <span className="text-gray-400">⏳ Waiting for opponent to join...</span>
+                ) : isMyTurn ? (
+                    <span className="text-emerald-400 animate-pulse">🟢 Your Turn ({mySymbol})</span>
+                ) : (
+                    <span className="text-gray-400">⏳ Opponent's Turn</span>
+                )}
+            </div>
+
+            {/* GAME BOARD GRID */}
             <div className="mx-auto grid w-full max-w-[360px] grid-cols-3 gap-2">
-                {board.map((cell, idx) => (
-                    <button
-                        key={idx}
-                        disabled={!isMyTurn || cell !== null}
-                        onClick={() =>
-                            socket.emit("game_move", {
-                                gameId: currentGame.id,
-                                index: idx,
-                            })
-                        }
-                        className="aspect-square rounded-xl border border-white/10 text-4xl font-bold text-white"
-                    >
-                        {cell}
-                    </button>
-                ))}
+                {board.map((cell, idx) => {
+                    const isClickable = isMyTurn && cell === null;
+
+                    return (
+                        <button
+                            key={idx}
+                            disabled={!isClickable}
+                            onClick={() => makeMove(idx)}
+                            className={`aspect-square rounded-xl border border-white/10 text-4xl font-bold transition-all ${
+                                cell === "X"
+                                    ? "text-blue-400"
+                                    : cell === "O"
+                                    ? "text-rose-400"
+                                    : "text-white"
+                            } ${
+                                isClickable
+                                    ? "cursor-pointer hover:bg-white/10 active:scale-95"
+                                    : "cursor-not-allowed opacity-80"
+                            }`}
+                        >
+                            {cell}
+                        </button>
+                    );
+                })}
             </div>
 
             {error && <div className="mt-4 text-center text-sm text-red-400">{error}</div>}
 
+            {/* LEAVE BUTTON */}
             <div className="mt-6 flex justify-center">
                 <button
                     onClick={leaveGame}
